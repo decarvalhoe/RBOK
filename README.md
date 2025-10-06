@@ -1,4 +1,4 @@
-# Starter Pack – Projet « Réalisons » v0.1
+# Projet « Réalisons » v0.1
 
 ## Aperçu
 Ce dépôt contient l’ossature de départ pour développer la **version 0.1** de l’assistant procédural « Réalisons ». L’objectif est de livrer une première démonstration au **31 janvier 2026**. Vous trouverez une structure de monorepo avec trois briques principales : **mobile**, **backend** et **AI Gateway**, ainsi que des documents techniques.
