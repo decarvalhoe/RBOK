@@ -1,0 +1,6 @@
+# React Native ignore
+node_modules/
+build/
+dist/
+android/app/build/
+ios/Pods/

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "procedure.v1.json",
+  "type": "object",
+  "required": ["id", "name", "steps"],
+  "properties": {
+    "id": {"type": "string"},
+    "name": {"type": "string"},
+    "description": {"type": "string"},
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "title", "slots"],
+        "properties": {
+          "key": {"type": "string"},
+          "title": {"type": "string"},
+          "prompt": {"type": "string"},
+          "slots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "type", "required"],
+              "properties": {
+                "name": {"type": "string"},
+                "type": {"enum": ["string", "number", "date", "enum", "phone", "email"]},
+                "required": {"type": "boolean"},
+                "validate": {"type": "string"},
+                "mask": {"type": "string"}
+              }
+            }
+          },
+          "transitions": {"type": "object"}
+        }
+      }
+    }
+  }
+}
