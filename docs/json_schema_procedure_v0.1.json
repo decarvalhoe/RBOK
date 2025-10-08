@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "procedure.v0.1.json",
+  "title": "Procédure Réalisons v0.1",
+  "description": "Schéma pour définir une procédure dans l'assistant Réalisons",
+  "type": "object",
+  "required": ["id", "name", "steps"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Identifiant unique de la procédure"
+    },
+    "name": {
+      "type": "string",
+      "description": "Nom de la procédure"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description détaillée de la procédure"
+    },
+    "version": {
+      "type": "string",
+      "default": "0.1",
+      "description": "Version du schéma de procédure"
+    },
+    "steps": {
+      "type": "array",
+      "description": "Liste des étapes de la procédure",
+      "items": {
+        "type": "object",
+        "required": ["key", "title", "slots"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Clé unique de l'étape"
+          },
+          "title": {
+            "type": "string",
+            "description": "Titre de l'étape"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Instructions pour l'assistant IA"
+          },
+          "slots": {
+            "type": "array",
+            "description": "Données à collecter dans cette étape",
+            "items": {
+              "type": "object",
+              "required": ["name", "type", "required"],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Nom du slot"
+                },
+                "type": {
+                  "enum": ["string", "number", "date", "enum", "phone", "email", "boolean"],
+                  "description": "Type de données"
+                },
+                "required": {
+                  "type": "boolean",
+                  "description": "Si le slot est obligatoire"
+                },
+                "validate": {
+                  "type": "string",
+                  "description": "Règle de validation (regex ou autre)"
+                },
+                "mask": {
+                  "type": "string",
+                  "description": "Masque de saisie"
+                },
+                "options": {
+                  "type": "array",
+                  "description": "Options pour les types enum",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "transitions": {
+            "type": "object",
+            "description": "Règles de transition vers les étapes suivantes",
+            "properties": {
+              "next": {
+                "type": "string",
+                "description": "Étape suivante par défaut"
+              },
+              "conditions": {
+                "type": "array",
+                "description": "Conditions de transition",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "condition": {
+                      "type": "string",
+                      "description": "Expression de condition"
+                    },
+                    "target": {
+                      "type": "string",
+                      "description": "Étape cible si condition vraie"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "id": "proc_001_onboarding_client",
+  "name": "Onboarding Client",
+  "description": "Procédure d'accueil et d'enregistrement d'un nouveau client",
+  "version": "0.1",
+  "steps": [
+    {
+      "key": "welcome",
+      "title": "Accueil du client",
+      "prompt": "Accueillez chaleureusement le nouveau client et expliquez-lui le processus d'onboarding.",
+      "slots": [
+        {
+          "name": "client_name",
+          "type": "string",
+          "required": true,
+          "validate": "^[A-Za-zÀ-ÿ\\s]{2,50}$"
+        },
+        {
+          "name": "preferred_language",
+          "type": "enum",
+          "required": true,
+          "options": ["français", "anglais", "allemand", "italien"]
+        }
+      ],
+      "transitions": {
+        "next": "contact_info"
+      }
+    },
+    {
+      "key": "contact_info",
+      "title": "Informations de contact",
+      "prompt": "Collectez les informations de contact essentielles du client.",
+      "slots": [
+        {
+          "name": "email",
+          "type": "email",
+          "required": true,
+          "validate": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+        },
+        {
+          "name": "phone",
+          "type": "phone",
+          "required": true,
+          "mask": "+41 XX XXX XX XX"
+        },
+        {
+          "name": "address",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "transitions": {
+        "next": "service_selection"
+      }
+    },
+    {
+      "key": "service_selection",
+      "title": "Sélection des services",
+      "prompt": "Aidez le client à choisir les services qui correspondent à ses besoins.",
+      "slots": [
+        {
+          "name": "services_interested",
+          "type": "enum",
+          "required": true,
+          "options": ["consultation", "formation", "support_technique", "audit"]
+        },
+        {
+          "name": "budget_range",
+          "type": "enum",
+          "required": false,
+          "options": ["< 1000 CHF", "1000-5000 CHF", "5000-10000 CHF", "> 10000 CHF"]
+        }
+      ],
+      "transitions": {
+        "next": "confirmation"
+      }
+    },
+    {
+      "key": "confirmation",
+      "title": "Confirmation et finalisation",
+      "prompt": "Récapitulez les informations collectées et confirmez avec le client.",
+      "slots": [
+        {
+          "name": "confirmation_accepted",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "next_steps_scheduled",
+          "type": "date",
+          "required": false
+        }
+      ],
+      "transitions": {
+        "conditions": [
+          {
+            "condition": "confirmation_accepted == true",
+            "target": "completed"
+          },
+          {
+            "condition": "confirmation_accepted == false",
+            "target": "welcome"
+          }
+        ]
+      }
+    },
+    {
+      "key": "completed",
+      "title": "Onboarding terminé",
+      "prompt": "Remerciez le client et fournissez les informations de suivi.",
+      "slots": [],
+      "transitions": {}
+    }
+  ]
+}
