@@ -1,8 +1,8 @@
-# Projet Réalisons - Assistant Procédural v0.1
+# Projet RBOK - Assistant Procédural v0.1
 
 ## Aperçu
 
-**Réalisons** est un assistant procédural intelligent conçu pour guider les utilisateurs à travers des processus complexes via une interface conversationnelle naturelle (voix et texte). Le projet vise à créer un outil d'IA neuro-symbolique capable de maintenir le contexte procédural tout en collectant et validant des données de manière structurée.
+**RBOK** est un assistant procédural intelligent conçu pour guider les utilisateurs à travers des processus complexes via une interface conversationnelle naturelle (voix et texte). Le projet vise à créer un outil d'IA neuro-symbolique capable de maintenir le contexte procédural tout en collectant et validant des données de manière structurée.
 
 ### Objectifs v0.1
 
@@ -163,5 +163,5 @@ Ce projet suit une méthodologie **Scrum** avec des principes **6 Sigma** pour l
 
 ---
 
-**Réalisons v0.1** - Assistant Procédural Intelligent  
+**RBOK v0.1** - Assistant Procédural Intelligent  
 *Développé avec Manus.AI et OpenAI*
