@@ -4,6 +4,9 @@ from fastapi.testclient import TestClient
 
 from app.main import app, procedures_db, runs_db
 
+from app.auth import User, get_current_user, oauth2_scheme
+from app.main import app
+from app.database import get_db, Base
 client = TestClient(app)
 
 
@@ -22,6 +25,25 @@ from app.main import app, procedures_db, runs_db
 
 
 @pytest.fixture()
+def client(test_session: Session) -> Generator[TestClient, None, None]:
+    def override_get_db() -> Generator[Session, None, None]:
+        try:
+            yield test_session
+        finally:
+            test_session.rollback()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    def override_user() -> User:
+        return User(subject="test", username="admin", roles=["app-admin"], role="admin")
+
+    app.dependency_overrides[get_current_user] = override_user
+    app.dependency_overrides[oauth2_scheme] = lambda: "test-token"
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(oauth2_scheme, None)
 def client() -> Generator[TestClient, None, None]:
     procedures_db.clear()
     runs_db.clear()
@@ -119,6 +141,9 @@ def test_start_and_get_run(client: TestClient, auth_header) -> None:
     procedure_response.raise_for_status()
     procedure_id = procedure_response.json()["id"]
 
+    run_response = client.post(
+        "/runs",
+        json={"procedure_id": procedure_id, "user_id": "alice"},
     user_token = get_token("bob", "userpass")
     run_response = client.post(
         "/runs",

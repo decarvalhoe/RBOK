@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 """Main FastAPI application for the Réalisons backend."""
 from __future__ import annotations
 
@@ -25,6 +26,17 @@ from sqlalchemy.orm import Session, selectinload
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from . import models
+from .auth import (
+    Token,
+    TokenIntrospection,
+    User,
+    authorize_action,
+    introspect_access_token,
+    password_grant,
+    refresh_access_token,
+    require_role,
+)
+from .database import get_db
 from .auth import Token, authenticate_user, create_access_token, require_role
 from .database import get_db
 from .env import analyse_environment, validate_environment
@@ -53,6 +65,12 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from .auth import Token, authenticate_user, create_access_token, require_role
 from .config import Settings, get_settings
 
+class DomainError(Exception):
+    """Base class for domain-level errors."""
+
+
+class NotFoundError(DomainError):
+    """Raised when an entity cannot be located."""
 limiter = Limiter(key_func=get_remote_address)
 _active_settings: Optional[Settings] = None
 
@@ -63,6 +81,8 @@ class CorrelationIdFilter(logging.Filter):
 from fastapi import Body, Depends, FastAPI, HTTPException, Request, status
 from typing import Any, Dict, List, Optional
 
+class ProcedureNotFoundError(NotFoundError):
+    """Raised when a procedure cannot be found."""
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -85,6 +105,8 @@ from .auth import (
 from .database import get_db
 from .services import audit
 
+class RunNotFoundError(NotFoundError):
+    """Raised when a run cannot be found."""
 from .auth import Token, authenticate_user, create_access_token, require_role
 from .cache import get_redis_client
 from .database import get_db
@@ -96,6 +118,9 @@ correlation_id_var: ContextVar[Optional[str]] = ContextVar("correlation_id", def
 
 
 class CorrelationIdFilter(logging.Filter):
+    """Inject the current correlation id into log records."""
+
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: D401 - FastAPI style
     """Inject the correlation id into structured log records."""
 
     def filter(self, record: logging.LogRecord) -> bool:  # pragma: no cover - logging helper
@@ -135,6 +160,9 @@ configure_logging()
 
 
 class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    """Attach correlation ids and simple timing information to each request."""
+
+    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
     """Attach a correlation identifier and processing time to each response."""
     """Attach a correlation id and timing information to each request."""
 
@@ -154,6 +182,11 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
         start_time = time.perf_counter()
         try:
             response = await call_next(request)
+        except Exception:  # noqa: BLE001 - re-raised after logging
+            logger.exception(
+                "Unhandled exception during request",
+                extra={"path": request.url.path, "method": request.method},
+            )
             return response
         except Exception:  # pragma: no cover - defensive logging
             logger.exception("Unhandled exception", extra={"path": request.url.path})
@@ -243,6 +276,9 @@ class ProcedureNotFoundError(NotFoundError):
 
 app = FastAPI(
     title="Réalisons API",
+    description=(
+        "API pour l'assistant procédural Réalisons. "
+        "Les opérations sensibles requièrent une authentification Keycloak et sont vérifiées via OPA."
     description="API pour l'assistant procédural Réalisons",
     version="0.2.0",
     description=(
@@ -330,6 +366,7 @@ class ProcedureRun(BaseModel):
 
 
 
+
 class ProcedureRunCreateRequest(BaseModel):
     procedure_id: str
     user_id: Optional[str] = None
@@ -385,6 +422,7 @@ RUN_DETAIL_TTL = 60
 def procedure_meta_cache_key(procedure_id: str) -> str:
     return f"procedures:{procedure_id}:meta"
 
+# In-memory placeholders kept for backward-compatible tests
 procedures_db: Dict[str, Procedure] = {}
 runs_db: Dict[str, ProcedureRun] = {}
 
@@ -589,6 +627,11 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
+@app.exception_handler(DomainError)
+async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
+    logger.warning(
+        "Domain error",
+        extra={"path": request.url.path, "detail": str(exc) or exc.__class__.__name__},
 @app.get("/")
         "Domain error",
         extra={"path": request.url.path, "error": exc.__class__.__name__},
@@ -638,6 +681,48 @@ def read_root() -> Dict[str, str]:
 @limiter.limit(default_rate_limit)
 def health_check(request: Request, response: Response) -> Dict[str, str]:
 @app.get("/health")
+def health_check() -> Dict[str, str]:
+    logger.debug("Health check requested")
+    return {"status": "healthy", "version": app.version}
+
+
+@app.post("/auth/token", response_model=Token, tags=["auth"])
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    try:
+        return password_grant(form_data.username, form_data.password)
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover - defensive branch
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Authentication upstream failed",
+        ) from exc
+
+
+@app.post("/auth/refresh", response_model=Token, tags=["auth"])
+def refresh(token: str = Body(..., embed=True)):
+    try:
+        return refresh_access_token(token)
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover - defensive branch
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Token refresh failed",
+        ) from exc
+
+
+@app.post("/auth/introspect", response_model=TokenIntrospection, tags=["auth"])
+def introspect(token: str = Body(..., embed=True)):
+    try:
+        return introspect_access_token(token)
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover - defensive branch
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Token introspection failed",
+        ) from exc
 def legacy_health() -> Dict[str, str]:
     return {"status": "healthy", "version": "0.1.0"}
 
@@ -685,6 +770,16 @@ def list_procedures(db: Session = Depends(get_db)):
     return procedures
 
 
+@app.post("/procedures", response_model=Procedure, status_code=status.HTTP_201_CREATED)
+def create_procedure(
+    payload: ProcedureCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+    _: User = Depends(authorize_action("procedures:create")),
+):
+    logger.info("Creating procedure", extra={"name": payload.name, "user": current_user.username})
+    procedure = models.Procedure(name=payload.name, description=payload.description)
+    for index, step in enumerate(payload.steps):
 @app.post("/procedures", response_model=Procedure)
 def create_procedure(payload: ProcedureCreateRequest, db: Session = Depends(get_db)) -> Procedure:
     procedure_id = payload.id or str(uuid.uuid4())
@@ -718,6 +813,8 @@ def create_procedure(
         )
     db.add(procedure)
     db.commit()
+    db.refresh(procedure)
+    procedures_db[procedure.id] = Procedure.model_validate(procedure)
     db.refresh(db_procedure)
 
     procedures_db[procedure_id] = Procedure.model_validate(db_procedure)
@@ -939,6 +1036,14 @@ def get_procedure(procedure_id: str, db: Session = Depends(get_db)) -> Dict[str,
     return procedure
 
 
+@app.post("/runs", response_model=ProcedureRun, status_code=status.HTTP_201_CREATED)
+def start_procedure_run(
+    payload: ProcedureRunCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("user")),
+    _: User = Depends(authorize_action("runs:start")),
+):
+    procedure_exists = db.query(models.Procedure.id).filter(models.Procedure.id == payload.procedure_id).first()
 @app.post("/runs", response_model=ProcedureRunResponse, status_code=status.HTTP_201_CREATED)
 def start_procedure_run(
     procedure_id: Optional[str] = None,
@@ -1101,6 +1206,7 @@ __all__ = ["app", "procedures_db", "runs_db"]
     db.add(run)
     db.commit()
     db.refresh(run)
+    runs_db[run.id] = ProcedureRun.model_validate(run)
 
     run_payload = ProcedureRun.model_validate(run)
     runs_db[run.id] = run_payload
@@ -1108,6 +1214,8 @@ __all__ = ["app", "procedures_db", "runs_db"]
 
 
 @app.get("/runs/{run_id}", response_model=ProcedureRun)
+def get_run(run_id: str, db: Session = Depends(get_db)):
+    run = db.query(models.ProcedureRun).filter(models.ProcedureRun.id == run_id).first()
 def get_run(run_id: str, db: Session = Depends(get_db)) -> ProcedureRun:
     run = db.get(models.ProcedureRun, run_id)
     if not run:
@@ -1116,6 +1224,12 @@ def get_run(run_id: str, db: Session = Depends(get_db)) -> ProcedureRun:
     return run
 
 
+@app.get("/runs/{run_id}/status", response_model=ProcedureRun)
+def get_run_status(run_id: str):
+    try:
+        return runs_db[run_id]
+    except KeyError as exc:
+        raise RunNotFoundError("Run not found") from exc
 if __name__ == "__main__":  # pragma: no cover
     audit.run_created(db, actor=_actor(current_user), run=_serialise_run(run))
     return run

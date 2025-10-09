@@ -17,6 +17,8 @@ redis
 fakeredis
 alembic
 pytest
+python-keycloak
+httpx
 slowapi
 black
 ruff
