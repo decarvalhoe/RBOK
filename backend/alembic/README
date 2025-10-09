@@ -1,0 +1,20 @@
+Alembic configuration for the Réalisons backend.
+
+## Usage
+
+1. Ensure the `DATABASE_URL` environment variable is set or configure the
+   standard `DB_*` variables consumed by `app.database`.
+2. Generate new migrations as the models evolve:
+
+   ```bash
+   alembic revision --autogenerate -m "describe your change"
+   ```
+
+3. Apply the migrations to your target database:
+
+   ```bash
+   alembic upgrade head
+   ```
+
+The Alembic environment is wired to the SQLAlchemy models under
+`backend/app/models.py`, enabling autogeneration of migration scripts.
