@@ -3,7 +3,6 @@ uvicorn
 pydantic
 pydantic-settings
 pytest
-httpx
 pytest-cov
 sqlalchemy
 python-multipart
@@ -18,7 +17,7 @@ fakeredis
 alembic
 pytest
 python-keycloak
-httpx
 slowapi
 black
 ruff
+httpx==0.27.0
