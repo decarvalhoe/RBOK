@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  backend:
+    command: sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${BACKEND_PORT:-8000}"
+    volumes: []
+
+  ai_gateway:
+    command: sh -c "uvicorn ai_gateway.main:app --host 0.0.0.0 --port ${AI_GATEWAY_PORT:-8100}"
+    environment:
+      AI_GATEWAY_BACKEND_BASE_URL: ${AI_GATEWAY_BACKEND_BASE_URL:-http://backend:8000}
+      AI_GATEWAY_OPENAI_API_KEY: ${AI_GATEWAY_OPENAI_API_KEY:?Set AI_GATEWAY_OPENAI_API_KEY before running}
+    volumes: []
+
+  webapp:
+    build:
+      target: production
+    command: ["npm", "run", "start"]
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://backend:8000}
+      NEXT_PUBLIC_AI_GATEWAY_URL: ${NEXT_PUBLIC_AI_GATEWAY_URL:-http://ai_gateway:8100}
+    volumes: []
+
+  postgres:
+    ports: []
+
+  redis:
+    ports: []

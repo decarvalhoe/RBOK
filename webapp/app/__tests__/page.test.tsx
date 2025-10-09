@@ -1,7 +1,8 @@
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Home from '../page';
 import { sendChatMessage } from '../../lib/api';
+import { MESSAGE_MAX_LENGTH } from '../../lib/messageConstraints';
 
 jest.mock('../../lib/api', () => ({
   sendChatMessage: jest.fn(),
@@ -42,9 +43,7 @@ describe('Home page conversation flow', () => {
       expect(screen.queryByText('Assistant est en train de répondre...')).not.toBeInTheDocument();
     });
 
-    expect(
-      screen.getByText('Bonjour! Comment puis-je vous aider ?'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Bonjour! Comment puis-je vous aider ?')).toBeInTheDocument();
   });
 
   it('displays an error message when the backend returns an error', async () => {
@@ -64,5 +63,30 @@ describe('Home page conversation flow', () => {
     });
 
     expect(screen.getByText('Aide moi')).toBeInTheDocument();
+  });
+
+  it('prevents submission of blank messages and shows validation feedback', async () => {
+    render(<Home />);
+
+    const input = screen.getByLabelText(/message/i);
+    await userEvent.type(input, '   ');
+
+    await userEvent.click(screen.getByRole('button', { name: /envoyer/i }));
+
+    expect(mockedSendChatMessage).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Le message doit contenir au moins');
+  });
+
+  it('shows an error when the message exceeds the maximum length', async () => {
+    render(<Home />);
+
+    const input = screen.getByLabelText(/message/i);
+    const overSizedMessage = 'a'.repeat(MESSAGE_MAX_LENGTH + 1);
+    await userEvent.type(input, overSizedMessage);
+
+    await userEvent.click(screen.getByRole('button', { name: /envoyer/i }));
+
+    expect(mockedSendChatMessage).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('ne peut pas dépasser');
   });
 });

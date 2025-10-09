@@ -61,6 +61,15 @@ def get_settings() -> AuthSettings:
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
+from .env import get_secret_key
+
+SECRET_KEY = get_secret_key()
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 
 
 class Token(BaseModel):
@@ -190,6 +199,32 @@ class KeycloakService:
 @lru_cache()
 def get_keycloak_service() -> KeycloakService:
     """Return a cached ``KeycloakService`` instance."""
+    seed_data = {
+        "alice": {
+            "full_name": "Alice Admin",
+            "password": "adminpass",
+            "role": "admin",
+        },
+        "audra": {
+            "full_name": "Audra Auditor",
+            "password": "auditpass",
+            "role": "auditor",
+        },
+        "bob": {
+            "full_name": "Bob Builder",
+            "password": "userpass",
+            "role": "user",
+        },
+    }
+    users: Dict[str, UserInDB] = {}
+    for username, info in seed_data.items():
+        users[username] = UserInDB(
+            username=username,
+            full_name=info["full_name"],
+            role=info["role"],
+            hashed_password=get_password_hash(info["password"]),
+        )
+    return users
 
     return KeycloakService(get_settings())
 
@@ -197,6 +232,8 @@ def get_keycloak_service() -> KeycloakService:
 # ---------------------------------------------------------------------------
 # OPA client
 # ---------------------------------------------------------------------------
+# Role hierarchy used to compare permissions. Higher value == more privileges.
+ROLE_LEVELS = {"user": 0, "auditor": 5, "admin": 10}
 
 
 class OPAClient:
@@ -356,3 +393,19 @@ def introspect_access_token(token: str) -> TokenIntrospection:
 
     service = get_keycloak_service()
     return service.introspect_token(token)
+def get_current_user_optional(token: Optional[str] = Depends(optional_oauth2_scheme)) -> Optional[User]:
+    """Resolve the current user when authentication is optional."""
+
+    if not token:
+        return None
+    return get_current_user(token=token)
+
+__all__ = [
+    "Token",
+    "TokenData",
+    "User",
+    "authenticate_user",
+    "create_access_token",
+    "get_current_user",
+    "require_role",
+]

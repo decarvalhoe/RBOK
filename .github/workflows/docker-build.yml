@@ -1,0 +1,41 @@
+name: Docker Images
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - service: backend
+            dockerfile: backend/Dockerfile
+            target: ''
+          - service: ai_gateway
+            dockerfile: ai_gateway/Dockerfile
+            target: ''
+          - service: webapp-dev
+            dockerfile: webapp/Dockerfile
+            target: dev
+          - service: webapp
+            dockerfile: webapp/Dockerfile
+            target: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.service }} image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target || '' }}
+          push: false
+          load: false
+          tags: rbok/${{ matrix.service }}:ci
