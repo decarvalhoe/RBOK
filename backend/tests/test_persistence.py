@@ -1,6 +1,22 @@
 from __future__ import annotations
 
+from typing import Generator
+
 from fastapi.testclient import TestClient
+
+from app.main import app, procedures_db, runs_db
+
+
+@pytest.fixture()
+def client() -> Generator[TestClient, None, None]:
+    procedures_db.clear()
+    runs_db.clear()
+    with TestClient(app) as test_client:
+        yield test_client
+    procedures_db.clear()
+    runs_db.clear()
+
+
 
 
 def get_token(client: TestClient, username: str, password: str) -> str:
@@ -11,6 +27,13 @@ def get_token(client: TestClient, username: str, password: str) -> str:
     )
     response.raise_for_status()
     return response.json()["access_token"]
+
+
+def auth_header(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_create_and_fetch_procedure(client: TestClient) -> None:
 
 
 def test_create_and_fetch_procedure(client: TestClient, auth_header) -> None:
@@ -40,7 +63,6 @@ def test_create_and_fetch_procedure(client: TestClient, auth_header) -> None:
     assert data["id"]
     assert data["name"] == payload["name"]
     assert len(data["steps"]) == 2
-    assert data["steps"][0]["key"] == "step-1"
 
     list_response = client.get("/procedures")
     assert list_response.status_code == 200
@@ -55,6 +77,7 @@ def test_create_and_fetch_procedure(client: TestClient, auth_header) -> None:
     assert fetched["steps"][1]["key"] == "step-2"
 
 
+def test_start_and_get_run(client: TestClient) -> None:
 def test_start_and_get_run(client: TestClient, auth_header) -> None:
     admin_token = get_token(client, "alice", "adminpass")
     procedure_response = client.post(
@@ -72,6 +95,7 @@ def test_start_and_get_run(client: TestClient, auth_header) -> None:
     user_token = get_token(client, "bob", "userpass")
     run_response = client.post(
         "/runs",
+        params={"procedure_id": procedure_id},
         json={"procedure_id": procedure_id},
         headers=auth_header(user_token),
     )

@@ -162,6 +162,55 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
 - **API Backend** : http://localhost:8000
 - **Documentation API** : http://localhost:8000/docs
 
+## Qualité du code et linting
+
+### Frontend (webapp)
+1. Installer les dépendances :
+   ```bash
+   cd webapp
+   npm install
+   ```
+2. Lancer l'analyse ESLint :
+   ```bash
+   npm run lint
+   ```
+3. Vérifier la mise en forme Prettier :
+   ```bash
+   npm run format
+   ```
+4. Pour corriger automatiquement les problèmes détectés :
+   ```bash
+   npm run lint:fix
+   npm run format:fix
+   ```
+
+### Backend (FastAPI)
+1. Créer un environnement virtuel et installer les dépendances :
+   ```bash
+   cd backend
+   python -m venv .venv
+   source .venv/bin/activate  # Windows : .venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+2. Lancer Ruff pour l'analyse statique :
+   ```bash
+   make lint
+   ```
+3. Vérifier la mise en forme Black :
+   ```bash
+   make format-check
+   ```
+4. Pour appliquer automatiquement les correctifs :
+   ```bash
+   make lint-fix
+   make format
+   ```
+5. Les mêmes vérifications sont disponibles via tox :
+   ```bash
+   tox -e lint
+   tox -e format
+   ```
+
 ## Roadmap v0.1
 
 ### Sprints Planifiés (2 semaines chacun)

@@ -2,6 +2,12 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from app.main import app, procedures_db, runs_db
+
+client = TestClient(app)
+
+
+def get_token(username: str, password: str) -> str:
 
 def get_token(client: TestClient, username: str, password: str) -> str:
     response = client.post(
@@ -13,6 +19,23 @@ def get_token(client: TestClient, username: str, password: str) -> str:
     return response.json()["access_token"]
 
 
+def auth_header(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def setup_module(module) -> None:  # noqa: D401 - pytest style hook
+    """Ensure the in-memory stores are reset before the test module runs."""
+
+    procedures_db.clear()
+    runs_db.clear()
+
+
+def teardown_function(function) -> None:
+    procedures_db.clear()
+    runs_db.clear()
+
+
+def test_create_procedure_requires_authentication() -> None:
 def test_create_procedure_requires_authentication(client: TestClient) -> None:
     response = client.post(
         "/procedures",
@@ -25,6 +48,8 @@ def test_create_procedure_requires_authentication(client: TestClient) -> None:
     assert response.status_code == 401
 
 
+def test_create_procedure_requires_admin_role() -> None:
+    user_token = get_token("bob", "userpass")
 def test_create_procedure_requires_admin_role(client: TestClient, auth_header) -> None:
     user_token = get_token(client, "bob", "userpass")
     response = client.post(
@@ -39,6 +64,8 @@ def test_create_procedure_requires_admin_role(client: TestClient, auth_header) -
     assert response.status_code == 403
 
 
+def test_create_procedure_with_admin_succeeds() -> None:
+    admin_token = get_token("alice", "adminpass")
 def test_create_procedure_with_admin_succeeds(client: TestClient, auth_header) -> None:
     admin_token = get_token(client, "alice", "adminpass")
     response = client.post(
@@ -56,6 +83,8 @@ def test_create_procedure_with_admin_succeeds(client: TestClient, auth_header) -
     assert body["id"]
 
 
+def test_start_run_requires_token_and_uses_requesting_user() -> None:
+    admin_token = get_token("alice", "adminpass")
 def test_start_run_requires_token_and_uses_requesting_user(
     client: TestClient, auth_header
 ) -> None:

@@ -1,4 +1,3 @@
-"""Authentication and authorization utilities for the Réalisons API."""
 from __future__ import annotations
 
 import os
@@ -161,3 +160,13 @@ def require_role(required_role: str):
 
     return role_dependency
 
+
+__all__ = [
+    "Token",
+    "TokenData",
+    "User",
+    "authenticate_user",
+    "create_access_token",
+    "get_current_user",
+    "require_role",
+]
