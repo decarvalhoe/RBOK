@@ -3,6 +3,8 @@ uvicorn
 pydantic
 pydantic-settings
 pytest
+httpx
+pytest-cov
 sqlalchemy
 python-multipart
 passlib[bcrypt]
@@ -12,6 +14,9 @@ psycopg2-binary
 asyncpg
 pgvector
 redis
+fakeredis
 alembic
 pytest
 slowapi
+black
+ruff
