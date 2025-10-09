@@ -1,3 +1,8 @@
+const nextJest = require('next/jest');
+
+const createJestConfig = nextJest({
+  dir: './',
+});
 const nextJest = require('next/jest')
 
 const createJestConfig = nextJest({
@@ -10,6 +15,9 @@ const customJestConfig = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
+};
+
+module.exports = createJestConfig(customJestConfig);
 }
 
 module.exports = createJestConfig(customJestConfig)
