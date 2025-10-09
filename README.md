@@ -76,6 +76,19 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
 - **Python** ≥ 3.9 (pour les services backend)
 - **Docker** (optionnel, pour les services d'infrastructure)
 
+### Configuration des variables d'environnement
+
+Chaque service possède un fichier `.env.example` (`backend/`, `ai_gateway/`, `webapp/`). Copiez-le vers `.env` (ou `.env.local` pour Next.js) et remplacez les valeurs sensibles :
+
+```bash
+cp backend/.env.example backend/.env
+cp ai_gateway/.env.example ai_gateway/.env
+cp webapp/.env.example webapp/.env.local
+```
+
+- Les secrets (`REALISONS_SECRET_KEY`, `AI_GATEWAY_OPENAI_API_KEY`, mots de passe DB, etc.) doivent être générés via un coffre à secrets et tournés régulièrement.
+- Ne commitez jamais les fichiers `.env`. Les services refuseront de démarrer si les valeurs critiques sont manquantes ou utilisent les valeurs de démonstration.
+
 ### Installation
 
 1. **Cloner le repository**
@@ -138,6 +151,16 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
    ```
    Consultez également `docs/ai_gateway.md` pour la description détaillée des endpoints et de la configuration.
 
+### Docker Compose de développement
+
+Un fichier `docker-compose.yml` est fourni pour lancer les trois services avec leurs fichiers `.env` respectifs :
+
+```bash
+docker compose up --build
+```
+
+Chaque service charge automatiquement son fichier `.env` via `env_file`. Copiez d'abord les `.env.example` et ne versionnez jamais les fichiers réels.
+
 ### Accès
 - **Application web** : http://localhost:3000
 - **API Backend** : http://localhost:8000
@@ -180,6 +203,10 @@ Les épics suivants ont été créés comme issues GitHub :
 - **Option Économique** : 650-1400 CHF/mois
 - **Option Standard** : 850-2100 CHF/mois
 - **Option Premium** : 900-2100 CHF/mois
+
+## Intégration continue
+
+Le workflow GitHub Actions `ci.yml` prépare automatiquement les fichiers `.env` à partir des gabarits et injecte les secrets requis (ex : `REALISONS_SECRET_KEY`, `AI_GATEWAY_OPENAI_API_KEY`). Configurez ces secrets dans les paramètres du dépôt avant d'activer la CI.
 
 ## Contribution
 
