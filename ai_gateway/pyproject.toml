@@ -1,0 +1,7 @@
+[tool.pytest.ini_options]
+addopts = "--cov=ai_gateway --cov-report=term-missing --cov-report=xml --cov-fail-under=65"
+testpaths = ["tests"]
+filterwarnings = [
+  "error::DeprecationWarning",
+  "error::PendingDeprecationWarning",
+]
