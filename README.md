@@ -88,6 +88,62 @@ cp webapp/.env.example webapp/.env.local
 
 - Les secrets (`REALISONS_SECRET_KEY`, `AI_GATEWAY_OPENAI_API_KEY`, mots de passe DB, etc.) doivent être générés via un coffre à secrets et tournés régulièrement.
 - Ne commitez jamais les fichiers `.env`. Les services refuseront de démarrer si les valeurs critiques sont manquantes ou utilisent les valeurs de démonstration.
+### Utilisation avec Docker (développement)
+
+Un environnement Docker Compose est fourni pour exécuter l'API, la passerelle IA, le frontend, PostgreSQL et Redis avec hot-reload.
+
+1. **Configurer les variables sensibles (facultatif)**
+   - Les valeurs par défaut conviennent pour un test local rapide.
+   - Pour utiliser de vraies clés, exportez-les avant le lancement :
+     ```bash
+     export AI_GATEWAY_OPENAI_API_KEY="sk-..."
+     export NEXT_PUBLIC_API_URL="http://localhost:8000"
+     ```
+2. **Construire et lancer l'ensemble des services**
+   ```bash
+   docker compose up --build
+   ```
+   Les services sont disponibles sur :
+   - http://localhost:3000 pour la webapp (Next.js avec hot-reload)
+   - http://localhost:8000 pour l'API FastAPI
+   - http://localhost:8100 pour la passerelle IA
+3. **Inspecter les journaux**
+   ```bash
+   docker compose logs -f backend
+   ```
+4. **Arrêter et nettoyer**
+   ```bash
+   docker compose down
+   ```
+
+#### Variables d'environnement principales
+
+| Service      | Variable                              | Valeur par défaut                                   |
+|--------------|----------------------------------------|-----------------------------------------------------|
+| Backend      | `DATABASE_URL`                         | `postgresql+asyncpg://rbok:rbok@postgres:5432/rbok` |
+| Backend      | `REDIS_URL`                            | `redis://redis:6379/0`                              |
+| AI Gateway   | `AI_GATEWAY_OPENAI_API_KEY`            | `changeme` (à remplacer pour un usage réel)        |
+| AI Gateway   | `AI_GATEWAY_ALLOWED_ORIGINS`           | `http://localhost:3000`                             |
+| Webapp       | `NEXT_PUBLIC_API_URL`                  | `http://localhost:8000`                             |
+| Webapp       | `NEXT_PUBLIC_AI_GATEWAY_URL`           | `http://localhost:8100`                             |
+
+Les valeurs peuvent être surchargées via des variables d'environnement exportées ou un fichier `.env` chargé par Docker Compose.
+
+### Utilisation avec Docker (production)
+
+Pour simuler un déploiement de production (sans hot-reload ni montage de volumes), utilisez le fichier d'override :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+```
+
+Assurez-vous de fournir une clé OpenAI valide :
+
+```bash
+export AI_GATEWAY_OPENAI_API_KEY="sk-..."
+```
+
+### Stack locale (installation manuelle)
 
 ### Installation
 
@@ -105,8 +161,27 @@ cp webapp/.env.example webapp/.env.local
    # .venv\Scripts\activate   # Windows
    pip install -r requirements.txt
    alembic upgrade head
+   # Démarrer Redis en local (Docker)
+   docker run --rm -p 6379:6379 redis:7-alpine
+   # ou exporter REDIS_URL si un service managé est utilisé
+   export REDIS_URL=redis://localhost:6379/0
    uvicorn app.main:app --reload --port 8000
    ```
+
+   #### Cache Redis
+
+   L'API s'appuie sur Redis pour mettre en cache les listes de procédures, les détails et les exécutions. En développement, un conteneur Docker suffit ; en production, configurez les variables suivantes selon votre plateforme d'hébergement :
+
+   | Variable | Description | Valeur par défaut |
+   |----------|-------------|-------------------|
+   | `REDIS_URL` | Chaîne de connexion complète si disponible. | Générée à partir des variables ci-dessous. |
+   | `REDIS_HOST` | Hôte du serveur Redis. | `localhost` |
+   | `REDIS_PORT` | Port du serveur Redis. | `6379` |
+   | `REDIS_DB` | Index de base de données Redis. | `0` |
+   | `REDIS_PASSWORD` | Mot de passe si nécessaire. | *(vide)* |
+   | `REDIS_TLS` | `true`/`false` pour activer TLS (`rediss://`). | `false` |
+
+   L'invalidation du cache est automatique lors des créations/updates/suppressions de procédures. Assurez-vous simplement que l'instance Redis est accessible depuis l'API dans vos environnements de déploiement (VPC, service managé, etc.).
 
    #### Authentification JWT de développement
 
@@ -133,6 +208,20 @@ cp webapp/.env.example webapp/.env.local
    ```
 
    Les utilisateurs standards peuvent lancer des exécutions (`POST /runs`) tandis que seuls les administrateurs peuvent créer des procédures.
+
+   #### Configuration
+
+   Les variables d'environnement suivantes permettent d'ajuster le comportement de l'API :
+
+   | Variable | Description | Valeur par défaut |
+   |----------|-------------|-------------------|
+   | `BACKEND_ALLOW_ORIGINS` | Liste séparée par des virgules des origines autorisées pour CORS. | `http://localhost:3000` |
+   | `BACKEND_RATE_LIMIT` | Limite de requêtes appliquée par défaut (syntaxe `nombre/période`). | `120/minute` |
+   | `BACKEND_RATE_LIMIT_ENABLED` | Active (`true`) ou désactive (`false`) le throttling. | `true` |
+   | `BACKEND_RATE_LIMIT_HEADERS_ENABLED` | Active l'exposition des en-têtes `X-RateLimit-*` et `Retry-After`. | `true` |
+
+   En production, `BACKEND_ALLOW_ORIGINS` accepte des domaines multiples (par ex. `https://app.example.com,https://admin.example.com`).
+   Les réponses HTTP `429 Too Many Requests` retournées par l'API incluent désormais ces en-têtes et sont documentées dans l'OpenAPI.
 
 3. **Application Web**
    ```bash
@@ -165,6 +254,60 @@ Chaque service charge automatiquement son fichier `.env` via `env_file`. Copiez 
 - **Application web** : http://localhost:3000
 - **API Backend** : http://localhost:8000
 - **Documentation API** : http://localhost:8000/docs
+
+### Dépannage (Docker)
+
+- **Erreur `OPENAI API key must be provided...`** : définissez `AI_GATEWAY_OPENAI_API_KEY` avant de lancer `docker compose up`.
+- **Hot-reload qui ne déclenche pas** : vérifiez que vos fichiers sont bien montés (`./backend`, `./ai_gateway`, `./webapp`). Un `docker compose restart <service>` force la prise en compte des volumes.
+- **Port déjà utilisé** : modifiez `BACKEND_PORT`, `AI_GATEWAY_PORT` ou `WEBAPP_PORT` dans votre environnement avant le lancement.
+## Qualité du code et linting
+
+### Frontend (webapp)
+1. Installer les dépendances :
+   ```bash
+   cd webapp
+   npm install
+   ```
+2. Lancer l'analyse ESLint :
+   ```bash
+   npm run lint
+   ```
+3. Vérifier la mise en forme Prettier :
+   ```bash
+   npm run format
+   ```
+4. Pour corriger automatiquement les problèmes détectés :
+   ```bash
+   npm run lint:fix
+   npm run format:fix
+   ```
+
+### Backend (FastAPI)
+1. Créer un environnement virtuel et installer les dépendances :
+   ```bash
+   cd backend
+   python -m venv .venv
+   source .venv/bin/activate  # Windows : .venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+2. Lancer Ruff pour l'analyse statique :
+   ```bash
+   make lint
+   ```
+3. Vérifier la mise en forme Black :
+   ```bash
+   make format-check
+   ```
+4. Pour appliquer automatiquement les correctifs :
+   ```bash
+   make lint-fix
+   make format
+   ```
+5. Les mêmes vérifications sont disponibles via tox :
+   ```bash
+   tox -e lint
+   tox -e format
+   ```
 
 ## Roadmap v0.1
 

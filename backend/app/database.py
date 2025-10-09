@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import os
 from typing import Generator
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session, declarative_base
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 
 def _build_database_url() -> str:
@@ -18,7 +20,9 @@ def _build_database_url() -> str:
     host = os.getenv("DB_HOST", "localhost")
     port = os.getenv("DB_PORT", "5432")
     name_env = os.getenv("DB_NAME")
-    name = name_env if name_env is not None else ("rbok.db" if driver.startswith("sqlite") else "rbok")
+    name = (
+        name_env if name_env is not None else ("rbok.db" if driver.startswith("sqlite") else "rbok")
+    )
 
     if driver.startswith("sqlite"):
         if name == ":memory:":
@@ -44,8 +48,13 @@ Base = declarative_base()
 
 
 def get_db() -> Generator[Session, None, None]:
+    """Provide a transactional database session."""
+
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+
+__all__ = ["Base", "SessionLocal", "engine", "get_db"]

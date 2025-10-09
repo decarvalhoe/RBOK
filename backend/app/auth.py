@@ -1,4 +1,3 @@
-"""Authentication and authorization utilities for the Réalisons API."""
 from __future__ import annotations
 
 import os
@@ -19,6 +18,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60")
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 
 
 class Token(BaseModel):
@@ -72,6 +72,11 @@ def _seed_users() -> Dict[str, UserInDB]:
             "password": "adminpass",
             "role": "admin",
         },
+        "audra": {
+            "full_name": "Audra Auditor",
+            "password": "auditpass",
+            "role": "auditor",
+        },
         "bob": {
             "full_name": "Bob Builder",
             "password": "userpass",
@@ -93,7 +98,7 @@ def _seed_users() -> Dict[str, UserInDB]:
 fake_users_db: Dict[str, UserInDB] = _seed_users()
 
 # Role hierarchy used to compare permissions. Higher value == more privileges.
-ROLE_LEVELS = {"user": 0, "admin": 10}
+ROLE_LEVELS = {"user": 0, "auditor": 5, "admin": 10}
 
 
 def get_user(username: str) -> Optional[UserInDB]:
@@ -163,3 +168,20 @@ def require_role(required_role: str):
 
     return role_dependency
 
+
+def get_current_user_optional(token: Optional[str] = Depends(optional_oauth2_scheme)) -> Optional[User]:
+    """Resolve the current user when authentication is optional."""
+
+    if not token:
+        return None
+    return get_current_user(token=token)
+
+__all__ = [
+    "Token",
+    "TokenData",
+    "User",
+    "authenticate_user",
+    "create_access_token",
+    "get_current_user",
+    "require_role",
+]
