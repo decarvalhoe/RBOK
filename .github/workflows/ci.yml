@@ -2,12 +2,18 @@ name: CI
 
 on:
   push:
+    branches: ["main"]
   pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
-  test:
+  prepare-env:
+    name: Prepare environment files
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -20,42 +26,44 @@ jobs:
           cp backend/.env.example backend/.env
           cp ai_gateway/.env.example ai_gateway/.env
           cp webapp/.env.example webapp/.env
-          python - <<'PY'
-import os
-from pathlib import Path
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
 
-backend_secret = os.environ.get("BACKEND_SECRET") or "ci-test-secret"
-if backend_secret == "ci-test-secret":
-    print("::warning::REALISONS_SECRET_KEY secret not provided; using CI fallback.")
-backend_env = Path("backend/.env").read_text().splitlines()
-backend_env = [
-    "REALISONS_SECRET_KEY=" + backend_secret if line.startswith("REALISONS_SECRET_KEY=") else line
-    for line in backend_env
-]
-Path("backend/.env").write_text("\n".join(backend_env) + "\n")
+          backend_secret = os.environ.get("BACKEND_SECRET") or "ci-test-secret"
+          if backend_secret == "ci-test-secret":
+              print("::warning::REALISONS_SECRET_KEY secret not provided; using CI fallback.")
+          backend_env = Path("backend/.env").read_text().splitlines()
+          backend_env = [
+              "REALISONS_SECRET_KEY=" + backend_secret if line.startswith("REALISONS_SECRET_KEY=") else line
+              for line in backend_env
+          ]
+          Path("backend/.env").write_text("\n".join(backend_env) + "\n")
 
-openai_key = os.environ.get("OPENAI_KEY") or "test-openai-key"
-if openai_key == "test-openai-key":
-    print("::warning::AI_GATEWAY_OPENAI_API_KEY secret not provided; using test key.")
-ai_gateway_env = Path("ai_gateway/.env").read_text().splitlines()
-ai_gateway_env = [
-    "AI_GATEWAY_OPENAI_API_KEY=" + openai_key if line.startswith("AI_GATEWAY_OPENAI_API_KEY=") else line
-    for line in ai_gateway_env
-]
-Path("ai_gateway/.env").write_text("\n".join(ai_gateway_env) + "\n")
-PY
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
+          openai_key = os.environ.get("OPENAI_KEY") or "test-openai-key"
+          if openai_key == "test-openai-key":
+              print("::warning::AI_GATEWAY_OPENAI_API_KEY secret not provided; using test key.")
+          ai_gateway_env = Path("ai_gateway/.env").read_text().splitlines()
+          ai_gateway_env = [
+              "AI_GATEWAY_OPENAI_API_KEY=" + openai_key if line.startswith("AI_GATEWAY_OPENAI_API_KEY=") else line
+              for line in ai_gateway_env
+          ]
+          Path("ai_gateway/.env").write_text("\n".join(ai_gateway_env) + "\n")
+          PY
 
-permissions:
-  contents: read
-  packages: write
+      - name: Upload environment files
+        uses: actions/upload-artifact@v4
+        with:
+          name: environment-files
+          path: |
+            backend/.env
+            ai_gateway/.env
+            webapp/.env
 
-jobs:
   backend-tests:
     name: Backend (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    needs: prepare-env
     strategy:
       fail-fast: false
       matrix:
@@ -63,6 +71,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Download environment files
+        uses: actions/download-artifact@v4
+        with:
+          name: environment-files
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -93,6 +106,7 @@ jobs:
   ai-gateway-tests:
     name: AI Gateway (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    needs: prepare-env
     strategy:
       fail-fast: false
       matrix:
@@ -101,26 +115,14 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Download environment files
+        uses: actions/download-artifact@v4
+        with:
+          name: environment-files
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-
-      - name: Install backend dependencies
-        run: pip install -r backend/requirements.txt
-
-      - name: Run backend tests
-        env:
-          PYTHONPATH: backend
-        run: pytest backend/tests -q
-
-      - name: Install AI Gateway dependencies
-        run: pip install -r ai_gateway/requirements.txt
-
-      - name: Run AI Gateway tests
-        env:
-          PYTHONPATH: ai_gateway
-        run: pytest ai_gateway/tests -q
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
           cache-dependency-path: ai_gateway/requirements.txt
@@ -147,6 +149,7 @@ jobs:
   webapp-tests:
     name: Webapp (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    needs: prepare-env
     strategy:
       fail-fast: false
       matrix:
@@ -155,18 +158,14 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Download environment files
+        uses: actions/download-artifact@v4
+        with:
+          name: environment-files
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-
-      - name: Install webapp dependencies
-        working-directory: webapp
-        run: npm ci
-
-      - name: Run webapp tests
-        working-directory: webapp
-        run: npm test -- --watch=false
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
           cache-dependency-path: webapp/package-lock.json
@@ -196,6 +195,7 @@ jobs:
   mobile-tests:
     name: Mobile (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    needs: prepare-env
     strategy:
       fail-fast: false
       matrix:
@@ -203,6 +203,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Download environment files
+        uses: actions/download-artifact@v4
+        with:
+          name: environment-files
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
