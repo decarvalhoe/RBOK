@@ -92,8 +92,27 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
    # .venv\Scripts\activate   # Windows
    pip install -r requirements.txt
    alembic upgrade head
+   # Démarrer Redis en local (Docker)
+   docker run --rm -p 6379:6379 redis:7-alpine
+   # ou exporter REDIS_URL si un service managé est utilisé
+   export REDIS_URL=redis://localhost:6379/0
    uvicorn app.main:app --reload --port 8000
    ```
+
+   #### Cache Redis
+
+   L'API s'appuie sur Redis pour mettre en cache les listes de procédures, les détails et les exécutions. En développement, un conteneur Docker suffit ; en production, configurez les variables suivantes selon votre plateforme d'hébergement :
+
+   | Variable | Description | Valeur par défaut |
+   |----------|-------------|-------------------|
+   | `REDIS_URL` | Chaîne de connexion complète si disponible. | Générée à partir des variables ci-dessous. |
+   | `REDIS_HOST` | Hôte du serveur Redis. | `localhost` |
+   | `REDIS_PORT` | Port du serveur Redis. | `6379` |
+   | `REDIS_DB` | Index de base de données Redis. | `0` |
+   | `REDIS_PASSWORD` | Mot de passe si nécessaire. | *(vide)* |
+   | `REDIS_TLS` | `true`/`false` pour activer TLS (`rediss://`). | `false` |
+
+   L'invalidation du cache est automatique lors des créations/updates/suppressions de procédures. Assurez-vous simplement que l'instance Redis est accessible depuis l'API dans vos environnements de déploiement (VPC, service managé, etc.).
 
    #### Authentification JWT de développement
 

@@ -34,6 +34,29 @@ def test_run_creation_requires_procedure_id() -> None:
 
 def test_run_creation_requires_existing_procedure() -> None:
     user_token = get_token("bob", "userpass")
+
+def get_token(client: TestClient, username: str, password: str) -> str:
+    response = client.post(
+        "/auth/token",
+        data={"username": username, "password": password},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    response.raise_for_status()
+    return response.json()["access_token"]
+
+
+def test_run_creation_requires_procedure_id(client: TestClient, auth_header) -> None:
+    user_token = get_token(client, "bob", "userpass")
+    response = client.post(
+        "/runs",
+        json={},
+        headers=auth_header(user_token),
+    )
+    assert response.status_code == 422
+
+
+def test_run_creation_requires_existing_procedure(client: TestClient, auth_header) -> None:
+    user_token = get_token(client, "bob", "userpass")
     response = client.post(
         "/runs",
         json={"procedure_id": "missing"},
@@ -45,6 +68,8 @@ def test_run_creation_requires_existing_procedure() -> None:
 
 def test_procedure_creation_requires_steps_structure() -> None:
     admin_token = get_token("alice", "adminpass")
+def test_procedure_creation_requires_steps_structure(client: TestClient, auth_header) -> None:
+    admin_token = get_token(client, "alice", "adminpass")
     payload = {
         "name": "Demo",
         "description": "A sample procedure",

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Generator
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app, procedures_db, runs_db
@@ -16,6 +15,8 @@ def client() -> Generator[TestClient, None, None]:
         yield test_client
     procedures_db.clear()
     runs_db.clear()
+
+
 
 
 def get_token(client: TestClient, username: str, password: str) -> str:
@@ -33,6 +34,9 @@ def auth_header(token: str) -> dict[str, str]:
 
 
 def test_create_and_fetch_procedure(client: TestClient) -> None:
+
+
+def test_create_and_fetch_procedure(client: TestClient, auth_header) -> None:
     admin_token = get_token(client, "alice", "adminpass")
     payload = {
         "name": "Test Procedure",
@@ -74,6 +78,7 @@ def test_create_and_fetch_procedure(client: TestClient) -> None:
 
 
 def test_start_and_get_run(client: TestClient) -> None:
+def test_start_and_get_run(client: TestClient, auth_header) -> None:
     admin_token = get_token(client, "alice", "adminpass")
     procedure_response = client.post(
         "/procedures",
@@ -91,6 +96,7 @@ def test_start_and_get_run(client: TestClient) -> None:
     run_response = client.post(
         "/runs",
         params={"procedure_id": procedure_id},
+        json={"procedure_id": procedure_id},
         headers=auth_header(user_token),
     )
     assert run_response.status_code == 201

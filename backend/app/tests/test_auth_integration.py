@@ -8,6 +8,8 @@ client = TestClient(app)
 
 
 def get_token(username: str, password: str) -> str:
+
+def get_token(client: TestClient, username: str, password: str) -> str:
     response = client.post(
         "/auth/token",
         data={"username": username, "password": password},
@@ -34,6 +36,7 @@ def teardown_function(function) -> None:
 
 
 def test_create_procedure_requires_authentication() -> None:
+def test_create_procedure_requires_authentication(client: TestClient) -> None:
     response = client.post(
         "/procedures",
         json={
@@ -47,6 +50,8 @@ def test_create_procedure_requires_authentication() -> None:
 
 def test_create_procedure_requires_admin_role() -> None:
     user_token = get_token("bob", "userpass")
+def test_create_procedure_requires_admin_role(client: TestClient, auth_header) -> None:
+    user_token = get_token(client, "bob", "userpass")
     response = client.post(
         "/procedures",
         json={
@@ -61,6 +66,8 @@ def test_create_procedure_requires_admin_role() -> None:
 
 def test_create_procedure_with_admin_succeeds() -> None:
     admin_token = get_token("alice", "adminpass")
+def test_create_procedure_with_admin_succeeds(client: TestClient, auth_header) -> None:
+    admin_token = get_token(client, "alice", "adminpass")
     response = client.post(
         "/procedures",
         json={
@@ -78,6 +85,10 @@ def test_create_procedure_with_admin_succeeds() -> None:
 
 def test_start_run_requires_token_and_uses_requesting_user() -> None:
     admin_token = get_token("alice", "adminpass")
+def test_start_run_requires_token_and_uses_requesting_user(
+    client: TestClient, auth_header
+) -> None:
+    admin_token = get_token(client, "alice", "adminpass")
     proc_response = client.post(
         "/procedures",
         json={
@@ -89,13 +100,16 @@ def test_start_run_requires_token_and_uses_requesting_user() -> None:
     )
     procedure_id = proc_response.json()["id"]
 
-    response = client.post("/runs", params={"procedure_id": procedure_id})
-    assert response.status_code == 401
-
-    user_token = get_token("bob", "userpass")
     response = client.post(
         "/runs",
-        params={"procedure_id": procedure_id},
+        json={"procedure_id": procedure_id},
+    )
+    assert response.status_code == 401
+
+    user_token = get_token(client, "bob", "userpass")
+    response = client.post(
+        "/runs",
+        json={"procedure_id": procedure_id},
         headers=auth_header(user_token),
     )
     assert response.status_code == 201
