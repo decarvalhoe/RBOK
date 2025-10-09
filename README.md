@@ -168,6 +168,35 @@ export AI_GATEWAY_OPENAI_API_KEY="sk-..."
    uvicorn app.main:app --reload --port 8000
    ```
 
+### Tests et couverture
+
+Les suites de tests automatisés sont configurées pour produire des rapports de couverture et échouer si les seuils minimaux ne
+sont pas atteints. Voici les commandes principales :
+
+- **Backend API** :
+  ```bash
+  cd backend
+  pytest
+  ```
+- **Passerelle IA** :
+  ```bash
+  cd ai_gateway
+  pytest
+  ```
+- **Webapp Next.js** :
+  ```bash
+  cd webapp
+  npm run test:ci
+  ```
+- **Application mobile React Native** :
+  ```bash
+  cd mobile
+  npm test -- --ci
+  ```
+
+Le workflow GitHub Actions [`CI`](.github/workflows/ci.yml) exécute automatiquement ces commandes sur chaque branche et pull req
+uest. Les fusions sont bloquées tant que l'une de ces étapes échoue.
+
   #### Authentification Keycloak & OPA
 
   L'API s'appuie désormais sur un serveur **Keycloak** pour valider les tokens OIDC et sur **OPA** pour les politiques fines. Configurez les variables d'environnement suivantes avant de démarrer le service :

@@ -26,3 +26,11 @@ ignore = [
 quote-style = "single"
 indent-style = "space"
 line-ending = "auto"
+
+[tool.pytest.ini_options]
+addopts = "--cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=75"
+testpaths = ["tests"]
+filterwarnings = [
+  "error::DeprecationWarning",
+  "error::PendingDeprecationWarning",
+]

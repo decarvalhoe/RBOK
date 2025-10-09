@@ -1,25 +1,28 @@
-import os
+from __future__ import annotations
 
-# Ensure a deterministic but non-default secret key is available during tests
-# so that the configuration validation passes.
-os.environ.setdefault("REALISONS_SECRET_KEY", "test-secret-key")
-from typing import Generator
 import os
-import sys
+from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
+from fakeredis import FakeStrictRedis
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# Ensure a deterministic but non-default secret key is available during tests so that
+# the configuration validation passes.
+os.environ.setdefault("REALISONS_SECRET_KEY", "test-secret-key")
 
-from app.main import app  # noqa: E402
-from app.database import get_db, Base  # noqa: E402
+# Import the application only after the environment is prepared.
+from app.cache import reset_redis_client, set_redis_client
+from app.database import Base, get_db
+from app.main import app
 
 
 @pytest.fixture()
 def test_session(tmp_path) -> Generator[Session, None, None]:
+    """Provide an isolated SQLite database session for each test run."""
+
     database_url = f"sqlite:///{tmp_path}/test.db"
     engine = create_engine(database_url, connect_args={"check_same_thread": False}, future=True)
     TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
@@ -35,7 +38,21 @@ def test_session(tmp_path) -> Generator[Session, None, None]:
 
 
 @pytest.fixture()
-def client(test_session: Session) -> Generator[TestClient, None, None]:
+def redis_client() -> Generator[FakeStrictRedis, None, None]:
+    """Provide a fake Redis client wired into the cache helpers."""
+
+    client = FakeStrictRedis(decode_responses=True)
+    set_redis_client(client)
+    try:
+        yield client
+    finally:
+        reset_redis_client()
+
+
+@pytest.fixture()
+def client(test_session: Session, redis_client: FakeStrictRedis) -> Generator[TestClient, None, None]:
+    """Return a FastAPI test client with database and cache dependencies patched."""
+
     def override_get_db() -> Generator[Session, None, None]:
         try:
             yield test_session
@@ -46,11 +63,3 @@ def client(test_session: Session) -> Generator[TestClient, None, None]:
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
-from __future__ import annotations
-
-import sys
-from pathlib import Path
-
-ROOT_DIR = Path(__file__).resolve().parents[1]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
