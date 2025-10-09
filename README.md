@@ -132,7 +132,8 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
    python scripts/benchmark_async.py
    ```
 
-   Le script configure automatiquement une base SQLite asynchrone et compare 25 requêtes séquentielles à 75 requêtes concurrentes.
+   Le script configure automatiquement une base SQLite asynchrone et, par défaut, mesure 120 requêtes émises séquentiellement puis en parallèle (30 requêtes simultanées).
+   Les paramètres `--requests`, `--concurrency` et `--repeats` permettent d'ajuster la charge.
 
    #### Authentification JWT de développement
 

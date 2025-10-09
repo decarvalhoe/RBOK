@@ -1,7 +1,9 @@
 """Simple load test to highlight async throughput gains."""
 from __future__ import annotations
 
+import argparse
 import asyncio
+import logging
 import os
 import sys
 import time
@@ -97,7 +99,37 @@ def summarize(label: str, total_requests: int, duration: float) -> str:
     return f"{label}: {total_requests} requests in {duration:.2f}s ({rps:.1f} req/s)"
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--requests",
+        type=int,
+        default=120,
+        help="Total number of POST /runs requests to issue in each benchmark run (default: 120)",
+    )
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=30,
+        help="Maximum number of concurrent requests during the concurrent benchmark (default: 30)",
+    )
+    parser.add_argument(
+        "--repeats",
+        type=int,
+        default=3,
+        help="Number of times to repeat each benchmark scenario before averaging (default: 3)",
+    )
+    return parser.parse_args()
+
+
 async def main() -> None:
+    args = parse_args()
+    total_requests = max(1, args.requests)
+    concurrency = max(1, min(args.concurrency, total_requests))
+    repeats = max(1, args.repeats)
+
+    logging.disable(logging.INFO)
+
     await prepare_database()
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver") as client:
         admin_token = await get_token(client, "alice", "adminpass")
@@ -110,26 +142,28 @@ async def main() -> None:
         # Warm-up request to populate connection pool
         await run_once(client, user_token, procedure_id)
 
-        for _ in range(3):
+        for _ in range(repeats):
             sequential_durations.append(
-                await sequential_benchmark(client, user_token, procedure_id, iterations=25)
+                await sequential_benchmark(client, user_token, procedure_id, iterations=total_requests)
             )
             concurrent_durations.append(
                 await concurrent_benchmark(
                     client,
                     user_token,
                     procedure_id,
-                    requests=75,
-                    concurrency=15,
+                    requests=total_requests,
+                    concurrency=concurrency,
                 )
             )
 
     seq_avg = mean(sequential_durations)
     conc_avg = mean(concurrent_durations)
+    speedup = seq_avg / conc_avg if conc_avg else float("inf")
 
     print("Async session benchmark results")
-    print(summarize("Sequential", 25, seq_avg))
-    print(summarize("Concurrent", 75, conc_avg))
+    print(summarize("Sequential", total_requests, seq_avg))
+    print(summarize("Concurrent", total_requests, conc_avg))
+    print(f"Speed-up: {speedup:.2f}x faster with concurrency ({concurrency} max workers)")
 
 
 if __name__ == "__main__":
