@@ -121,6 +121,20 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
 
    Les utilisateurs standards peuvent lancer des exécutions (`POST /runs`) tandis que seuls les administrateurs peuvent créer des procédures.
 
+   #### Configuration
+
+   Les variables d'environnement suivantes permettent d'ajuster le comportement de l'API :
+
+   | Variable | Description | Valeur par défaut |
+   |----------|-------------|-------------------|
+   | `BACKEND_ALLOW_ORIGINS` | Liste séparée par des virgules des origines autorisées pour CORS. | `http://localhost:3000` |
+   | `BACKEND_RATE_LIMIT` | Limite de requêtes appliquée par défaut (syntaxe `nombre/période`). | `120/minute` |
+   | `BACKEND_RATE_LIMIT_ENABLED` | Active (`true`) ou désactive (`false`) le throttling. | `true` |
+   | `BACKEND_RATE_LIMIT_HEADERS_ENABLED` | Active l'exposition des en-têtes `X-RateLimit-*` et `Retry-After`. | `true` |
+
+   En production, `BACKEND_ALLOW_ORIGINS` accepte des domaines multiples (par ex. `https://app.example.com,https://admin.example.com`).
+   Les réponses HTTP `429 Too Many Requests` retournées par l'API incluent désormais ces en-têtes et sont documentées dans l'OpenAPI.
+
 3. **Application Web**
    ```bash
    cd webapp

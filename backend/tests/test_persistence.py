@@ -1,49 +1,33 @@
-from typing import Generator
-import os
-import sys
+from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from app.main import app, procedures_db, runs_db
 
-from app.main import app
-from app.database import get_db, Base
+client = TestClient(app)
 
 
-@pytest.fixture()
-def test_session(tmp_path) -> Generator[Session, None, None]:
-    database_url = f"sqlite:///{tmp_path}/test.db"
-    engine = create_engine(database_url, connect_args={"check_same_thread": False}, future=True)
-    TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
-
-    Base.metadata.create_all(bind=engine)
-
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-        Base.metadata.drop_all(bind=engine)
+def setup_function():
+    procedures_db.clear()
+    runs_db.clear()
 
 
-@pytest.fixture()
-def client(test_session: Session) -> Generator[TestClient, None, None]:
-    def override_get_db() -> Generator[Session, None, None]:
-        try:
-            yield test_session
-        finally:
-            test_session.rollback()
-
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
-        yield test_client
-    app.dependency_overrides.clear()
+def get_token(username: str, password: str) -> str:
+    response = client.post(
+        "/auth/token",
+        data={"username": username, "password": password},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    response.raise_for_status()
+    return response.json()["access_token"]
 
 
-def test_create_and_fetch_procedure(client: TestClient) -> None:
+def auth_header(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_create_and_fetch_procedure() -> None:
+    admin_token = get_token("alice", "adminpass")
     payload = {
         "name": "Test Procedure",
         "description": "Testing persistence",
@@ -63,8 +47,8 @@ def test_create_and_fetch_procedure(client: TestClient) -> None:
         ],
     }
 
-    response = client.post("/procedures", json=payload)
-    assert response.status_code == 200
+    response = client.post("/procedures", json=payload, headers=auth_header(admin_token))
+    assert response.status_code == 201
     data = response.json()
     assert data["id"]
     assert data["name"] == payload["name"]
@@ -84,7 +68,8 @@ def test_create_and_fetch_procedure(client: TestClient) -> None:
     assert fetched["steps"][1]["key"] == "step-2"
 
 
-def test_start_and_get_run(client: TestClient) -> None:
+def test_start_and_get_run() -> None:
+    admin_token = get_token("alice", "adminpass")
     procedure_response = client.post(
         "/procedures",
         json={
@@ -92,15 +77,21 @@ def test_start_and_get_run(client: TestClient) -> None:
             "description": "For run test",
             "steps": [],
         },
+        headers=auth_header(admin_token),
     )
     procedure_response.raise_for_status()
     procedure_id = procedure_response.json()["id"]
 
-    run_response = client.post("/runs", params={"procedure_id": procedure_id, "user_id": "alice"})
-    assert run_response.status_code == 200
+    user_token = get_token("bob", "userpass")
+    run_response = client.post(
+        "/runs",
+        params={"procedure_id": procedure_id},
+        headers=auth_header(user_token),
+    )
+    assert run_response.status_code == 201
     run_data = run_response.json()
     assert run_data["procedure_id"] == procedure_id
-    assert run_data["user_id"] == "alice"
+    assert run_data["user_id"] == "bob"
     assert run_data["state"] == "started"
 
     get_response = client.get(f"/runs/{run_data['id']}")

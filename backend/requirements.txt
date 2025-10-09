@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 pydantic
+pydantic-settings
 pytest
 sqlalchemy
 python-multipart
@@ -13,3 +14,4 @@ pgvector
 redis
 alembic
 pytest
+slowapi
