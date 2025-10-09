@@ -1,46 +1,4 @@
-from typing import Generator
-import os
-import sys
-
-import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-from app.main import app
-from app.database import get_db, Base
-
-
-@pytest.fixture()
-def test_session(tmp_path) -> Generator[Session, None, None]:
-    database_url = f"sqlite:///{tmp_path}/test.db"
-    engine = create_engine(database_url, connect_args={"check_same_thread": False}, future=True)
-    TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
-
-    Base.metadata.create_all(bind=engine)
-
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-        Base.metadata.drop_all(bind=engine)
-
-
-@pytest.fixture()
-def client(test_session: Session) -> Generator[TestClient, None, None]:
-    def override_get_db() -> Generator[Session, None, None]:
-        try:
-            yield test_session
-        finally:
-            test_session.rollback()
-
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
-        yield test_client
-    app.dependency_overrides.clear()
 
 
 def test_create_and_fetch_procedure(client: TestClient) -> None:
@@ -64,7 +22,7 @@ def test_create_and_fetch_procedure(client: TestClient) -> None:
     }
 
     response = client.post("/procedures", json=payload)
-    assert response.status_code == 200
+    assert response.status_code == 201
     data = response.json()
     assert data["id"]
     assert data["name"] == payload["name"]
@@ -96,12 +54,32 @@ def test_start_and_get_run(client: TestClient) -> None:
     procedure_response.raise_for_status()
     procedure_id = procedure_response.json()["id"]
 
-    run_response = client.post("/runs", params={"procedure_id": procedure_id, "user_id": "alice"})
-    assert run_response.status_code == 200
+    run_response = client.post(
+        "/runs",
+        json={"procedure_id": procedure_id, "user_id": "alice"},
+    )
+    assert run_response.status_code == 201
     run_data = run_response.json()
     assert run_data["procedure_id"] == procedure_id
     assert run_data["user_id"] == "alice"
     assert run_data["state"] == "started"
+
+    update_response = client.patch(
+        f"/runs/{run_data['id']}",
+        json={"state": "completed"},
+    )
+    assert update_response.status_code == 200
+    updated = update_response.json()
+    assert updated["state"] == "completed"
+
+    commit_response = client.post(
+        f"/runs/{run_data['id']}/steps/step-1/commit",
+        json={"payload": {"answer": "done"}},
+    )
+    assert commit_response.status_code == 201
+    commit_data = commit_response.json()
+    assert commit_data["step_key"] == "step-1"
+    assert commit_data["payload"] == {"answer": "done"}
 
     get_response = client.get(f"/runs/{run_data['id']}")
     assert get_response.status_code == 200

@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, JSON, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from .database import Base
@@ -53,3 +53,33 @@ class ProcedureRun(Base):
     closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     procedure: Mapped[Procedure] = relationship("Procedure")
+
+
+class ProcedureRunStepState(Base):
+    __tablename__ = "procedure_run_step_states"
+    __table_args__ = (UniqueConstraint("run_id", "step_key", name="uq_run_step"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
+    run_id: Mapped[str] = mapped_column(String, ForeignKey("procedure_runs.id", ondelete="CASCADE"), nullable=False)
+    step_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    payload: Mapped[Dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    committed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    run: Mapped[ProcedureRun] = relationship("ProcedureRun")
+
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+    __table_args__ = (
+        Index("ix_audit_events_entity", "entity_type", "entity_id"),
+        Index("ix_audit_events_actor", "actor"),
+        Index("ix_audit_events_occurred_at", "occurred_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
+    actor: Mapped[str] = mapped_column(String(255), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    action: Mapped[str] = mapped_column(String(255), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(255), nullable=False)
+    entity_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    payload_diff: Mapped[Dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
