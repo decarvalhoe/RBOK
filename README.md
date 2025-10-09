@@ -76,6 +76,63 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
 - **Python** ≥ 3.9 (pour les services backend)
 - **Docker** (optionnel, pour les services d'infrastructure)
 
+### Utilisation avec Docker (développement)
+
+Un environnement Docker Compose est fourni pour exécuter l'API, la passerelle IA, le frontend, PostgreSQL et Redis avec hot-reload.
+
+1. **Configurer les variables sensibles (facultatif)**
+   - Les valeurs par défaut conviennent pour un test local rapide.
+   - Pour utiliser de vraies clés, exportez-les avant le lancement :
+     ```bash
+     export AI_GATEWAY_OPENAI_API_KEY="sk-..."
+     export NEXT_PUBLIC_API_URL="http://localhost:8000"
+     ```
+2. **Construire et lancer l'ensemble des services**
+   ```bash
+   docker compose up --build
+   ```
+   Les services sont disponibles sur :
+   - http://localhost:3000 pour la webapp (Next.js avec hot-reload)
+   - http://localhost:8000 pour l'API FastAPI
+   - http://localhost:8100 pour la passerelle IA
+3. **Inspecter les journaux**
+   ```bash
+   docker compose logs -f backend
+   ```
+4. **Arrêter et nettoyer**
+   ```bash
+   docker compose down
+   ```
+
+#### Variables d'environnement principales
+
+| Service      | Variable                              | Valeur par défaut                                   |
+|--------------|----------------------------------------|-----------------------------------------------------|
+| Backend      | `DATABASE_URL`                         | `postgresql+asyncpg://rbok:rbok@postgres:5432/rbok` |
+| Backend      | `REDIS_URL`                            | `redis://redis:6379/0`                              |
+| AI Gateway   | `AI_GATEWAY_OPENAI_API_KEY`            | `changeme` (à remplacer pour un usage réel)        |
+| AI Gateway   | `AI_GATEWAY_ALLOWED_ORIGINS`           | `http://localhost:3000`                             |
+| Webapp       | `NEXT_PUBLIC_API_URL`                  | `http://localhost:8000`                             |
+| Webapp       | `NEXT_PUBLIC_AI_GATEWAY_URL`           | `http://localhost:8100`                             |
+
+Les valeurs peuvent être surchargées via des variables d'environnement exportées ou un fichier `.env` chargé par Docker Compose.
+
+### Utilisation avec Docker (production)
+
+Pour simuler un déploiement de production (sans hot-reload ni montage de volumes), utilisez le fichier d'override :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+```
+
+Assurez-vous de fournir une clé OpenAI valide :
+
+```bash
+export AI_GATEWAY_OPENAI_API_KEY="sk-..."
+```
+
+### Stack locale (installation manuelle)
+
 ### Installation
 
 1. **Cloner le repository**
@@ -142,6 +199,12 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
 - **Application web** : http://localhost:3000
 - **API Backend** : http://localhost:8000
 - **Documentation API** : http://localhost:8000/docs
+
+### Dépannage (Docker)
+
+- **Erreur `OPENAI API key must be provided...`** : définissez `AI_GATEWAY_OPENAI_API_KEY` avant de lancer `docker compose up`.
+- **Hot-reload qui ne déclenche pas** : vérifiez que vos fichiers sont bien montés (`./backend`, `./ai_gateway`, `./webapp`). Un `docker compose restart <service>` force la prise en compte des volumes.
+- **Port déjà utilisé** : modifiez `BACKEND_PORT`, `AI_GATEWAY_PORT` ou `WEBAPP_PORT` dans votre environnement avant le lancement.
 
 ## Roadmap v0.1
 
