@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
 
 from sqlalchemy import DateTime, ForeignKey, Index, String, Text, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
 
@@ -32,7 +36,9 @@ class ProcedureStep(Base):
     __table_args__ = (UniqueConstraint("procedure_id", "key", name="uq_procedure_step_key"),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
-    procedure_id: Mapped[str] = mapped_column(String, ForeignKey("procedures.id", ondelete="CASCADE"), nullable=False)
+    procedure_id: Mapped[str] = mapped_column(
+        String, ForeignKey("procedures.id", ondelete="CASCADE"), nullable=False
+    )
     key: Mapped[str] = mapped_column(String(255), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
@@ -46,7 +52,9 @@ class ProcedureRun(Base):
     __tablename__ = "procedure_runs"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
-    procedure_id: Mapped[str] = mapped_column(String, ForeignKey("procedures.id", ondelete="CASCADE"), nullable=False)
+    procedure_id: Mapped[str] = mapped_column(
+        String, ForeignKey("procedures.id", ondelete="CASCADE"), nullable=False
+    )
     user_id: Mapped[str] = mapped_column(String(255), nullable=False)
     state: Mapped[str] = mapped_column(String(50), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

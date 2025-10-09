@@ -1,4 +1,3 @@
-"""Authentication and authorization utilities for the Réalisons API."""
 from __future__ import annotations
 
 import os
@@ -175,3 +174,12 @@ def get_current_user_optional(token: Optional[str] = Depends(optional_oauth2_sch
         return None
     return get_current_user(token=token)
 
+__all__ = [
+    "Token",
+    "TokenData",
+    "User",
+    "authenticate_user",
+    "create_access_token",
+    "get_current_user",
+    "require_role",
+]
