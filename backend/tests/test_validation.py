@@ -1,3 +1,13 @@
+from fastapi.testclient import TestClient
+
+
+def test_run_creation_requires_procedure_id(client: TestClient) -> None:
+    response = client.post("/runs", json={})
+    assert response.status_code == 422
+
+
+def test_run_creation_requires_existing_procedure(client: TestClient) -> None:
+    response = client.post("/runs", json={"procedure_id": "missing"})
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
@@ -66,6 +76,7 @@ def test_run_creation_requires_existing_procedure(client: TestClient, auth_heade
     assert response.json()["detail"] == "Procedure not found"
 
 
+def test_procedure_creation_requires_steps_structure(client: TestClient) -> None:
 def test_procedure_creation_requires_steps_structure() -> None:
     admin_token = get_token("alice", "adminpass")
 def test_procedure_creation_requires_steps_structure(client: TestClient, auth_header) -> None:

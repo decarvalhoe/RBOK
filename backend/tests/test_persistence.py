@@ -1,3 +1,4 @@
+from fastapi.testclient import TestClient
 from __future__ import annotations
 
 from typing import Generator
@@ -57,6 +58,7 @@ def test_create_and_fetch_procedure(client: TestClient, auth_header) -> None:
         ],
     }
 
+    response = client.post("/procedures", json=payload)
     response = client.post("/procedures", json=payload, headers=auth_header(admin_token))
     assert response.status_code == 201
     data = response.json()
@@ -92,6 +94,9 @@ def test_start_and_get_run(client: TestClient, auth_header) -> None:
     procedure_response.raise_for_status()
     procedure_id = procedure_response.json()["id"]
 
+    run_response = client.post(
+        "/runs",
+        json={"procedure_id": procedure_id, "user_id": "alice"},
     user_token = get_token(client, "bob", "userpass")
     run_response = client.post(
         "/runs",
@@ -104,6 +109,23 @@ def test_start_and_get_run(client: TestClient, auth_header) -> None:
     assert run_data["procedure_id"] == procedure_id
     assert run_data["user_id"] == "bob"
     assert run_data["state"] == "started"
+
+    update_response = client.patch(
+        f"/runs/{run_data['id']}",
+        json={"state": "completed"},
+    )
+    assert update_response.status_code == 200
+    updated = update_response.json()
+    assert updated["state"] == "completed"
+
+    commit_response = client.post(
+        f"/runs/{run_data['id']}/steps/step-1/commit",
+        json={"payload": {"answer": "done"}},
+    )
+    assert commit_response.status_code == 201
+    commit_data = commit_response.json()
+    assert commit_data["step_key"] == "step-1"
+    assert commit_data["payload"] == {"answer": "done"}
 
     get_response = client.get(f"/runs/{run_data['id']}")
     assert get_response.status_code == 200
