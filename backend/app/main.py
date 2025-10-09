@@ -1,47 +1,27 @@
-from datetime import datetime
-import uuid
-from typing import List, Optional
+"""FastAPI application for the Réalisons backend."""
+from __future__ import annotations
 
-from fastapi import Depends, FastAPI, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel
-
-from .auth import (
-    Token,
-    authenticate_user,
-    create_access_token,
-    require_role,
-)
-
-app = FastAPI(
-    title="Réalisons API",
-    description=(
-        "API pour l'assistant procédural Réalisons. "
-        "Les opérations d'écriture nécessitent un token Bearer issu de l'endpoint ``/auth/token``. "
-        "Les administrateurs peuvent créer des procédures tandis que les utilisateurs standard peuvent uniquement lancer des exécutions."
-    ),
 import logging
 import time
 import uuid
 from contextvars import ContextVar
 from datetime import datetime
-from typing import List, Optional
-
-from fastapi import Depends, FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, ConfigDict
-from sqlalchemy.orm import Session, selectinload
-
-from . import models
-from .database import get_db
 from typing import Dict, List, Optional
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
+from sqlalchemy.exc import NoResultFound
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from starlette.middleware.base import BaseHTTPMiddleware
+
+from . import models
+from .auth import Token, authenticate_user, create_access_token, require_role
+from .database import get_db
 
 
 class DomainError(Exception):
@@ -66,7 +46,7 @@ correlation_id_var: ContextVar[Optional[str]] = ContextVar("correlation_id", def
 class CorrelationIdFilter(logging.Filter):
     """Inject the current correlation id into each log record."""
 
-    def filter(self, record: logging.LogRecord) -> bool:
+    def filter(self, record: logging.LogRecord) -> bool:  # pragma: no cover - logging plumbing
         record.correlation_id = correlation_id_var.get() or "unknown"
         return True
 
@@ -76,6 +56,15 @@ def configure_logging() -> logging.Logger:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s [correlation_id=%(correlation_id)s] %(message)s",
     )
+    previous_factory = logging.getLogRecordFactory()
+
+    def record_factory(*args, **kwargs):  # type: ignore[override]
+        record = previous_factory(*args, **kwargs)
+        if not hasattr(record, "correlation_id"):
+            record.correlation_id = "unknown"
+        return record
+
+    logging.setLogRecordFactory(record_factory)
     logger = logging.getLogger("realison.api")
     logger.addFilter(CorrelationIdFilter())
     logging.getLogger().addFilter(CorrelationIdFilter())
@@ -96,12 +85,12 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
         try:
             logger.info("Handling request", extra={"path": request.url.path, "method": request.method})
             response = await call_next(request)
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # pragma: no cover - defensive logging
             logger.exception(
                 "Unhandled exception during request",
                 extra={"path": request.url.path, "method": request.method},
             )
-            raise exc
+            raise
         finally:
             duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
             status_code = getattr(response, "status_code", 500)
@@ -139,15 +128,13 @@ app.add_middleware(
 app.add_middleware(CorrelationIdMiddleware)
 
 
-
 class ProcedureStep(BaseModel):
     key: str
     title: str
     prompt: str
-    slots: List[dict] = Field(default_factory=list)
+    slots: List[Dict[str, str]] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
-    slots: List[Dict[str, str]] = Field(default_factory=list)
 
 
 class Procedure(BaseModel):
@@ -157,7 +144,6 @@ class Procedure(BaseModel):
     steps: List[ProcedureStep] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
-
 
 
 class ProcedureCreateRequest(BaseModel):
@@ -176,14 +162,10 @@ class ProcedureRun(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class ProcedureRunCreateRequest(BaseModel):
     procedure_id: str
-    user_id: Optional[str] = Field(default="default_user")
-
-
-# Stockage temporaire en mémoire (à remplacer par une vraie DB)
-procedures_db: Dict[str, Procedure] = {}
-runs_db: Dict[str, ProcedureRun] = {}
+    user_id: Optional[str] = Field(default=None)
 
 
 @app.exception_handler(NotFoundError)
@@ -205,56 +187,19 @@ async def domain_error_handler(request: Request, exc: DomainError) -> JSONRespon
 
 
 @app.get("/")
-def read_root():
+async def read_root() -> Dict[str, str]:
     logger.debug("Root endpoint accessed")
     return {"message": "Bienvenue sur l'API de l'assistant Réalisons v0.1"}
 
 
 @app.get("/health")
-def health_check():
+async def health_check() -> Dict[str, str]:
     logger.debug("Health check requested")
     return {"status": "healthy", "version": "0.1.0"}
 
 
-@app.get("/procedures", response_model=List[Procedure])
-def list_procedures(db: Session = Depends(get_db)):
-    procedures = (
-        db.query(models.Procedure)
-        .options(selectinload(models.Procedure.steps))
-        .all()
-    )
-    return procedures
-
-
-@app.post("/procedures", response_model=Procedure)
-def create_procedure(procedure: Procedure, db: Session = Depends(get_db)):
-    procedure_id = procedure.id or str(uuid.uuid4())
-    db_procedure = models.Procedure(
-        id=procedure_id,
-        name=procedure.name,
-        description=procedure.description,
-    )
-    for index, step in enumerate(procedure.steps):
-        db_procedure.steps.append(
-            models.ProcedureStep(
-                key=step.key,
-                title=step.title,
-                prompt=step.prompt,
-                slots=step.slots,
-                position=index,
-            )
-        )
-    db.add(db_procedure)
-    db.commit()
-    db.refresh(db_procedure)
-    return db_procedure
-
-def list_procedures():
-    logger.info("Listing procedures", extra={"total": len(procedures_db)})
-    return list(procedures_db.values())
-
 @app.post("/auth/token", response_model=Token, tags=["auth"])
-def login(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -265,104 +210,91 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
     access_token = create_access_token({"sub": user.username, "role": user.role})
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.post("/procedures", response_model=Procedure, status_code=status.HTTP_201_CREATED)
-def create_procedure(
-    procedure: Procedure,
-    current_user=Depends(require_role("admin")),
-):
-    procedure.id = str(uuid.uuid4())
 
-@app.post("/procedures", response_model=Procedure)
-def create_procedure(payload: ProcedureCreateRequest):
-    logger.info("Creating procedure", extra={"name": payload.name})
-    procedure = Procedure(
-        id=str(uuid.uuid4()),
+@app.get("/procedures", response_model=List[Procedure])
+async def list_procedures(db: AsyncSession = Depends(get_db)) -> List[models.Procedure]:
+    result = await db.execute(
+        select(models.Procedure).options(selectinload(models.Procedure.steps))
+    )
+    procedures = result.scalars().unique().all()
+    return procedures
+
+
+@app.post("/procedures", response_model=Procedure, status_code=status.HTTP_201_CREATED)
+async def create_procedure(
+    payload: ProcedureCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("admin")),
+) -> models.Procedure:
+    procedure = models.Procedure(
         name=payload.name,
         description=payload.description,
-        steps=payload.steps,
     )
-    procedures_db[procedure.id] = procedure
-    return procedure
+    for index, step in enumerate(payload.steps):
+        procedure.steps.append(
+            models.ProcedureStep(
+                key=step.key,
+                title=step.title,
+                prompt=step.prompt,
+                slots=step.slots,
+                position=index,
+            )
+        )
+
+    db.add(procedure)
+    await db.commit()
+    result = await db.execute(
+        select(models.Procedure)
+        .options(selectinload(models.Procedure.steps))
+        .where(models.Procedure.id == procedure.id)
+    )
+    created = result.scalars().unique().one()
+    return created
 
 
 @app.get("/procedures/{procedure_id}", response_model=Procedure)
-def get_procedure(procedure_id: str, db: Session = Depends(get_db)):
-    procedure = (
-        db.query(models.Procedure)
+async def get_procedure(procedure_id: str, db: AsyncSession = Depends(get_db)) -> models.Procedure:
+    result = await db.execute(
+        select(models.Procedure)
         .options(selectinload(models.Procedure.steps))
-        .filter(models.Procedure.id == procedure_id)
-        .first()
+        .where(models.Procedure.id == procedure_id)
     )
-    if not procedure:
-        raise HTTPException(status_code=404, detail="Procedure not found")
+    try:
+        procedure = result.scalars().unique().one()
+    except NoResultFound as exc:
+        raise HTTPException(status_code=404, detail="Procedure not found") from exc
     return procedure
 
 
-@app.post("/runs", response_model=ProcedureRun)
-def start_procedure_run(
-    procedure_id: str,
-    user_id: str = "default_user",
-    db: Session = Depends(get_db),
-):
-    procedure_exists = db.query(models.Procedure.id).filter(models.Procedure.id == procedure_id).first()
-    if not procedure_exists:
+@app.post("/runs", response_model=ProcedureRun, status_code=status.HTTP_201_CREATED)
+async def start_procedure_run(
+    payload: ProcedureRunCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("user")),
+) -> models.ProcedureRun:
+    procedure = await db.get(models.Procedure, payload.procedure_id)
+    if not procedure:
         raise HTTPException(status_code=404, detail="Procedure not found")
 
     run = models.ProcedureRun(
-def get_procedure(procedure_id: str):
-    logger.info("Fetching procedure", extra={"procedure_id": procedure_id})
-    try:
-        return procedures_db[procedure_id]
-    except KeyError as exc:
-        raise ProcedureNotFoundError("Procedure not found") from exc
-
-
-@app.post("/runs", response_model=ProcedureRun, status_code=status.HTTP_201_CREATED)
-def start_procedure_run(
-    procedure_id: str,
-    current_user=Depends(require_role("user")),
-):
-    if procedure_id not in procedures_db:
-        raise HTTPException(status_code=404, detail="Procedure not found")
-
-    run = ProcedureRun(
-        id=str(uuid.uuid4()),
-        procedure_id=procedure_id,
-        user_id=current_user.username,
-@app.post("/runs", response_model=ProcedureRun)
-def start_procedure_run(payload: ProcedureRunCreateRequest):
-    logger.info(
-        "Starting procedure run",
-        extra={"procedure_id": payload.procedure_id, "user_id": payload.user_id},
-    )
-    if payload.procedure_id not in procedures_db:
-        raise ProcedureNotFoundError("Procedure not found")
-
-    run = ProcedureRun(
-        id=str(uuid.uuid4()),
         procedure_id=payload.procedure_id,
-        user_id=payload.user_id or "default_user",
+        user_id=payload.user_id or current_user.username,
         state="started",
-        created_at=datetime.now(),
+        created_at=datetime.utcnow(),
     )
+
     db.add(run)
-    db.commit()
-    db.refresh(run)
+    await db.commit()
+    await db.refresh(run)
     return run
 
 
 @app.get("/runs/{run_id}", response_model=ProcedureRun)
-def get_run(run_id: str, db: Session = Depends(get_db)):
-    run = db.get(models.ProcedureRun, run_id)
+async def get_run(run_id: str, db: AsyncSession = Depends(get_db)) -> models.ProcedureRun:
+    run = await db.get(models.ProcedureRun, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
     return run
-def get_run(run_id: str):
-    logger.info("Fetching run", extra={"run_id": run_id})
-    try:
-        return runs_db[run_id]
-    except KeyError as exc:
-        raise RunNotFoundError("Run not found") from exc
 
 
 if __name__ == "__main__":

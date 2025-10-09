@@ -5,6 +5,7 @@ import sys
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+from sqlalchemy.engine import make_url
 
 from alembic import context
 
@@ -23,7 +24,19 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from app.database import SQLALCHEMY_DATABASE_URL  # noqa: E402
 from app.models import Base  # noqa: E402
 
-config.set_main_option("sqlalchemy.url", SQLALCHEMY_DATABASE_URL)
+def _sync_database_url(async_url: str) -> str:
+    url = make_url(async_url)
+    drivername = url.drivername
+    if drivername.startswith("postgresql+asyncpg"):
+        drivername = drivername.replace("+asyncpg", "+psycopg")
+    elif drivername.startswith("postgresql+psycopg[async]"):
+        drivername = drivername.replace("+psycopg[async]", "+psycopg")
+    elif drivername.startswith("sqlite+aiosqlite"):
+        drivername = drivername.replace("+aiosqlite", "+pysqlite")
+    return str(url.set(drivername=drivername))
+
+
+config.set_main_option("sqlalchemy.url", _sync_database_url(SQLALCHEMY_DATABASE_URL))
 
 target_metadata = Base.metadata
 

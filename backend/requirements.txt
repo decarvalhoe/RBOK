@@ -9,6 +9,8 @@ python-jose
 python-dotenv
 psycopg2-binary
 asyncpg
+aiosqlite
+httpx
 pgvector
 redis
 alembic

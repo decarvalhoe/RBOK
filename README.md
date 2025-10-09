@@ -92,8 +92,47 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
    # .venv\Scripts\activate   # Windows
    pip install -r requirements.txt
    alembic upgrade head
-   uvicorn app.main:app --reload --port 8000
+   uvicorn app.main:app --reload --loop uvloop --http httptools --port 8000
    ```
+
+   #### Configuration de la base asynchrone
+
+   L'API utilise un moteur SQLAlchemy **asynchrone**. Les paramètres de pool peuvent être ajustés via les variables d'environnement suivantes :
+
+   | Variable | Valeur par défaut | Description |
+   |----------|------------------|-------------|
+   | `DB_POOL_SIZE` | `10` | Nombre de connexions persistantes dans le pool |
+   | `DB_MAX_OVERFLOW` | `20` | Connexions supplémentaires autorisées en pic |
+   | `DB_POOL_TIMEOUT` | `30` | Délai (s) avant expiration lors d'un checkout |
+   | `DB_POOL_RECYCLE` | `1800` | Recyclage (s) pour éviter les connexions mortes |
+   | `DB_POOL_PRE_PING` | `true` | Active un ping préventif avant chaque checkout |
+
+   Pour PostgreSQL, les pilotes `asyncpg`/`psycopg` sont automatiquement sélectionnés. Pour SQLite, l'application bascule sur `aiosqlite`.
+
+   #### Exécution optimisée
+
+   En production, combinez les optimisations du loop avec un serveur HTTP asynchrone :
+
+   ```bash
+   uvicorn app.main:app --loop uvloop --http httptools --host 0.0.0.0 --port 8000 --workers 1
+   ```
+
+   Uvicorn peut également être orchestré avec `gunicorn` :
+
+   ```bash
+   gunicorn app.main:app --bind 0.0.0.0:8000 -k uvicorn.workers.UvicornWorker
+   ```
+
+   #### Benchmarks de charge
+
+   Un script de charge léger (`backend/scripts/benchmark_async.py`) permet de vérifier le débit concurrent. Il peut être lancé depuis la racine du projet :
+
+   ```bash
+   cd backend
+   python scripts/benchmark_async.py
+   ```
+
+   Le script configure automatiquement une base SQLite asynchrone et compare 25 requêtes séquentielles à 75 requêtes concurrentes.
 
    #### Authentification JWT de développement
 
