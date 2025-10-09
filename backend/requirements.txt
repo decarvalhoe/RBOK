@@ -11,5 +11,6 @@ psycopg2-binary
 asyncpg
 pgvector
 redis
+fakeredis
 alembic
 pytest

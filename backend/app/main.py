@@ -1,47 +1,26 @@
-from datetime import datetime
-import uuid
-from typing import List, Optional
+from __future__ import annotations
 
-from fastapi import Depends, FastAPI, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel
-
-from .auth import (
-    Token,
-    authenticate_user,
-    create_access_token,
-    require_role,
-)
-
-app = FastAPI(
-    title="Réalisons API",
-    description=(
-        "API pour l'assistant procédural Réalisons. "
-        "Les opérations d'écriture nécessitent un token Bearer issu de l'endpoint ``/auth/token``. "
-        "Les administrateurs peuvent créer des procédures tandis que les utilisateurs standard peuvent uniquement lancer des exécutions."
-    ),
+import json
 import logging
 import time
 import uuid
 from contextvars import ContextVar
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, ConfigDict
-from sqlalchemy.orm import Session, selectinload
-
-from . import models
-from .database import get_db
-from typing import Dict, List, Optional
-
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel, ConfigDict, Field
+from redis.exceptions import RedisError
+from sqlalchemy.orm import Session, selectinload
 from starlette.middleware.base import BaseHTTPMiddleware
+
+from . import models
+from .auth import Token, authenticate_user, create_access_token, require_role
+from .cache import get_redis_client
+from .database import get_db
 
 
 class DomainError(Exception):
@@ -88,7 +67,7 @@ logger = configure_logging()
 class CorrelationIdMiddleware(BaseHTTPMiddleware):
     """Attach correlation ids and timing information to each request."""
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next):  # pragma: no cover - FastAPI interface
         correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
         token = correlation_id_var.set(correlation_id)
         start_time = time.perf_counter()
@@ -128,7 +107,6 @@ app = FastAPI(
     version="0.1.0",
 )
 
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -139,15 +117,13 @@ app.add_middleware(
 app.add_middleware(CorrelationIdMiddleware)
 
 
-
 class ProcedureStep(BaseModel):
     key: str
     title: str
     prompt: str
-    slots: List[dict] = Field(default_factory=list)
+    slots: List[Dict[str, Any]] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
-    slots: List[Dict[str, str]] = Field(default_factory=list)
 
 
 class Procedure(BaseModel):
@@ -157,7 +133,6 @@ class Procedure(BaseModel):
     steps: List[ProcedureStep] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
-
 
 
 class ProcedureCreateRequest(BaseModel):
@@ -176,14 +151,99 @@ class ProcedureRun(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class ProcedureRunCreateRequest(BaseModel):
     procedure_id: str
-    user_id: Optional[str] = Field(default="default_user")
+    user_id: Optional[str] = None
 
 
-# Stockage temporaire en mémoire (à remplacer par une vraie DB)
-procedures_db: Dict[str, Procedure] = {}
-runs_db: Dict[str, ProcedureRun] = {}
+PROCEDURE_LIST_CACHE_KEY = "procedures:index"
+PROCEDURE_LIST_TTL = 60
+PROCEDURE_META_TTL = 120
+PROCEDURE_STEPS_TTL = 300
+RUN_DETAIL_TTL = 60
+
+
+def procedure_meta_cache_key(procedure_id: str) -> str:
+    return f"procedures:{procedure_id}:meta"
+
+
+def procedure_steps_cache_key(procedure_id: str) -> str:
+    return f"procedures:{procedure_id}:steps"
+
+
+def run_cache_key(run_id: str) -> str:
+    return f"runs:{run_id}"
+
+
+def _cache_get_json(key: str) -> Optional[Any]:
+    try:
+        cached = get_redis_client().get(key)
+    except RedisError as exc:  # pragma: no cover - defensive logging
+        logger.warning("Redis GET failed", extra={"key": key, "error": str(exc)})
+        return None
+    if cached is None:
+        return None
+    try:
+        return json.loads(cached)
+    except json.JSONDecodeError:  # pragma: no cover - corrupted cache entry
+        logger.warning("Invalid JSON cached", extra={"key": key})
+        return None
+
+
+def _cache_set_json(key: str, value: Any, ttl: int) -> None:
+    try:
+        get_redis_client().setex(key, ttl, json.dumps(value))
+    except RedisError as exc:  # pragma: no cover - defensive logging
+        logger.warning("Redis SETEX failed", extra={"key": key, "error": str(exc)})
+
+
+def _cache_delete(*keys: str) -> None:
+    keys = tuple(filter(None, keys))
+    if not keys:
+        return
+    try:
+        get_redis_client().delete(*keys)
+    except RedisError as exc:  # pragma: no cover - defensive logging
+        logger.warning("Redis DELETE failed", extra={"keys": keys, "error": str(exc)})
+
+
+def _combine_cached_procedure(procedure_id: str) -> Optional[Dict[str, Any]]:
+    meta = _cache_get_json(procedure_meta_cache_key(procedure_id))
+    steps = _cache_get_json(procedure_steps_cache_key(procedure_id))
+    if meta is None or steps is None:
+        return None
+    combined: Dict[str, Any] = {"steps": steps, **meta}
+    return combined
+
+
+def _serialize_procedure(procedure: models.Procedure) -> Dict[str, Any]:
+    return Procedure.model_validate(procedure).model_dump(mode="json")
+
+
+def _serialize_run(run: models.ProcedureRun) -> Dict[str, Any]:
+    return ProcedureRun.model_validate(run).model_dump(mode="json")
+
+
+def _store_procedure_in_cache(procedure_data: Dict[str, Any]) -> None:
+    procedure_id = procedure_data["id"]
+    meta = {key: procedure_data[key] for key in ("id", "name", "description")}
+    steps = procedure_data.get("steps", [])
+    _cache_set_json(procedure_meta_cache_key(procedure_id), meta, PROCEDURE_META_TTL)
+    _cache_set_json(procedure_steps_cache_key(procedure_id), steps, PROCEDURE_STEPS_TTL)
+
+
+def _invalidate_procedure_cache(procedure_id: str) -> None:
+    _cache_delete(procedure_meta_cache_key(procedure_id), procedure_steps_cache_key(procedure_id))
+
+
+def _invalidate_procedure_list_cache() -> None:
+    _cache_delete(PROCEDURE_LIST_CACHE_KEY)
+
+
+def _store_procedure_index(procedures: List[Dict[str, Any]]) -> None:
+    ids = [procedure["id"] for procedure in procedures]
+    _cache_set_json(PROCEDURE_LIST_CACHE_KEY, ids, PROCEDURE_LIST_TTL)
 
 
 @app.exception_handler(NotFoundError)
@@ -205,56 +265,19 @@ async def domain_error_handler(request: Request, exc: DomainError) -> JSONRespon
 
 
 @app.get("/")
-def read_root():
+def read_root() -> Dict[str, str]:
     logger.debug("Root endpoint accessed")
     return {"message": "Bienvenue sur l'API de l'assistant Réalisons v0.1"}
 
 
 @app.get("/health")
-def health_check():
+def health_check() -> Dict[str, str]:
     logger.debug("Health check requested")
     return {"status": "healthy", "version": "0.1.0"}
 
 
-@app.get("/procedures", response_model=List[Procedure])
-def list_procedures(db: Session = Depends(get_db)):
-    procedures = (
-        db.query(models.Procedure)
-        .options(selectinload(models.Procedure.steps))
-        .all()
-    )
-    return procedures
-
-
-@app.post("/procedures", response_model=Procedure)
-def create_procedure(procedure: Procedure, db: Session = Depends(get_db)):
-    procedure_id = procedure.id or str(uuid.uuid4())
-    db_procedure = models.Procedure(
-        id=procedure_id,
-        name=procedure.name,
-        description=procedure.description,
-    )
-    for index, step in enumerate(procedure.steps):
-        db_procedure.steps.append(
-            models.ProcedureStep(
-                key=step.key,
-                title=step.title,
-                prompt=step.prompt,
-                slots=step.slots,
-                position=index,
-            )
-        )
-    db.add(db_procedure)
-    db.commit()
-    db.refresh(db_procedure)
-    return db_procedure
-
-def list_procedures():
-    logger.info("Listing procedures", extra={"total": len(procedures_db)})
-    return list(procedures_db.values())
-
 @app.post("/auth/token", response_model=Token, tags=["auth"])
-def login(form_data: OAuth2PasswordRequestForm = Depends()):
+def login(form_data: OAuth2PasswordRequestForm = Depends()) -> Dict[str, str]:
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -265,28 +288,86 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
     access_token = create_access_token({"sub": user.username, "role": user.role})
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.post("/procedures", response_model=Procedure, status_code=status.HTTP_201_CREATED)
-def create_procedure(
-    procedure: Procedure,
-    current_user=Depends(require_role("admin")),
-):
-    procedure.id = str(uuid.uuid4())
 
-@app.post("/procedures", response_model=Procedure)
-def create_procedure(payload: ProcedureCreateRequest):
-    logger.info("Creating procedure", extra={"name": payload.name})
-    procedure = Procedure(
+@app.get("/procedures", response_model=List[Procedure])
+def list_procedures(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
+    cached_ids = _cache_get_json(PROCEDURE_LIST_CACHE_KEY)
+    if cached_ids is not None:
+        if not cached_ids:
+            logger.debug("Returning empty procedure list from cache")
+            return []
+        cached_procedures = [
+            _combine_cached_procedure(procedure_id) for procedure_id in cached_ids
+        ]
+        if all(item is not None for item in cached_procedures):
+            logger.debug(
+                "Returning procedures from cache",
+                extra={"count": len(cached_procedures)},
+            )
+            return [item for item in cached_procedures if item is not None]
+
+    procedures = (
+        db.query(models.Procedure)
+        .options(selectinload(models.Procedure.steps))
+        .order_by(models.Procedure.name)
+        .all()
+    )
+    serialized = [_serialize_procedure(procedure) for procedure in procedures]
+    if serialized:
+        for payload in serialized:
+            _store_procedure_in_cache(payload)
+        _store_procedure_index(serialized)
+    else:
+        _cache_set_json(PROCEDURE_LIST_CACHE_KEY, [], PROCEDURE_LIST_TTL)
+    return serialized
+
+
+@app.post(
+    "/procedures",
+    response_model=Procedure,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_procedure(
+    payload: ProcedureCreateRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("admin")),
+) -> Dict[str, Any]:
+    logger.info(
+        "Creating procedure",
+        extra={"procedure_name": payload.name, "user": current_user.username},
+    )
+    procedure = models.Procedure(
         id=str(uuid.uuid4()),
         name=payload.name,
         description=payload.description,
-        steps=payload.steps,
     )
-    procedures_db[procedure.id] = procedure
-    return procedure
+    for index, step in enumerate(payload.steps):
+        procedure.steps.append(
+            models.ProcedureStep(
+                key=step.key,
+                title=step.title,
+                prompt=step.prompt,
+                slots=step.slots,
+                position=index,
+            )
+        )
+    db.add(procedure)
+    db.commit()
+    db.refresh(procedure)
+
+    serialized = _serialize_procedure(procedure)
+    _store_procedure_in_cache(serialized)
+    _invalidate_procedure_list_cache()
+    return serialized
 
 
 @app.get("/procedures/{procedure_id}", response_model=Procedure)
-def get_procedure(procedure_id: str, db: Session = Depends(get_db)):
+def get_procedure(procedure_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    cached = _combine_cached_procedure(procedure_id)
+    if cached is not None:
+        logger.debug("Returning procedure from cache", extra={"procedure_id": procedure_id})
+        return cached
+
     procedure = (
         db.query(models.Procedure)
         .options(selectinload(models.Procedure.steps))
@@ -295,77 +376,67 @@ def get_procedure(procedure_id: str, db: Session = Depends(get_db)):
     )
     if not procedure:
         raise HTTPException(status_code=404, detail="Procedure not found")
-    return procedure
+
+    serialized = _serialize_procedure(procedure)
+    _store_procedure_in_cache(serialized)
+    return serialized
 
 
-@app.post("/runs", response_model=ProcedureRun)
+@app.post(
+    "/runs",
+    response_model=ProcedureRun,
+    status_code=status.HTTP_201_CREATED,
+)
 def start_procedure_run(
-    procedure_id: str,
-    user_id: str = "default_user",
+    payload: ProcedureRunCreateRequest,
     db: Session = Depends(get_db),
-):
-    procedure_exists = db.query(models.Procedure.id).filter(models.Procedure.id == procedure_id).first()
+    current_user=Depends(require_role("user")),
+) -> Dict[str, Any]:
+    logger.info(
+        "Starting procedure run",
+        extra={"procedure_id": payload.procedure_id, "user": current_user.username},
+    )
+    procedure_exists = (
+        db.query(models.Procedure.id)
+        .filter(models.Procedure.id == payload.procedure_id)
+        .first()
+    )
     if not procedure_exists:
         raise HTTPException(status_code=404, detail="Procedure not found")
 
     run = models.ProcedureRun(
-def get_procedure(procedure_id: str):
-    logger.info("Fetching procedure", extra={"procedure_id": procedure_id})
-    try:
-        return procedures_db[procedure_id]
-    except KeyError as exc:
-        raise ProcedureNotFoundError("Procedure not found") from exc
-
-
-@app.post("/runs", response_model=ProcedureRun, status_code=status.HTTP_201_CREATED)
-def start_procedure_run(
-    procedure_id: str,
-    current_user=Depends(require_role("user")),
-):
-    if procedure_id not in procedures_db:
-        raise HTTPException(status_code=404, detail="Procedure not found")
-
-    run = ProcedureRun(
-        id=str(uuid.uuid4()),
-        procedure_id=procedure_id,
-        user_id=current_user.username,
-@app.post("/runs", response_model=ProcedureRun)
-def start_procedure_run(payload: ProcedureRunCreateRequest):
-    logger.info(
-        "Starting procedure run",
-        extra={"procedure_id": payload.procedure_id, "user_id": payload.user_id},
-    )
-    if payload.procedure_id not in procedures_db:
-        raise ProcedureNotFoundError("Procedure not found")
-
-    run = ProcedureRun(
         id=str(uuid.uuid4()),
         procedure_id=payload.procedure_id,
-        user_id=payload.user_id or "default_user",
+        user_id=payload.user_id or current_user.username,
         state="started",
-        created_at=datetime.now(),
+        created_at=datetime.utcnow(),
     )
     db.add(run)
     db.commit()
     db.refresh(run)
-    return run
+
+    serialized = _serialize_run(run)
+    _cache_set_json(run_cache_key(run.id), serialized, RUN_DETAIL_TTL)
+    return serialized
 
 
 @app.get("/runs/{run_id}", response_model=ProcedureRun)
-def get_run(run_id: str, db: Session = Depends(get_db)):
+def get_run(run_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    cached = _cache_get_json(run_cache_key(run_id))
+    if cached is not None:
+        logger.debug("Returning run from cache", extra={"run_id": run_id})
+        return cached
+
     run = db.get(models.ProcedureRun, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    return run
-def get_run(run_id: str):
-    logger.info("Fetching run", extra={"run_id": run_id})
-    try:
-        return runs_db[run_id]
-    except KeyError as exc:
-        raise RunNotFoundError("Run not found") from exc
+
+    serialized = _serialize_run(run)
+    _cache_set_json(run_cache_key(run_id), serialized, RUN_DETAIL_TTL)
+    return serialized
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - manual execution helper
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
