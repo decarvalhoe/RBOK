@@ -2,6 +2,10 @@
 """AI Gateway application orchestrating ASR, TTS and LLM interactions."""
 from __future__ import annotations
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import logging
 from typing import Dict
 
@@ -75,9 +79,17 @@ def get_backend_client(settings: Settings = Depends(get_settings)) -> BackendCli
 # Routes -------------------------------------------------------------------
 
 
+
 @app.get("/")
 async def root() -> Dict[str, str]:
     return {"message": "AI Gateway opérationnel"}
+
+
+@app.get("/healthz")
+async def healthz(settings: Settings = Depends(get_settings)) -> Dict[str, str]:
+    """Simple readiness probe for container orchestrators."""
+
+    return {"status": "ok", "openai": "configured" if settings.openai_api_key else "missing"}
 
 
 @app.post("/asr/transcriptions", response_model=AsrResponse)

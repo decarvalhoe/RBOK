@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -67,6 +68,8 @@ const getErrorMessage = (error: unknown): string => {
   return 'Une erreur inconnue est survenue.';
 };
 
+export default function Home(): JSX.Element {
+  const [message, setMessage] = useState('');
 export default function Home() {
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -74,15 +77,16 @@ export default function Home() {
   const isSendDisabled = useMemo(() => isLoading || !message.trim(), [isLoading, message]);
 
   const handleSendMessage = useCallback(async () => {
+    const trimmed = message.trim();
+    if (!trimmed || isLoading) {
     if (isLoading || !message.trim()) {
       return;
     }
 
-    const trimmedMessage = message.trim();
     const userMessage: ConversationMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
-      content: trimmedMessage,
+      content: trimmed,
       status: 'success',
     };
 
@@ -98,7 +102,7 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      const response = await sendChatMessage(trimmedMessage);
+      const response = await sendChatMessage(trimmed);
       const assistantContent = response?.content?.trim()
         ? response.content
         : "L'assistant n'a renvoyé aucun contenu.";
@@ -250,6 +254,9 @@ export default function Home() {
                     msg.role === 'user'
                       ? 'bg-blue-600 text-white'
                       : msg.status === 'error'
+                      ? 'bg-red-100 text-red-700 border border-red-300'
+                      : msg.status === 'pending'
+                      ? 'bg-gray-200 text-gray-600 animate-pulse'
                         ? 'bg-red-100 text-red-700 ring-1 ring-red-200'
                         : msg.status === 'pending'
                           ? 'bg-slate-100 text-slate-600'
@@ -274,6 +281,10 @@ export default function Home() {
 
       <form
         className="flex flex-col gap-3 rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-200 md:flex-row"
+        onSubmit={(event) => {
+          event.preventDefault();
+          handleSendMessage();
+        }}
         onSubmit={handleSubmit}
       >
         <label className="sr-only" htmlFor="message">
@@ -288,6 +299,10 @@ export default function Home() {
           placeholder="Tapez votre message..."
           className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           aria-label="Message"
+        />
+        <button
+          type="submit"
+          className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-base font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isLoading}
         />
         <button
