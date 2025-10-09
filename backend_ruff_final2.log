@@ -1,0 +1,199 @@
+make: Entering directory '/workspace/backend'
+[1m[91mI001 [0m[[1m[96m*[0m] [1mImport block is un-sorted or un-formatted[0m
+  [1m[94m-->[0m app/models.py:1:1
+   [1m[94m|[0m
+[1m[94m 1 |[0m [1m[91m/[0m from __future__ import annotations
+[1m[94m 2 |[0m [1m[91m|[0m
+[1m[94m 3 |[0m [1m[91m|[0m import uuid
+[1m[94m 4 |[0m [1m[91m|[0m from datetime import datetime
+[1m[94m 5 |[0m [1m[91m|[0m from typing import Dict, List, Optional
+[1m[94m 6 |[0m [1m[91m|[0m
+[1m[94m 7 |[0m [1m[91m|[0m from sqlalchemy import DateTime, ForeignKey, Index, JSON, String, Text, UniqueConstraint
+[1m[94m 8 |[0m [1m[91m|[0m from sqlalchemy.orm import Mapped, mapped_column, relationship
+[1m[94m 9 |[0m [1m[91m|[0m
+[1m[94m10 |[0m [1m[91m|[0m from .database import Base
+   [1m[94m|[0m [1m[91m|__________________________^[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: [1mOrganize imports[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+  [1m[94m-->[0m app/tests/test_auth_integration.py:12:1
+   [1m[94m|[0m
+[1m[94m10 |[0m def get_token(username: str, password: str) -> str:
+[1m[94m11 |[0m
+[1m[94m12 |[0m def get_token(client: TestClient, username: str, password: str) -> str:
+   [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m13 |[0m     response = client.post(
+[1m[94m14 |[0m         "/auth/token",
+   [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+  [1m[94m-->[0m app/tests/test_auth_integration.py:39:1
+   [1m[94m|[0m
+[1m[94m38 |[0m def test_create_procedure_requires_authentication() -> None:
+[1m[94m39 |[0m def test_create_procedure_requires_authentication(client: TestClient) -> None:
+   [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m40 |[0m     response = client.post(
+[1m[94m41 |[0m         "/procedures",
+   [1m[94m|[0m
+
+[1m[91mI001 [0m[[1m[96m*[0m] [1mImport block is un-sorted or un-formatted[0m
+  [1m[94m-->[0m tests/conftest.py:6:1
+   [1m[94m|[0m
+[1m[94m 4 |[0m   # so that the configuration validation passes.
+[1m[94m 5 |[0m   os.environ.setdefault("REALISONS_SECRET_KEY", "test-secret-key")
+[1m[94m 6 |[0m [1m[91m/[0m from typing import Generator
+[1m[94m 7 |[0m [1m[91m|[0m import os
+[1m[94m 8 |[0m [1m[91m|[0m import sys
+[1m[94m 9 |[0m [1m[91m|[0m
+[1m[94m10 |[0m [1m[91m|[0m import pytest
+[1m[94m11 |[0m [1m[91m|[0m from fastapi.testclient import TestClient
+[1m[94m12 |[0m [1m[91m|[0m from sqlalchemy import create_engine
+[1m[94m13 |[0m [1m[91m|[0m from sqlalchemy.orm import Session, sessionmaker
+   [1m[94m|[0m [1m[91m|________________________________________________^[0m
+[1m[94m14 |[0m
+[1m[94m15 |[0m   sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+   [1m[94m|[0m
+[1m[96mhelp[0m: [1mOrganize imports[0m
+
+[1m[91mI001 [0m[[1m[96m*[0m] [1mImport block is un-sorted or un-formatted[0m
+  [1m[94m-->[0m tests/conftest.py:17:1
+   [1m[94m|[0m
+[1m[94m15 |[0m   sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+[1m[94m16 |[0m
+[1m[94m17 |[0m [1m[91m/[0m from app.main import app  # noqa: E402
+[1m[94m18 |[0m [1m[91m|[0m from app.database import get_db, Base  # noqa: E402
+   [1m[94m|[0m [1m[91m|_____________________________________^[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: [1mOrganize imports[0m
+
+[1m[91mF404 [0m[1m`from __future__` imports must occur at the beginning of the file[0m
+  [1m[94m-->[0m tests/conftest.py:49:1
+   [1m[94m|[0m
+[1m[94m47 |[0m         yield test_client
+[1m[94m48 |[0m     app.dependency_overrides.clear()
+[1m[94m49 |[0m from __future__ import annotations
+   [1m[94m|[0m [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m50 |[0m
+[1m[94m51 |[0m import sys
+   [1m[94m|[0m
+
+[1m[91mE402 [0m[1mModule level import not at top of file[0m
+  [1m[94m-->[0m tests/conftest.py:49:1
+   [1m[94m|[0m
+[1m[94m47 |[0m         yield test_client
+[1m[94m48 |[0m     app.dependency_overrides.clear()
+[1m[94m49 |[0m from __future__ import annotations
+   [1m[94m|[0m [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m50 |[0m
+[1m[94m51 |[0m import sys
+   [1m[94m|[0m
+
+[1m[91mE402 [0m[1mModule level import not at top of file[0m
+  [1m[94m-->[0m tests/conftest.py:51:1
+   [1m[94m|[0m
+[1m[94m49 |[0m from __future__ import annotations
+[1m[94m50 |[0m
+[1m[94m51 |[0m import sys
+   [1m[94m|[0m [1m[91m^^^^^^^^^^[0m
+[1m[94m52 |[0m from pathlib import Path
+   [1m[94m|[0m
+
+[1m[91mE402 [0m[1mModule level import not at top of file[0m
+  [1m[94m-->[0m tests/conftest.py:52:1
+   [1m[94m|[0m
+[1m[94m51 |[0m import sys
+[1m[94m52 |[0m from pathlib import Path
+   [1m[94m|[0m [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m53 |[0m
+[1m[94m54 |[0m ROOT_DIR = Path(__file__).resolve().parents[1]
+   [1m[94m|[0m
+
+[1m[91mE402 [0m[1mModule level import not at top of file[0m
+  [1m[94m-->[0m tests/test_environment.py:14:1
+   [1m[94m|[0m
+[1m[94m12 |[0m     sys.path.insert(0, str(ROOT))
+[1m[94m13 |[0m
+[1m[94m14 |[0m from app import env  # type: ignore[import-not-found]
+   [1m[94m|[0m [1m[91m^^^^^^^^^^^^^^^^^^^[0m
+   [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+  [1m[94m-->[0m tests/test_persistence.py:85:1
+   [1m[94m|[0m
+[1m[94m85 |[0m def test_create_and_fetch_procedure(client: TestClient, auth_header) -> None:
+   [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m86 |[0m     admin_token = get_token(client, "alice", "adminpass")
+[1m[94m87 |[0m     payload = {
+   [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+   [1m[94m-->[0m tests/test_persistence.py:130:1
+    [1m[94m|[0m
+[1m[94m128 |[0m     admin_token = get_token("alice", "adminpass")
+[1m[94m129 |[0m def test_start_and_get_run(client: TestClient) -> None:
+[1m[94m130 |[0m def test_start_and_get_run(client: TestClient, auth_header) -> None:
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m131 |[0m     admin_token = get_token(client, "alice", "adminpass")
+[1m[94m132 |[0m     procedure_response = client.post(
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+   [1m[94m-->[0m tests/test_persistence.py:148:5
+    [1m[94m|[0m
+[1m[94m146 |[0m         json={"procedure_id": procedure_id, "user_id": "alice"},
+[1m[94m147 |[0m     user_token = get_token("bob", "userpass")
+[1m[94m148 |[0m     run_response = client.post(
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^[0m
+[1m[94m149 |[0m         "/runs",
+[1m[94m150 |[0m         params={"procedure_id": procedure_id},
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+   [1m[94m-->[0m tests/test_persistence.py:155:5
+    [1m[94m|[0m
+[1m[94m153 |[0m         json={"procedure_id": procedure_id, "user_id": "alice"},
+[1m[94m154 |[0m     user_token = get_token(client, "bob", "userpass")
+[1m[94m155 |[0m     run_response = client.post(
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^[0m
+[1m[94m156 |[0m         "/runs",
+[1m[94m157 |[0m         params={"procedure_id": procedure_id},
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ')', found NonLogicalNewline[0m
+   [1m[94m-->[0m tests/test_persistence.py:160:6
+    [1m[94m|[0m
+[1m[94m158 |[0m         json={"procedure_id": procedure_id},
+[1m[94m159 |[0m         headers=auth_header(user_token),
+[1m[94m160 |[0m     )
+    [1m[94m|[0m      [1m[91m^[0m
+[1m[94m161 |[0m     assert run_response.status_code == 201
+[1m[94m162 |[0m     run_data = run_response.json()
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ')', found newline[0m
+   [1m[94m-->[0m tests/test_validation.py:108:44
+    [1m[94m|[0m
+[1m[94m106 |[0m     response = client.post(
+[1m[94m107 |[0m         "/runs",
+[1m[94m108 |[0m         params={"procedure_id": "missing"},
+    [1m[94m|[0m                                            [1m[91m^[0m
+[1m[94m109 |[0m def test_run_creation_requires_procedure_id() -> None:
+[1m[94m110 |[0m     user_token = get_token("bob", "userpass")
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+   [1m[94m-->[0m tests/test_validation.py:152:1
+    [1m[94m|[0m
+[1m[94m150 |[0m     admin_token = get_token("alice", "adminpass")
+[1m[94m151 |[0m def test_procedure_creation_requires_steps_structure(client: TestClient) -> None:
+[1m[94m152 |[0m def test_procedure_creation_requires_steps_structure() -> None:
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m153 |[0m     admin_token = get_token("alice", "adminpass")
+[1m[94m154 |[0m def test_procedure_creation_requires_steps_structure(client: TestClient, auth_header) -> None:
+    [1m[94m|[0m
+
+Found 17 errors.
+[[36m*[0m] 3 fixable with the `--fix` option.
+make: *** [Makefile:4: lint] Error 1
+make: Leaving directory '/workspace/backend'

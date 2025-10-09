@@ -1,0 +1,23 @@
+
+> realisons-webapp@0.1.0 format:fix
+> prettier --write .
+
+.eslintrc.cjs 487ms (unchanged)
+.prettierrc.json 6ms (unchanged)
+app/__tests__/home.styling.test.tsx 61ms (unchanged)
+app/__tests__/page.test.tsx 63ms (unchanged)
+app/globals.css 39ms (unchanged)
+app/layout.tsx 19ms (unchanged)
+app/page.tsx 113ms (unchanged)
+jest.config.js 36ms (unchanged)
+jest.setup.ts 17ms (unchanged)
+lib/api.ts 13ms (unchanged)
+lib/messageConstraints.ts 6ms (unchanged)
+next-env.d.ts 6ms (unchanged)
+next.config.js 5ms (unchanged)
+package-lock.json 241ms (unchanged)
+package.json 2ms (unchanged)
+postcss.config.js 4ms (unchanged)
+README.md 73ms
+tailwind.config.js 5ms (unchanged)
+tsconfig.json 6ms (unchanged)

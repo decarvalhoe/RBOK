@@ -1,0 +1,11 @@
+make: Entering directory '/workspace/backend'
+reformatted /workspace/backend/app/cache.py
+reformatted /workspace/backend/app/message_constraints.py
+reformatted /workspace/backend/app/env.py
+reformatted /workspace/backend/app/config.py
+reformatted /workspace/backend/alembic/versions/20241107_add_audit_events.py
+reformatted /workspace/backend/app/services/audit.py
+
+All done! ✨ 🍰 ✨
+6 files reformatted, 9 files left unchanged.
+make: Leaving directory '/workspace/backend'

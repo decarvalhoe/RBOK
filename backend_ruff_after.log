@@ -1,0 +1,2034 @@
+[1m[91mE402 [0m[1mModule level import not at top of file[0m
+  [1m[94m-->[0m backend/app/auth.py:64:1
+   [1m[94m|[0m
+[1m[94m62 |[0m # Models
+[1m[94m63 |[0m # ---------------------------------------------------------------------------
+[1m[94m64 |[0m from .env import get_secret_key
+   [1m[94m|[0m [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m65 |[0m
+[1m[94m66 |[0m SECRET_KEY = get_secret_key()
+   [1m[94m|[0m
+
+[1m[91mF821 [0m[1mUndefined name `CryptContext`[0m
+  [1m[94m-->[0m backend/app/auth.py:70:15
+   [1m[94m|[0m
+[1m[94m68 |[0m ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+[1m[94m69 |[0m
+[1m[94m70 |[0m pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+   [1m[94m|[0m               [1m[91m^^^^^^^^^^^^[0m
+[1m[94m71 |[0m oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+[1m[94m72 |[0m optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
+   [1m[94m|[0m
+
+[1m[91mF821 [0m[1mUndefined name `UserInDB`[0m
+   [1m[94m-->[0m backend/app/auth.py:219:22
+    [1m[94m|[0m
+[1m[94m217 |[0m         },
+[1m[94m218 |[0m     }
+[1m[94m219 |[0m     users: Dict[str, UserInDB] = {}
+    [1m[94m|[0m                      [1m[91m^^^^^^^^[0m
+[1m[94m220 |[0m     for username, info in seed_data.items():
+[1m[94m221 |[0m         users[username] = UserInDB(
+    [1m[94m|[0m
+
+[1m[91mF821 [0m[1mUndefined name `UserInDB`[0m
+   [1m[94m-->[0m backend/app/auth.py:221:27
+    [1m[94m|[0m
+[1m[94m219 |[0m     users: Dict[str, UserInDB] = {}
+[1m[94m220 |[0m     for username, info in seed_data.items():
+[1m[94m221 |[0m         users[username] = UserInDB(
+    [1m[94m|[0m                           [1m[91m^^^^^^^^[0m
+[1m[94m222 |[0m             username=username,
+[1m[94m223 |[0m             full_name=info["full_name"],
+    [1m[94m|[0m
+
+[1m[91mF821 [0m[1mUndefined name `get_password_hash`[0m
+   [1m[94m-->[0m backend/app/auth.py:225:29
+    [1m[94m|[0m
+[1m[94m223 |[0m             full_name=info["full_name"],
+[1m[94m224 |[0m             role=info["role"],
+[1m[94m225 |[0m             hashed_password=get_password_hash(info["password"]),
+    [1m[94m|[0m                             [1m[91m^^^^^^^^^^^^^^^^^[0m
+[1m[94m226 |[0m         )
+[1m[94m227 |[0m     return users
+    [1m[94m|[0m
+
+[1m[91mF822 [0m[1mUndefined name `TokenData` in `__all__`[0m
+   [1m[94m-->[0m backend/app/auth.py:405:5
+    [1m[94m|[0m
+[1m[94m403 |[0m __all__ = [
+[1m[94m404 |[0m     "Token",
+[1m[94m405 |[0m     "TokenData",
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^[0m
+[1m[94m406 |[0m     "User",
+[1m[94m407 |[0m     "authenticate_user",
+    [1m[94m|[0m
+
+[1m[91mF822 [0m[1mUndefined name `authenticate_user` in `__all__`[0m
+   [1m[94m-->[0m backend/app/auth.py:407:5
+    [1m[94m|[0m
+[1m[94m405 |[0m     "TokenData",
+[1m[94m406 |[0m     "User",
+[1m[94m407 |[0m     "authenticate_user",
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m408 |[0m     "create_access_token",
+[1m[94m409 |[0m     "get_current_user",
+    [1m[94m|[0m
+
+[1m[91mF822 [0m[1mUndefined name `create_access_token` in `__all__`[0m
+   [1m[94m-->[0m backend/app/auth.py:408:5
+    [1m[94m|[0m
+[1m[94m406 |[0m     "User",
+[1m[94m407 |[0m     "authenticate_user",
+[1m[94m408 |[0m     "create_access_token",
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m409 |[0m     "get_current_user",
+[1m[94m410 |[0m     "require_role",
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+  [1m[94m-->[0m backend/app/main.py:53:85
+   [1m[94m|[0m
+[1m[94m51 |[0m     """Attach correlation identifiers to every request."""
+[1m[94m52 |[0m
+[1m[94m53 |[0m     async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+   [1m[94m|[0m                                                                                     [1m[91m^[0m
+[1m[94m54 |[0m from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+[1m[94m55 |[0m from fastapi.middleware.cors import CORSMiddleware
+   [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+  [1m[94m-->[0m backend/app/main.py:80:95
+   [1m[94m|[0m
+[1m[94m78 |[0m     """Inject the current correlation identifier into log records."""
+[1m[94m79 |[0m
+[1m[94m80 |[0m     def filter(self, record: logging.LogRecord) -> bool:  # pragma: no cover - logging utility
+   [1m[94m|[0m                                                                                               [1m[91m^[0m
+[1m[94m81 |[0m from fastapi import Body, Depends, FastAPI, HTTPException, Request, status
+[1m[94m82 |[0m from typing import Any, Dict, List, Optional
+   [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+   [1m[94m-->[0m backend/app/main.py:124:5
+    [1m[94m|[0m
+[1m[94m123 |[0m     def filter(self, record: logging.LogRecord) -> bool:  # noqa: D401 - FastAPI style
+[1m[94m124 |[0m     """Inject the correlation id into structured log records."""
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m125 |[0m
+[1m[94m126 |[0m     def filter(self, record: logging.LogRecord) -> bool:  # pragma: no cover - logging helper
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+   [1m[94m-->[0m backend/app/main.py:149:1
+    [1m[94m|[0m
+[1m[94m147 |[0m     return logger
+[1m[94m148 |[0m def configure_logging() -> logging.Logger:  # pragma: no cover - logging helper
+[1m[94m149 |[0m def configure_logging() -> None:
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m150 |[0m     """Configure application level logging with correlation ids."""
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+   [1m[94m-->[0m backend/app/main.py:166:5
+    [1m[94m|[0m
+[1m[94m165 |[0m     async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+[1m[94m166 |[0m     """Attach a correlation identifier and processing time to each response."""
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m167 |[0m     """Attach a correlation id and timing information to each request."""
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+   [1m[94m-->[0m backend/app/main.py:170:5
+    [1m[94m|[0m
+[1m[94m169 |[0m     async def dispatch(self, request: Request, call_next):  # pragma: no cover - middleware glue
+[1m[94m170 |[0m     async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+    [1m[94m|[0m     [1m[91m^^^^^[0m
+[1m[94m171 |[0m     async def dispatch(self, request: Request, call_next):  # pragma: no cover - FastAPI interface
+[1m[94m172 |[0m         correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+   [1m[94m-->[0m backend/app/main.py:171:5
+    [1m[94m|[0m
+[1m[94m169 |[0m     async def dispatch(self, request: Request, call_next):  # pragma: no cover - middleware glue
+[1m[94m170 |[0m     async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+[1m[94m171 |[0m     async def dispatch(self, request: Request, call_next):  # pragma: no cover - FastAPI interface
+    [1m[94m|[0m     [1m[91m^^^^^[0m
+[1m[94m172 |[0m         correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
+[1m[94m173 |[0m         token = correlation_id_var.set(correlation_id)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ')', found name[0m
+   [1m[94m-->[0m backend/app/main.py:282:5
+    [1m[94m|[0m
+[1m[94m280 |[0m         "API pour l'assistant procédural Réalisons. "
+[1m[94m281 |[0m         "Les opérations sensibles requièrent une authentification Keycloak et sont vérifiées via OPA."
+[1m[94m282 |[0m     description="API pour l'assistant procédural Réalisons",
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^[0m
+[1m[94m283 |[0m     version="0.2.0",
+[1m[94m284 |[0m     description=(
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mDuplicate keyword argument "description"[0m
+   [1m[94m-->[0m backend/app/main.py:284:5
+    [1m[94m|[0m
+[1m[94m282 |[0m       description="API pour l'assistant procédural Réalisons",
+[1m[94m283 |[0m       version="0.2.0",
+[1m[94m284 |[0m [1m[91m/[0m     description=(
+[1m[94m285 |[0m [1m[91m|[0m         "API pour l'assistant procédural Réalisons. Les opérations d'écriture nécessitent un token "
+[1m[94m286 |[0m [1m[91m|[0m         "Bearer issu de l'endpoint `/auth/token`. Les administrateurs peuvent créer des procédures tandis "
+[1m[94m287 |[0m [1m[91m|[0m         "que les utilisateurs standard ne peuvent lancer que des exécutions."
+[1m[94m288 |[0m [1m[91m|[0m     ),
+    [1m[94m|[0m [1m[91m|_____^[0m
+[1m[94m289 |[0m       version="0.1.0",
+[1m[94m290 |[0m   )
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mDuplicate keyword argument "version"[0m
+   [1m[94m-->[0m backend/app/main.py:289:5
+    [1m[94m|[0m
+[1m[94m287 |[0m         "que les utilisateurs standard ne peuvent lancer que des exécutions."
+[1m[94m288 |[0m     ),
+[1m[94m289 |[0m     version="0.1.0",
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^^^^[0m
+[1m[94m290 |[0m )
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:292:1
+    [1m[94m|[0m
+[1m[94m290 |[0m )
+[1m[94m291 |[0m
+[1m[94m292 |[0m app.add_middleware(
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m293 |[0m     CORSMiddleware,
+[1m[94m294 |[0m     allow_origins=["http://localhost:3000"],
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:299:1
+    [1m[94m|[0m
+[1m[94m297 |[0m     allow_headers=["*"],
+[1m[94m298 |[0m )
+[1m[94m299 |[0m app.add_middleware(CorrelationIdMiddleware)
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m300 |[0m
+[1m[94m301 |[0m class RunNotFoundError(NotFoundError):
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:301:1
+    [1m[94m|[0m
+[1m[94m299 |[0m app.add_middleware(CorrelationIdMiddleware)
+[1m[94m300 |[0m
+[1m[94m301 |[0m class RunNotFoundError(NotFoundError):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m302 |[0m     """Raised when a run cannot be found."""
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:304:1
+    [1m[94m|[0m
+[1m[94m302 |[0m     """Raised when a run cannot be found."""
+[1m[94m303 |[0m
+[1m[94m304 |[0m class ProcedureStepPayload(BaseModel):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m305 |[0m     key: str
+[1m[94m306 |[0m     title: str
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:306:5
+    [1m[94m|[0m
+[1m[94m304 |[0m class ProcedureStepPayload(BaseModel):
+[1m[94m305 |[0m     key: str
+[1m[94m306 |[0m     title: str
+    [1m[94m|[0m     [1m[91m^^^^^[0m
+[1m[94m307 |[0m     prompt: str
+[1m[94m308 |[0m class ProcedureStep(BaseModel):
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:307:5
+    [1m[94m|[0m
+[1m[94m305 |[0m     key: str
+[1m[94m306 |[0m     title: str
+[1m[94m307 |[0m     prompt: str
+    [1m[94m|[0m     [1m[91m^^^^^^[0m
+[1m[94m308 |[0m class ProcedureStep(BaseModel):
+[1m[94m309 |[0m     key: str
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:308:1
+    [1m[94m|[0m
+[1m[94m306 |[0m     title: str
+[1m[94m307 |[0m     prompt: str
+[1m[94m308 |[0m class ProcedureStep(BaseModel):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m309 |[0m     key: str
+[1m[94m310 |[0m     title: str
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:310:5
+    [1m[94m|[0m
+[1m[94m308 |[0m class ProcedureStep(BaseModel):
+[1m[94m309 |[0m     key: str
+[1m[94m310 |[0m     title: str
+    [1m[94m|[0m     [1m[91m^^^^^[0m
+[1m[94m311 |[0m     prompt: str
+[1m[94m312 |[0m     slots: List[Dict[str, str]] = Field(default_factory=list)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:311:5
+    [1m[94m|[0m
+[1m[94m309 |[0m     key: str
+[1m[94m310 |[0m     title: str
+[1m[94m311 |[0m     prompt: str
+    [1m[94m|[0m     [1m[91m^^^^^^[0m
+[1m[94m312 |[0m     slots: List[Dict[str, str]] = Field(default_factory=list)
+[1m[94m313 |[0m     slots: List[Dict[str, Any]] = Field(default_factory=list)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:312:5
+    [1m[94m|[0m
+[1m[94m310 |[0m     title: str
+[1m[94m311 |[0m     prompt: str
+[1m[94m312 |[0m     slots: List[Dict[str, str]] = Field(default_factory=list)
+    [1m[94m|[0m     [1m[91m^^^^^[0m
+[1m[94m313 |[0m     slots: List[Dict[str, Any]] = Field(default_factory=list)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:313:5
+    [1m[94m|[0m
+[1m[94m311 |[0m     prompt: str
+[1m[94m312 |[0m     slots: List[Dict[str, str]] = Field(default_factory=list)
+[1m[94m313 |[0m     slots: List[Dict[str, Any]] = Field(default_factory=list)
+    [1m[94m|[0m     [1m[91m^^^^^[0m
+[1m[94m314 |[0m
+[1m[94m315 |[0m     model_config = ConfigDict(from_attributes=True)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:315:5
+    [1m[94m|[0m
+[1m[94m313 |[0m     slots: List[Dict[str, Any]] = Field(default_factory=list)
+[1m[94m314 |[0m
+[1m[94m315 |[0m     model_config = ConfigDict(from_attributes=True)
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:318:1
+    [1m[94m|[0m
+[1m[94m318 |[0m class ProcedurePayload(BaseModel):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m319 |[0m class Procedure(BaseModel):
+[1m[94m320 |[0m     model_config = ConfigDict(from_attributes=True)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a simple statement[0m
+   [1m[94m-->[0m backend/app/main.py:319:1
+    [1m[94m|[0m
+[1m[94m318 |[0m class ProcedurePayload(BaseModel):
+[1m[94m319 |[0m class Procedure(BaseModel):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m320 |[0m     model_config = ConfigDict(from_attributes=True)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:322:5
+    [1m[94m|[0m
+[1m[94m320 |[0m     model_config = ConfigDict(from_attributes=True)
+[1m[94m321 |[0m
+[1m[94m322 |[0m     id: str
+    [1m[94m|[0m     [1m[91m^^[0m
+[1m[94m323 |[0m     name: str
+[1m[94m324 |[0m     description: str
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:323:5
+    [1m[94m|[0m
+[1m[94m322 |[0m     id: str
+[1m[94m323 |[0m     name: str
+    [1m[94m|[0m     [1m[91m^^^^[0m
+[1m[94m324 |[0m     description: str
+[1m[94m325 |[0m     steps: List[ProcedureStepPayload] = Field(default_factory=list)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:324:5
+    [1m[94m|[0m
+[1m[94m322 |[0m     id: str
+[1m[94m323 |[0m     name: str
+[1m[94m324 |[0m     description: str
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^[0m
+[1m[94m325 |[0m     steps: List[ProcedureStepPayload] = Field(default_factory=list)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:325:5
+    [1m[94m|[0m
+[1m[94m323 |[0m     name: str
+[1m[94m324 |[0m     description: str
+[1m[94m325 |[0m     steps: List[ProcedureStepPayload] = Field(default_factory=list)
+    [1m[94m|[0m     [1m[91m^^^^^[0m
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:328:1
+    [1m[94m|[0m
+[1m[94m328 |[0m class ProcedureResponse(ProcedurePayload):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m329 |[0m     id: str
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:331:5
+    [1m[94m|[0m
+[1m[94m329 |[0m     id: str
+[1m[94m330 |[0m
+[1m[94m331 |[0m     model_config = ConfigDict(from_attributes=True)
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:334:1
+    [1m[94m|[0m
+[1m[94m334 |[0m class ProcedureCreateRequest(Procedure):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m335 |[0m     pass
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:338:1
+    [1m[94m|[0m
+[1m[94m338 |[0m class ProcedureRun(BaseModel):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m339 |[0m class ProcedureRunPayload(BaseModel):
+[1m[94m340 |[0m     procedure_id: str
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a simple statement[0m
+   [1m[94m-->[0m backend/app/main.py:339:1
+    [1m[94m|[0m
+[1m[94m338 |[0m class ProcedureRun(BaseModel):
+[1m[94m339 |[0m class ProcedureRunPayload(BaseModel):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m340 |[0m     procedure_id: str
+[1m[94m341 |[0m     user_id: Optional[str] = Field(default="default_user")
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:341:5
+    [1m[94m|[0m
+[1m[94m339 |[0m class ProcedureRunPayload(BaseModel):
+[1m[94m340 |[0m     procedure_id: str
+[1m[94m341 |[0m     user_id: Optional[str] = Field(default="default_user")
+    [1m[94m|[0m     [1m[91m^^^^^^^[0m
+[1m[94m342 |[0m     state: str = Field(default="started")
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:342:5
+    [1m[94m|[0m
+[1m[94m340 |[0m     procedure_id: str
+[1m[94m341 |[0m     user_id: Optional[str] = Field(default="default_user")
+[1m[94m342 |[0m     state: str = Field(default="started")
+    [1m[94m|[0m     [1m[91m^^^^^[0m
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:345:1
+    [1m[94m|[0m
+[1m[94m345 |[0m class ProcedureRunUpdatePayload(BaseModel):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m346 |[0m     state: Optional[str] = None
+[1m[94m347 |[0m     closed_at: Optional[datetime] = None
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:347:5
+    [1m[94m|[0m
+[1m[94m345 |[0m class ProcedureRunUpdatePayload(BaseModel):
+[1m[94m346 |[0m     state: Optional[str] = None
+[1m[94m347 |[0m     closed_at: Optional[datetime] = None
+    [1m[94m|[0m     [1m[91m^^^^^^^^^[0m
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:350:1
+    [1m[94m|[0m
+[1m[94m350 |[0m class ProcedureRunResponse(BaseModel):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m351 |[0m class ProcedureCreateRequest(BaseModel):
+[1m[94m352 |[0m     name: str
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a simple statement[0m
+   [1m[94m-->[0m backend/app/main.py:351:1
+    [1m[94m|[0m
+[1m[94m350 |[0m class ProcedureRunResponse(BaseModel):
+[1m[94m351 |[0m class ProcedureCreateRequest(BaseModel):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m352 |[0m     name: str
+[1m[94m353 |[0m     description: str
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:353:5
+    [1m[94m|[0m
+[1m[94m351 |[0m class ProcedureCreateRequest(BaseModel):
+[1m[94m352 |[0m     name: str
+[1m[94m353 |[0m     description: str
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^[0m
+[1m[94m354 |[0m     steps: List[ProcedureStep] = Field(default_factory=list)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:354:5
+    [1m[94m|[0m
+[1m[94m352 |[0m     name: str
+[1m[94m353 |[0m     description: str
+[1m[94m354 |[0m     steps: List[ProcedureStep] = Field(default_factory=list)
+    [1m[94m|[0m     [1m[91m^^^^^[0m
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:357:1
+    [1m[94m|[0m
+[1m[94m357 |[0m class ProcedureRun(BaseModel):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m358 |[0m     model_config = ConfigDict(from_attributes=True)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:360:5
+    [1m[94m|[0m
+[1m[94m358 |[0m     model_config = ConfigDict(from_attributes=True)
+[1m[94m359 |[0m
+[1m[94m360 |[0m     id: str
+    [1m[94m|[0m     [1m[91m^^[0m
+[1m[94m361 |[0m     procedure_id: str
+[1m[94m362 |[0m     user_id: str
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:361:5
+    [1m[94m|[0m
+[1m[94m360 |[0m     id: str
+[1m[94m361 |[0m     procedure_id: str
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^[0m
+[1m[94m362 |[0m     user_id: str
+[1m[94m363 |[0m     state: str
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:362:5
+    [1m[94m|[0m
+[1m[94m360 |[0m     id: str
+[1m[94m361 |[0m     procedure_id: str
+[1m[94m362 |[0m     user_id: str
+    [1m[94m|[0m     [1m[91m^^^^^^^[0m
+[1m[94m363 |[0m     state: str
+[1m[94m364 |[0m     created_at: datetime
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:363:5
+    [1m[94m|[0m
+[1m[94m361 |[0m     procedure_id: str
+[1m[94m362 |[0m     user_id: str
+[1m[94m363 |[0m     state: str
+    [1m[94m|[0m     [1m[91m^^^^^[0m
+[1m[94m364 |[0m     created_at: datetime
+[1m[94m365 |[0m     closed_at: Optional[datetime] = None
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:364:5
+    [1m[94m|[0m
+[1m[94m362 |[0m     user_id: str
+[1m[94m363 |[0m     state: str
+[1m[94m364 |[0m     created_at: datetime
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^[0m
+[1m[94m365 |[0m     closed_at: Optional[datetime] = None
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:365:5
+    [1m[94m|[0m
+[1m[94m363 |[0m     state: str
+[1m[94m364 |[0m     created_at: datetime
+[1m[94m365 |[0m     closed_at: Optional[datetime] = None
+    [1m[94m|[0m     [1m[91m^^^^^^^^^[0m
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:370:1
+    [1m[94m|[0m
+[1m[94m370 |[0m class ProcedureRunCreateRequest(BaseModel):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m371 |[0m     procedure_id: str
+[1m[94m372 |[0m     user_id: Optional[str] = None
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:372:5
+    [1m[94m|[0m
+[1m[94m370 |[0m class ProcedureRunCreateRequest(BaseModel):
+[1m[94m371 |[0m     procedure_id: str
+[1m[94m372 |[0m     user_id: Optional[str] = None
+    [1m[94m|[0m     [1m[91m^^^^^^^[0m
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:375:1
+    [1m[94m|[0m
+[1m[94m375 |[0m procedures_db: Dict[str, Procedure] = {}
+    [1m[94m|[0m [1m[91m^^^^^^^^^^^^^[0m
+[1m[94m376 |[0m runs_db: Dict[str, ProcedureRun] = {}
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:376:1
+    [1m[94m|[0m
+[1m[94m375 |[0m procedures_db: Dict[str, Procedure] = {}
+[1m[94m376 |[0m runs_db: Dict[str, ProcedureRun] = {}
+    [1m[94m|[0m [1m[91m^^^^^^^[0m
+[1m[94m377 |[0m
+[1m[94m378 |[0m app = FastAPI(
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:378:1
+    [1m[94m|[0m
+[1m[94m376 |[0m runs_db: Dict[str, ProcedureRun] = {}
+[1m[94m377 |[0m
+[1m[94m378 |[0m app = FastAPI(
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m379 |[0m     title="Réalisons API",
+[1m[94m380 |[0m     description="API pour l'assistant procédural Réalisons",
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:384:1
+    [1m[94m|[0m
+[1m[94m382 |[0m )
+[1m[94m383 |[0m
+[1m[94m384 |[0m app.add_middleware(
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m385 |[0m     CORSMiddleware,
+[1m[94m386 |[0m     allow_origins=["http://localhost:3000"],
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:391:1
+    [1m[94m|[0m
+[1m[94m389 |[0m     allow_headers=["*"],
+[1m[94m390 |[0m )
+[1m[94m391 |[0m app.add_middleware(CorrelationIdMiddleware)
+    [1m[94m|[0m [1m[91m^^^[0m
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:395:1
+    [1m[94m|[0m
+[1m[94m394 |[0m @app.on_event("startup")
+[1m[94m395 |[0m def ensure_environment() -> None:
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m396 |[0m     """Validate configuration as soon as the application starts."""
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:398:1
+    [1m[94m|[0m
+[1m[94m396 |[0m     """Validate configuration as soon as the application starts."""
+[1m[94m397 |[0m
+[1m[94m398 |[0m class RunStepCommitRequest(BaseModel):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m399 |[0m     payload: Dict[str, Any]
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:402:1
+    [1m[94m|[0m
+[1m[94m402 |[0m class RunStepStateResponse(BaseModel):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m403 |[0m     id: str
+[1m[94m404 |[0m     run_id: str
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:404:5
+    [1m[94m|[0m
+[1m[94m402 |[0m class RunStepStateResponse(BaseModel):
+[1m[94m403 |[0m     id: str
+[1m[94m404 |[0m     run_id: str
+    [1m[94m|[0m     [1m[91m^^^^^^[0m
+[1m[94m405 |[0m     step_key: str
+[1m[94m406 |[0m     payload: Dict[str, Any]
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:405:5
+    [1m[94m|[0m
+[1m[94m403 |[0m     id: str
+[1m[94m404 |[0m     run_id: str
+[1m[94m405 |[0m     step_key: str
+    [1m[94m|[0m     [1m[91m^^^^^^^^[0m
+[1m[94m406 |[0m     payload: Dict[str, Any]
+[1m[94m407 |[0m     committed_at: datetime
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:406:5
+    [1m[94m|[0m
+[1m[94m404 |[0m     run_id: str
+[1m[94m405 |[0m     step_key: str
+[1m[94m406 |[0m     payload: Dict[str, Any]
+    [1m[94m|[0m     [1m[91m^^^^^^^[0m
+[1m[94m407 |[0m     committed_at: datetime
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:407:5
+    [1m[94m|[0m
+[1m[94m405 |[0m     step_key: str
+[1m[94m406 |[0m     payload: Dict[str, Any]
+[1m[94m407 |[0m     committed_at: datetime
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^[0m
+[1m[94m408 |[0m
+[1m[94m409 |[0m     model_config = ConfigDict(from_attributes=True)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:409:5
+    [1m[94m|[0m
+[1m[94m407 |[0m     committed_at: datetime
+[1m[94m408 |[0m
+[1m[94m409 |[0m     model_config = ConfigDict(from_attributes=True)
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^[0m
+[1m[94m410 |[0m class ProcedureRunCreateRequest(BaseModel):
+[1m[94m411 |[0m     procedure_id: str
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:410:1
+    [1m[94m|[0m
+[1m[94m409 |[0m     model_config = ConfigDict(from_attributes=True)
+[1m[94m410 |[0m class ProcedureRunCreateRequest(BaseModel):
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m411 |[0m     procedure_id: str
+[1m[94m412 |[0m     user_id: Optional[str] = None
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:412:5
+    [1m[94m|[0m
+[1m[94m410 |[0m class ProcedureRunCreateRequest(BaseModel):
+[1m[94m411 |[0m     procedure_id: str
+[1m[94m412 |[0m     user_id: Optional[str] = None
+    [1m[94m|[0m     [1m[91m^^^^^^^[0m
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:415:1
+    [1m[94m|[0m
+[1m[94m415 |[0m PROCEDURE_LIST_CACHE_KEY = "procedures:index"
+    [1m[94m|[0m [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m416 |[0m PROCEDURE_LIST_TTL = 60
+[1m[94m417 |[0m PROCEDURE_META_TTL = 120
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:416:1
+    [1m[94m|[0m
+[1m[94m415 |[0m PROCEDURE_LIST_CACHE_KEY = "procedures:index"
+[1m[94m416 |[0m PROCEDURE_LIST_TTL = 60
+    [1m[94m|[0m [1m[91m^^^^^^^^^^^^^^^^^^[0m
+[1m[94m417 |[0m PROCEDURE_META_TTL = 120
+[1m[94m418 |[0m PROCEDURE_STEPS_TTL = 300
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:417:1
+    [1m[94m|[0m
+[1m[94m415 |[0m PROCEDURE_LIST_CACHE_KEY = "procedures:index"
+[1m[94m416 |[0m PROCEDURE_LIST_TTL = 60
+[1m[94m417 |[0m PROCEDURE_META_TTL = 120
+    [1m[94m|[0m [1m[91m^^^^^^^^^^^^^^^^^^[0m
+[1m[94m418 |[0m PROCEDURE_STEPS_TTL = 300
+[1m[94m419 |[0m RUN_DETAIL_TTL = 60
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:418:1
+    [1m[94m|[0m
+[1m[94m416 |[0m PROCEDURE_LIST_TTL = 60
+[1m[94m417 |[0m PROCEDURE_META_TTL = 120
+[1m[94m418 |[0m PROCEDURE_STEPS_TTL = 300
+    [1m[94m|[0m [1m[91m^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m419 |[0m RUN_DETAIL_TTL = 60
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:419:1
+    [1m[94m|[0m
+[1m[94m417 |[0m PROCEDURE_META_TTL = 120
+[1m[94m418 |[0m PROCEDURE_STEPS_TTL = 300
+[1m[94m419 |[0m RUN_DETAIL_TTL = 60
+    [1m[94m|[0m [1m[91m^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:422:1
+    [1m[94m|[0m
+[1m[94m422 |[0m def procedure_meta_cache_key(procedure_id: str) -> str:
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m423 |[0m     return f"procedures:{procedure_id}:meta"
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:426:1
+    [1m[94m|[0m
+[1m[94m425 |[0m # In-memory placeholders kept for backward-compatible tests
+[1m[94m426 |[0m procedures_db: Dict[str, Procedure] = {}
+    [1m[94m|[0m [1m[91m^^^^^^^^^^^^^[0m
+[1m[94m427 |[0m runs_db: Dict[str, ProcedureRun] = {}
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:427:1
+    [1m[94m|[0m
+[1m[94m425 |[0m # In-memory placeholders kept for backward-compatible tests
+[1m[94m426 |[0m procedures_db: Dict[str, Procedure] = {}
+[1m[94m427 |[0m runs_db: Dict[str, ProcedureRun] = {}
+    [1m[94m|[0m [1m[91m^^^^^^^[0m
+[1m[94m428 |[0m
+[1m[94m429 |[0m def procedure_steps_cache_key(procedure_id: str) -> str:
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:429:1
+    [1m[94m|[0m
+[1m[94m427 |[0m runs_db: Dict[str, ProcedureRun] = {}
+[1m[94m428 |[0m
+[1m[94m429 |[0m def procedure_steps_cache_key(procedure_id: str) -> str:
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m430 |[0m     return f"procedures:{procedure_id}:steps"
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:432:1
+    [1m[94m|[0m
+[1m[94m430 |[0m     return f"procedures:{procedure_id}:steps"
+[1m[94m431 |[0m
+[1m[94m432 |[0m async def parse_procedure_request(request: Request) -> ProcedureCreateRequest:
+    [1m[94m|[0m [1m[91m^^^^^[0m
+[1m[94m433 |[0m     """Parse and validate a procedure creation payload from the request body."""
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mSimple statements must be separated by newlines or semicolons[0m
+   [1m[94m-->[0m backend/app/main.py:435:5
+    [1m[94m|[0m
+[1m[94m433 |[0m     """Parse and validate a procedure creation payload from the request body."""
+[1m[94m434 |[0m
+[1m[94m435 |[0m     data = await request.json()
+    [1m[94m|[0m     [1m[91m^^^^[0m
+[1m[94m436 |[0m     try:
+[1m[94m437 |[0m         return ProcedureCreateRequest.model_validate(data)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:436:5
+    [1m[94m|[0m
+[1m[94m435 |[0m     data = await request.json()
+[1m[94m436 |[0m     try:
+    [1m[94m|[0m     [1m[91m^^^[0m
+[1m[94m437 |[0m         return ProcedureCreateRequest.model_validate(data)
+[1m[94m438 |[0m     except ValidationError as exc:  # pragma: no cover - FastAPI surfaces as 422
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected newline, found 'except'[0m
+   [1m[94m-->[0m backend/app/main.py:438:5
+    [1m[94m|[0m
+[1m[94m436 |[0m     try:
+[1m[94m437 |[0m         return ProcedureCreateRequest.model_validate(data)
+[1m[94m438 |[0m     except ValidationError as exc:  # pragma: no cover - FastAPI surfaces as 422
+    [1m[94m|[0m     [1m[91m^^^^^^[0m
+[1m[94m439 |[0m         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=exc.errors()) from exc
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:442:1
+    [1m[94m|[0m
+[1m[94m442 |[0m def configure_cors(app: FastAPI, settings: Settings) -> None:
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m443 |[0m     app.add_middleware(
+[1m[94m444 |[0m         CORSMiddleware,
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mCompound statements are not allowed on the same line as simple statements[0m
+   [1m[94m-->[0m backend/app/main.py:452:1
+    [1m[94m|[0m
+[1m[94m452 |[0m def configure_rate_limiter(app: FastAPI, settings: Settings) -> None:
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m453 |[0m     global _active_settings
+[1m[94m454 |[0m     _active_settings = settings
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+   [1m[94m-->[0m backend/app/main.py:454:5
+    [1m[94m|[0m
+[1m[94m452 |[0m def configure_rate_limiter(app: FastAPI, settings: Settings) -> None:
+[1m[94m453 |[0m     global _active_settings
+[1m[94m454 |[0m     _active_settings = settings
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^^^^^[0m
+[1m[94m455 |[0m     limiter.enabled = settings.rate_limit_enabled
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found '='[0m
+   [1m[94m-->[0m backend/app/main.py:454:22
+    [1m[94m|[0m
+[1m[94m452 |[0m def configure_rate_limiter(app: FastAPI, settings: Settings) -> None:
+[1m[94m453 |[0m     global _active_settings
+[1m[94m454 |[0m     _active_settings = settings
+    [1m[94m|[0m                      [1m[91m^[0m
+[1m[94m455 |[0m     limiter.enabled = settings.rate_limit_enabled
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+   [1m[94m-->[0m backend/app/main.py:455:5
+    [1m[94m|[0m
+[1m[94m453 |[0m     global _active_settings
+[1m[94m454 |[0m     _active_settings = settings
+[1m[94m455 |[0m     limiter.enabled = settings.rate_limit_enabled
+    [1m[94m|[0m     [1m[91m^^^^^^^[0m
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+[1m[94m457 |[0m     app.state.settings = settings
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found '.'[0m
+   [1m[94m-->[0m backend/app/main.py:455:12
+    [1m[94m|[0m
+[1m[94m453 |[0m     global _active_settings
+[1m[94m454 |[0m     _active_settings = settings
+[1m[94m455 |[0m     limiter.enabled = settings.rate_limit_enabled
+    [1m[94m|[0m            [1m[91m^[0m
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+[1m[94m457 |[0m     app.state.settings = settings
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found '='[0m
+   [1m[94m-->[0m backend/app/main.py:455:21
+    [1m[94m|[0m
+[1m[94m453 |[0m     global _active_settings
+[1m[94m454 |[0m     _active_settings = settings
+[1m[94m455 |[0m     limiter.enabled = settings.rate_limit_enabled
+    [1m[94m|[0m                     [1m[91m^[0m
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+[1m[94m457 |[0m     app.state.settings = settings
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found '.'[0m
+   [1m[94m-->[0m backend/app/main.py:455:31
+    [1m[94m|[0m
+[1m[94m453 |[0m     global _active_settings
+[1m[94m454 |[0m     _active_settings = settings
+[1m[94m455 |[0m     limiter.enabled = settings.rate_limit_enabled
+    [1m[94m|[0m                               [1m[91m^[0m
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+[1m[94m457 |[0m     app.state.settings = settings
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+   [1m[94m-->[0m backend/app/main.py:456:5
+    [1m[94m|[0m
+[1m[94m454 |[0m     _active_settings = settings
+[1m[94m455 |[0m     limiter.enabled = settings.rate_limit_enabled
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+    [1m[94m|[0m     [1m[91m^^^^^^^[0m
+[1m[94m457 |[0m     app.state.settings = settings
+[1m[94m458 |[0m     app.state.limiter = limiter
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found '.'[0m
+   [1m[94m-->[0m backend/app/main.py:456:12
+    [1m[94m|[0m
+[1m[94m454 |[0m     _active_settings = settings
+[1m[94m455 |[0m     limiter.enabled = settings.rate_limit_enabled
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+    [1m[94m|[0m            [1m[91m^[0m
+[1m[94m457 |[0m     app.state.settings = settings
+[1m[94m458 |[0m     app.state.limiter = limiter
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found '='[0m
+   [1m[94m-->[0m backend/app/main.py:456:30
+    [1m[94m|[0m
+[1m[94m454 |[0m     _active_settings = settings
+[1m[94m455 |[0m     limiter.enabled = settings.rate_limit_enabled
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+    [1m[94m|[0m                              [1m[91m^[0m
+[1m[94m457 |[0m     app.state.settings = settings
+[1m[94m458 |[0m     app.state.limiter = limiter
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found '.'[0m
+   [1m[94m-->[0m backend/app/main.py:456:40
+    [1m[94m|[0m
+[1m[94m454 |[0m     _active_settings = settings
+[1m[94m455 |[0m     limiter.enabled = settings.rate_limit_enabled
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+    [1m[94m|[0m                                        [1m[91m^[0m
+[1m[94m457 |[0m     app.state.settings = settings
+[1m[94m458 |[0m     app.state.limiter = limiter
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+   [1m[94m-->[0m backend/app/main.py:457:5
+    [1m[94m|[0m
+[1m[94m455 |[0m     limiter.enabled = settings.rate_limit_enabled
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+[1m[94m457 |[0m     app.state.settings = settings
+    [1m[94m|[0m     [1m[91m^^^[0m
+[1m[94m458 |[0m     app.state.limiter = limiter
+[1m[94m459 |[0m     if not getattr(app.state, "rate_limiter_configured", False):
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found '.'[0m
+   [1m[94m-->[0m backend/app/main.py:457:8
+    [1m[94m|[0m
+[1m[94m455 |[0m     limiter.enabled = settings.rate_limit_enabled
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+[1m[94m457 |[0m     app.state.settings = settings
+    [1m[94m|[0m        [1m[91m^[0m
+[1m[94m458 |[0m     app.state.limiter = limiter
+[1m[94m459 |[0m     if not getattr(app.state, "rate_limiter_configured", False):
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found '.'[0m
+   [1m[94m-->[0m backend/app/main.py:457:14
+    [1m[94m|[0m
+[1m[94m455 |[0m     limiter.enabled = settings.rate_limit_enabled
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+[1m[94m457 |[0m     app.state.settings = settings
+    [1m[94m|[0m              [1m[91m^[0m
+[1m[94m458 |[0m     app.state.limiter = limiter
+[1m[94m459 |[0m     if not getattr(app.state, "rate_limiter_configured", False):
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found '='[0m
+   [1m[94m-->[0m backend/app/main.py:457:24
+    [1m[94m|[0m
+[1m[94m455 |[0m     limiter.enabled = settings.rate_limit_enabled
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+[1m[94m457 |[0m     app.state.settings = settings
+    [1m[94m|[0m                        [1m[91m^[0m
+[1m[94m458 |[0m     app.state.limiter = limiter
+[1m[94m459 |[0m     if not getattr(app.state, "rate_limiter_configured", False):
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+   [1m[94m-->[0m backend/app/main.py:458:5
+    [1m[94m|[0m
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+[1m[94m457 |[0m     app.state.settings = settings
+[1m[94m458 |[0m     app.state.limiter = limiter
+    [1m[94m|[0m     [1m[91m^^^[0m
+[1m[94m459 |[0m     if not getattr(app.state, "rate_limiter_configured", False):
+[1m[94m460 |[0m         app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found '.'[0m
+   [1m[94m-->[0m backend/app/main.py:458:8
+    [1m[94m|[0m
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+[1m[94m457 |[0m     app.state.settings = settings
+[1m[94m458 |[0m     app.state.limiter = limiter
+    [1m[94m|[0m        [1m[91m^[0m
+[1m[94m459 |[0m     if not getattr(app.state, "rate_limiter_configured", False):
+[1m[94m460 |[0m         app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found '.'[0m
+   [1m[94m-->[0m backend/app/main.py:458:14
+    [1m[94m|[0m
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+[1m[94m457 |[0m     app.state.settings = settings
+[1m[94m458 |[0m     app.state.limiter = limiter
+    [1m[94m|[0m              [1m[91m^[0m
+[1m[94m459 |[0m     if not getattr(app.state, "rate_limiter_configured", False):
+[1m[94m460 |[0m         app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found '='[0m
+   [1m[94m-->[0m backend/app/main.py:458:23
+    [1m[94m|[0m
+[1m[94m456 |[0m     limiter._headers_enabled = settings.rate_limit_headers_enabled  # type: ignore[attr-defined]
+[1m[94m457 |[0m     app.state.settings = settings
+[1m[94m458 |[0m     app.state.limiter = limiter
+    [1m[94m|[0m                       [1m[91m^[0m
+[1m[94m459 |[0m     if not getattr(app.state, "rate_limiter_configured", False):
+[1m[94m460 |[0m         app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mUnexpected indentation[0m
+   [1m[94m-->[0m backend/app/main.py:459:1
+    [1m[94m|[0m
+[1m[94m457 |[0m     app.state.settings = settings
+[1m[94m458 |[0m     app.state.limiter = limiter
+[1m[94m459 |[0m     if not getattr(app.state, "rate_limiter_configured", False):
+    [1m[94m|[0m [1m[91m^^^^[0m
+[1m[94m460 |[0m         app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+[1m[94m461 |[0m         app.add_middleware(SlowAPIMiddleware)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+   [1m[94m-->[0m backend/app/main.py:465:1
+    [1m[94m|[0m
+[1m[94m465 |[0m def create_app(settings: Settings) -> FastAPI:
+    [1m[94m|[0m [1m[91m^[0m
+[1m[94m466 |[0m     app = FastAPI(
+[1m[94m467 |[0m         title="Réalisons API",
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+   [1m[94m-->[0m backend/app/main.py:489:1
+    [1m[94m|[0m
+[1m[94m487 |[0m async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
+[1m[94m488 |[0m
+[1m[94m489 |[0m def run_cache_key(run_id: str) -> str:
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m490 |[0m     return f"runs:{run_id}"
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ')', found newline[0m
+   [1m[94m-->[0m backend/app/main.py:634:88
+    [1m[94m|[0m
+[1m[94m632 |[0m     logger.warning(
+[1m[94m633 |[0m         "Domain error",
+[1m[94m634 |[0m         extra={"path": request.url.path, "detail": str(exc) or exc.__class__.__name__},
+    [1m[94m|[0m                                                                                        [1m[91m^[0m
+[1m[94m635 |[0m @app.get("/")
+[1m[94m636 |[0m         "Domain error",
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected class, function definition or async function definition after decorator[0m
+   [1m[94m-->[0m backend/app/main.py:636:1
+    [1m[94m|[0m
+[1m[94m634 |[0m         extra={"path": request.url.path, "detail": str(exc) or exc.__class__.__name__},
+[1m[94m635 |[0m @app.get("/")
+[1m[94m636 |[0m         "Domain error",
+    [1m[94m|[0m [1m[91m^^^^^^^^[0m
+[1m[94m637 |[0m         extra={"path": request.url.path, "error": exc.__class__.__name__},
+[1m[94m638 |[0m     )
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1munindent does not match any outer indentation level[0m
+   [1m[94m-->[0m backend/app/main.py:638:1
+    [1m[94m|[0m
+[1m[94m636 |[0m         "Domain error",
+[1m[94m637 |[0m         extra={"path": request.url.path, "error": exc.__class__.__name__},
+[1m[94m638 |[0m     )
+    [1m[94m|[0m [1m[91m^^^^[0m
+[1m[94m639 |[0m     return JSONResponse(status_code=404, content={"detail": str(exc) or exc.__class__.__name__})
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+   [1m[94m-->[0m backend/app/main.py:638:5
+    [1m[94m|[0m
+[1m[94m636 |[0m         "Domain error",
+[1m[94m637 |[0m         extra={"path": request.url.path, "error": exc.__class__.__name__},
+[1m[94m638 |[0m     )
+    [1m[94m|[0m     [1m[91m^[0m
+[1m[94m639 |[0m     return JSONResponse(status_code=404, content={"detail": str(exc) or exc.__class__.__name__})
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+   [1m[94m-->[0m backend/app/main.py:638:6
+    [1m[94m|[0m
+[1m[94m636 |[0m         "Domain error",
+[1m[94m637 |[0m         extra={"path": request.url.path, "error": exc.__class__.__name__},
+[1m[94m638 |[0m     )
+    [1m[94m|[0m      [1m[91m^[0m
+[1m[94m639 |[0m     return JSONResponse(status_code=404, content={"detail": str(exc) or exc.__class__.__name__})
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mUnexpected indentation[0m
+   [1m[94m-->[0m backend/app/main.py:639:1
+    [1m[94m|[0m
+[1m[94m637 |[0m         extra={"path": request.url.path, "error": exc.__class__.__name__},
+[1m[94m638 |[0m     )
+[1m[94m639 |[0m     return JSONResponse(status_code=404, content={"detail": str(exc) or exc.__class__.__name__})
+    [1m[94m|[0m [1m[91m^^^^[0m
+[1m[94m640 |[0m
+[1m[94m641 |[0m     validate_environment()
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+   [1m[94m-->[0m backend/app/main.py:644:1
+    [1m[94m|[0m
+[1m[94m644 |[0m @app.exception_handler(Exception)
+    [1m[94m|[0m [1m[91m^[0m
+[1m[94m645 |[0m async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:  # pragma: no cover - safety net
+[1m[94m646 |[0m     logger.exception("Unhandled error", extra={"path": request.url.path})
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+   [1m[94m-->[0m backend/app/main.py:673:1
+    [1m[94m|[0m
+[1m[94m671 |[0m @limiter.limit(default_rate_limit)
+[1m[94m672 |[0m def read_root(request: Request, response: Response) -> Dict[str, str]:  # noqa: D401 - simple handler
+[1m[94m673 |[0m @app.get("/")
+    [1m[94m|[0m [1m[91m^[0m
+[1m[94m674 |[0m def root() -> Dict[str, str]:
+[1m[94m675 |[0m def read_root() -> Dict[str, str]:
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+   [1m[94m-->[0m backend/app/main.py:675:1
+    [1m[94m|[0m
+[1m[94m673 |[0m @app.get("/")
+[1m[94m674 |[0m def root() -> Dict[str, str]:
+[1m[94m675 |[0m def read_root() -> Dict[str, str]:
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m676 |[0m     logger.debug("Root endpoint accessed")
+[1m[94m677 |[0m     return {"message": "Bienvenue sur l'API de l'assistant Réalisons v0.2"}
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+   [1m[94m-->[0m backend/app/main.py:683:1
+    [1m[94m|[0m
+[1m[94m681 |[0m @limiter.limit(default_rate_limit)
+[1m[94m682 |[0m def health_check(request: Request, response: Response) -> Dict[str, str]:
+[1m[94m683 |[0m @app.get("/health")
+    [1m[94m|[0m [1m[91m^[0m
+[1m[94m684 |[0m def health_check() -> Dict[str, str]:
+[1m[94m685 |[0m     logger.debug("Health check requested")
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+   [1m[94m-->[0m backend/app/main.py:747:1
+    [1m[94m|[0m
+[1m[94m745 |[0m     form_data=Depends(OAuth2PasswordRequestForm),
+[1m[94m746 |[0m ) -> Token:
+[1m[94m747 |[0m @app.post("/auth/token", response_model=Token, tags=["auth"])
+    [1m[94m|[0m [1m[91m^[0m
+[1m[94m748 |[0m def login(form_data: OAuth2PasswordRequestForm = Depends()):
+[1m[94m749 |[0m     user = authenticate_user(form_data.username, form_data.password)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+   [1m[94m-->[0m backend/app/main.py:762:1
+    [1m[94m|[0m
+[1m[94m760 |[0m @app.get("/procedures", response_model=List[Procedure])
+[1m[94m761 |[0m def list_procedures(db: Session = Depends(get_db)) -> List[Procedure]:
+[1m[94m762 |[0m @app.get("/procedures", response_model=List[ProcedureResponse])
+    [1m[94m|[0m [1m[91m^[0m
+[1m[94m763 |[0m def list_procedures(db: Session = Depends(get_db)):
+[1m[94m764 |[0m     procedures = (
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after `for` statement[0m
+   [1m[94m-->[0m backend/app/main.py:782:49
+    [1m[94m|[0m
+[1m[94m780 |[0m     logger.info("Creating procedure", extra={"name": payload.name, "user": current_user.username})
+[1m[94m781 |[0m     procedure = models.Procedure(name=payload.name, description=payload.description)
+[1m[94m782 |[0m     for index, step in enumerate(payload.steps):
+    [1m[94m|[0m                                                 [1m[91m^[0m
+[1m[94m783 |[0m @app.post("/procedures", response_model=Procedure)
+[1m[94m784 |[0m def create_procedure(payload: ProcedureCreateRequest, db: Session = Depends(get_db)) -> Procedure:
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ')', found newline[0m
+   [1m[94m-->[0m backend/app/main.py:787:25
+    [1m[94m|[0m
+[1m[94m785 |[0m     procedure_id = payload.id or str(uuid.uuid4())
+[1m[94m786 |[0m     db_procedure = models.Procedure(
+[1m[94m787 |[0m         id=procedure_id,
+    [1m[94m|[0m                         [1m[91m^[0m
+[1m[94m788 |[0m @app.post(
+[1m[94m789 |[0m     "/procedures",
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+   [1m[94m-->[0m backend/app/main.py:814:5
+    [1m[94m|[0m
+[1m[94m812 |[0m             )
+[1m[94m813 |[0m         )
+[1m[94m814 |[0m     db.add(procedure)
+    [1m[94m|[0m     [1m[91m^^[0m
+[1m[94m815 |[0m     db.commit()
+[1m[94m816 |[0m     db.refresh(procedure)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+   [1m[94m-->[0m backend/app/main.py:815:5
+    [1m[94m|[0m
+[1m[94m813 |[0m         )
+[1m[94m814 |[0m     db.add(procedure)
+[1m[94m815 |[0m     db.commit()
+    [1m[94m|[0m     [1m[91m^^[0m
+[1m[94m816 |[0m     db.refresh(procedure)
+[1m[94m817 |[0m     procedures_db[procedure.id] = Procedure.model_validate(procedure)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+   [1m[94m-->[0m backend/app/main.py:816:5
+    [1m[94m|[0m
+[1m[94m814 |[0m     db.add(procedure)
+[1m[94m815 |[0m     db.commit()
+[1m[94m816 |[0m     db.refresh(procedure)
+    [1m[94m|[0m     [1m[91m^^[0m
+[1m[94m817 |[0m     procedures_db[procedure.id] = Procedure.model_validate(procedure)
+[1m[94m818 |[0m     db.refresh(db_procedure)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+   [1m[94m-->[0m backend/app/main.py:817:5
+    [1m[94m|[0m
+[1m[94m815 |[0m     db.commit()
+[1m[94m816 |[0m     db.refresh(procedure)
+[1m[94m817 |[0m     procedures_db[procedure.id] = Procedure.model_validate(procedure)
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^^[0m
+[1m[94m818 |[0m     db.refresh(db_procedure)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+   [1m[94m-->[0m backend/app/main.py:818:5
+    [1m[94m|[0m
+[1m[94m816 |[0m     db.refresh(procedure)
+[1m[94m817 |[0m     procedures_db[procedure.id] = Procedure.model_validate(procedure)
+[1m[94m818 |[0m     db.refresh(db_procedure)
+    [1m[94m|[0m     [1m[91m^^[0m
+[1m[94m819 |[0m
+[1m[94m820 |[0m     procedures_db[procedure_id] = Procedure.model_validate(db_procedure)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+   [1m[94m-->[0m backend/app/main.py:820:5
+    [1m[94m|[0m
+[1m[94m818 |[0m     db.refresh(db_procedure)
+[1m[94m819 |[0m
+[1m[94m820 |[0m     procedures_db[procedure_id] = Procedure.model_validate(db_procedure)
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^^[0m
+[1m[94m821 |[0m     return db_procedure
+[1m[94m822 |[0m     db.refresh(procedure)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mDuplicate keyword argument ""[0m
+   [1m[94m-->[0m backend/app/main.py:820:5
+    [1m[94m|[0m
+[1m[94m818 |[0m     db.refresh(db_procedure)
+[1m[94m819 |[0m
+[1m[94m820 |[0m     procedures_db[procedure_id] = Procedure.model_validate(db_procedure)
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m821 |[0m     return db_procedure
+[1m[94m822 |[0m     db.refresh(procedure)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ')', found newline[0m
+   [1m[94m-->[0m backend/app/main.py:820:73
+    [1m[94m|[0m
+[1m[94m818 |[0m     db.refresh(db_procedure)
+[1m[94m819 |[0m
+[1m[94m820 |[0m     procedures_db[procedure_id] = Procedure.model_validate(db_procedure)
+    [1m[94m|[0m                                                                         [1m[91m^[0m
+[1m[94m821 |[0m     return db_procedure
+[1m[94m822 |[0m     db.refresh(procedure)
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+   [1m[94m-->[0m backend/app/main.py:952:1
+    [1m[94m|[0m
+[1m[94m950 |[0m         extra={"procedure_name": payload.name, "username": current_user.username},
+[1m[94m951 |[0m     )
+[1m[94m952 |[0m )
+    [1m[94m|[0m [1m[91m^[0m
+[1m[94m953 |[0m def create_procedure(
+[1m[94m954 |[0m     payload: ProcedureCreateRequest,
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+   [1m[94m-->[0m backend/app/main.py:952:2
+    [1m[94m|[0m
+[1m[94m950 |[0m         extra={"procedure_name": payload.name, "username": current_user.username},
+[1m[94m951 |[0m     )
+[1m[94m952 |[0m )
+    [1m[94m|[0m  [1m[91m^[0m
+[1m[94m953 |[0m def create_procedure(
+[1m[94m954 |[0m     payload: ProcedureCreateRequest,
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mPositional argument cannot follow keyword argument[0m
+   [1m[94m-->[0m backend/app/main.py:961:5
+    [1m[94m|[0m
+[1m[94m959 |[0m     procedure = Procedure(
+[1m[94m960 |[0m         id=procedure_id,
+[1m[94m961 |[0m     db: Session = Depends(get_db),
+    [1m[94m|[0m     [1m[91m^^[0m
+[1m[94m962 |[0m     current_user=Depends(require_role("admin")),
+[1m[94m963 |[0m ) -> Dict[str, Any]:
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found ':'[0m
+   [1m[94m-->[0m backend/app/main.py:961:7
+    [1m[94m|[0m
+[1m[94m959 |[0m     procedure = Procedure(
+[1m[94m960 |[0m         id=procedure_id,
+[1m[94m961 |[0m     db: Session = Depends(get_db),
+    [1m[94m|[0m       [1m[91m^[0m
+[1m[94m962 |[0m     current_user=Depends(require_role("admin")),
+[1m[94m963 |[0m ) -> Dict[str, Any]:
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+   [1m[94m-->[0m backend/app/main.py:963:3
+    [1m[94m|[0m
+[1m[94m961 |[0m     db: Session = Depends(get_db),
+[1m[94m962 |[0m     current_user=Depends(require_role("admin")),
+[1m[94m963 |[0m ) -> Dict[str, Any]:
+    [1m[94m|[0m   [1m[91m^^[0m
+[1m[94m964 |[0m     logger.info(
+[1m[94m965 |[0m         "Creating procedure",
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an expression[0m
+   [1m[94m-->[0m backend/app/main.py:963:21
+    [1m[94m|[0m
+[1m[94m961 |[0m     db: Session = Depends(get_db),
+[1m[94m962 |[0m     current_user=Depends(require_role("admin")),
+[1m[94m963 |[0m ) -> Dict[str, Any]:
+    [1m[94m|[0m                     [1m[91m^[0m
+[1m[94m964 |[0m     logger.info(
+[1m[94m965 |[0m         "Creating procedure",
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+   [1m[94m-->[0m backend/app/main.py:994:1
+    [1m[94m|[0m
+[1m[94m992 |[0m @app.get("/procedures/{procedure_id}", response_model=Procedure)
+[1m[94m993 |[0m def get_procedure(procedure_id: str, db: Session = Depends(get_db)) -> Procedure:
+[1m[94m994 |[0m def get_procedure(procedure_id: str) -> Procedure:
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m995 |[0m     try:
+[1m[94m996 |[0m         return procedures_db[procedure_id]
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mUnexpected indentation[0m
+    [1m[94m-->[0m backend/app/main.py:1035:1
+     [1m[94m|[0m
+[1m[94m1033 |[0m         raise HTTPException(status_code=404, detail="Procedure not found")
+[1m[94m1034 |[0m     procedures_db[procedure_id] = Procedure.model_validate(procedure)
+[1m[94m1035 |[0m         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Procedure not found")
+     [1m[94m|[0m [1m[91m^^^^^^^^[0m
+[1m[94m1036 |[0m     return procedure
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+    [1m[94m-->[0m backend/app/main.py:1039:1
+     [1m[94m|[0m
+[1m[94m1039 |[0m @app.post("/runs", response_model=ProcedureRun, status_code=status.HTTP_201_CREATED)
+     [1m[94m|[0m [1m[91m^[0m
+[1m[94m1040 |[0m def start_procedure_run(
+[1m[94m1041 |[0m     payload: ProcedureRunCreateRequest,
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mParameter without a default cannot follow a parameter with a default[0m
+    [1m[94m-->[0m backend/app/main.py:1052:5
+     [1m[94m|[0m
+[1m[94m1050 |[0m     user_id: Optional[str] = None,
+[1m[94m1051 |[0m     payload: ProcedureRunCreateRequest | None = Body(default=None),
+[1m[94m1052 |[0m     payload: ProcedureRunPayload,
+     [1m[94m|[0m     [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m1053 |[0m     db: Session = Depends(get_db),
+[1m[94m1054 |[0m     current_user: Optional[User] = Depends(get_current_user_optional),
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ')', found newline[0m
+    [1m[94m-->[0m backend/app/main.py:1073:29
+     [1m[94m|[0m
+[1m[94m1071 |[0m         procedure_id=payload.procedure_id,
+[1m[94m1072 |[0m         user_id=payload.user_id or (current_user.username if current_user else "default_user"),
+[1m[94m1073 |[0m         state=payload.state,
+     [1m[94m|[0m                             [1m[91m^[0m
+[1m[94m1074 |[0m         raise HTTPException(status_code=404, detail="Procedure not found")
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mUnexpected indentation[0m
+    [1m[94m-->[0m backend/app/main.py:1074:1
+     [1m[94m|[0m
+[1m[94m1072 |[0m         user_id=payload.user_id or (current_user.username if current_user else "default_user"),
+[1m[94m1073 |[0m         state=payload.state,
+[1m[94m1074 |[0m         raise HTTPException(status_code=404, detail="Procedure not found")
+     [1m[94m|[0m [1m[91m^^^^^^^^[0m
+[1m[94m1075 |[0m
+[1m[94m1076 |[0m     serialized = _serialize_procedure(procedure)
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after `if` statement[0m
+    [1m[94m-->[0m backend/app/main.py:1089:49
+     [1m[94m|[0m
+[1m[94m1087 |[0m         exists_in_db = False
+[1m[94m1088 |[0m
+[1m[94m1089 |[0m     if not exists_in_cache and not exists_in_db:
+     [1m[94m|[0m                                                 [1m[91m^[0m
+[1m[94m1090 |[0m @app.post(
+[1m[94m1091 |[0m     "/runs",
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+    [1m[94m-->[0m backend/app/main.py:1090:1
+     [1m[94m|[0m
+[1m[94m1089 |[0m     if not exists_in_cache and not exists_in_db:
+[1m[94m1090 |[0m @app.post(
+     [1m[94m|[0m [1m[91m^[0m
+[1m[94m1091 |[0m     "/runs",
+[1m[94m1092 |[0m     response_model=ProcedureRun,
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+    [1m[94m-->[0m backend/app/main.py:1105:1
+     [1m[94m|[0m
+[1m[94m1103 |[0m     if procedure_id not in procedures_db:
+[1m[94m1104 |[0m         raise HTTPException(status_code=404, detail="Procedure not found")
+[1m[94m1105 |[0m )
+     [1m[94m|[0m [1m[91m^[0m
+[1m[94m1106 |[0m def start_procedure_run(
+[1m[94m1107 |[0m     payload: ProcedureRunCreateRequest | None = Body(default=None),
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+    [1m[94m-->[0m backend/app/main.py:1105:2
+     [1m[94m|[0m
+[1m[94m1103 |[0m     if procedure_id not in procedures_db:
+[1m[94m1104 |[0m         raise HTTPException(status_code=404, detail="Procedure not found")
+[1m[94m1105 |[0m )
+     [1m[94m|[0m  [1m[91m^[0m
+[1m[94m1106 |[0m def start_procedure_run(
+[1m[94m1107 |[0m     payload: ProcedureRunCreateRequest | None = Body(default=None),
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+    [1m[94m-->[0m backend/app/main.py:1124:5
+     [1m[94m|[0m
+[1m[94m1122 |[0m         user_id=user_id,
+[1m[94m1123 |[0m     run_id = str(uuid.uuid4())
+[1m[94m1124 |[0m     run = ProcedureRun(
+     [1m[94m|[0m     [1m[91m^^^[0m
+[1m[94m1125 |[0m         id=str(uuid.uuid4()),
+[1m[94m1126 |[0m         procedure_id=procedure_id,
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+    [1m[94m-->[0m backend/app/main.py:1131:5
+     [1m[94m|[0m
+[1m[94m1129 |[0m         created_at=datetime.utcnow(),
+[1m[94m1130 |[0m     )
+[1m[94m1131 |[0m     runs_db[run.id] = run
+     [1m[94m|[0m     [1m[91m^^^^^^^[0m
+[1m[94m1132 |[0m     logger.info(
+[1m[94m1133 |[0m         "Starting procedure run",
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+    [1m[94m-->[0m backend/app/main.py:1132:5
+     [1m[94m|[0m
+[1m[94m1130 |[0m     )
+[1m[94m1131 |[0m     runs_db[run.id] = run
+[1m[94m1132 |[0m     logger.info(
+     [1m[94m|[0m     [1m[91m^^^^^^[0m
+[1m[94m1133 |[0m         "Starting procedure run",
+[1m[94m1134 |[0m         extra={"procedure_id": procedure_id, "run_id": run.id, "username": current_user.username},
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ')', found newline[0m
+    [1m[94m-->[0m backend/app/main.py:1135:6
+     [1m[94m|[0m
+[1m[94m1133 |[0m         "Starting procedure run",
+[1m[94m1134 |[0m         extra={"procedure_id": procedure_id, "run_id": run.id, "username": current_user.username},
+[1m[94m1135 |[0m     )
+     [1m[94m|[0m      [1m[91m^[0m
+[1m[94m1136 |[0m     return run
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mUnexpected indentation[0m
+    [1m[94m-->[0m backend/app/main.py:1156:1
+     [1m[94m|[0m
+[1m[94m1154 |[0m     "create_app",
+[1m[94m1155 |[0m ]
+[1m[94m1156 |[0m         id=run_id,
+     [1m[94m|[0m [1m[91m^^^^^^^^[0m
+[1m[94m1157 |[0m         procedure_id=effective_procedure_id,
+[1m[94m1158 |[0m         user_id=(payload.user_id if payload and payload.user_id else current_user.username),
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1munindent does not match any outer indentation level[0m
+    [1m[94m-->[0m backend/app/main.py:1161:1
+     [1m[94m|[0m
+[1m[94m1159 |[0m         state="started",
+[1m[94m1160 |[0m         created_at=datetime.utcnow(),
+[1m[94m1161 |[0m     )
+     [1m[94m|[0m [1m[91m^^^^[0m
+[1m[94m1162 |[0m     runs_db[run_id] = run
+[1m[94m1163 |[0m     logger.info(
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+    [1m[94m-->[0m backend/app/main.py:1161:5
+     [1m[94m|[0m
+[1m[94m1159 |[0m         state="started",
+[1m[94m1160 |[0m         created_at=datetime.utcnow(),
+[1m[94m1161 |[0m     )
+     [1m[94m|[0m     [1m[91m^[0m
+[1m[94m1162 |[0m     runs_db[run_id] = run
+[1m[94m1163 |[0m     logger.info(
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+    [1m[94m-->[0m backend/app/main.py:1161:6
+     [1m[94m|[0m
+[1m[94m1159 |[0m         state="started",
+[1m[94m1160 |[0m         created_at=datetime.utcnow(),
+[1m[94m1161 |[0m     )
+     [1m[94m|[0m      [1m[91m^[0m
+[1m[94m1162 |[0m     runs_db[run_id] = run
+[1m[94m1163 |[0m     logger.info(
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mUnexpected indentation[0m
+    [1m[94m-->[0m backend/app/main.py:1162:1
+     [1m[94m|[0m
+[1m[94m1160 |[0m         created_at=datetime.utcnow(),
+[1m[94m1161 |[0m     )
+[1m[94m1162 |[0m     runs_db[run_id] = run
+     [1m[94m|[0m [1m[91m^^^^[0m
+[1m[94m1163 |[0m     logger.info(
+[1m[94m1164 |[0m         "Procedure run started",
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+    [1m[94m-->[0m backend/app/main.py:1174:1
+     [1m[94m|[0m
+[1m[94m1174 |[0m @app.get("/runs/{run_id}", response_model=ProcedureRun)
+     [1m[94m|[0m [1m[91m^[0m
+[1m[94m1175 |[0m def get_run(run_id: str) -> ProcedureRun:
+[1m[94m1176 |[0m     try:
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mUnexpected indentation[0m
+    [1m[94m-->[0m backend/app/main.py:1183:1
+     [1m[94m|[0m
+[1m[94m1182 |[0m __all__ = ["app", "procedures_db", "runs_db"]
+[1m[94m1183 |[0m     payload: ProcedureRunCreateRequest,
+     [1m[94m|[0m [1m[91m^^^^[0m
+[1m[94m1184 |[0m     db: Session = Depends(get_db),
+[1m[94m1185 |[0m     current_user=Depends(require_role("user")),
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+    [1m[94m-->[0m backend/app/main.py:1183:39
+     [1m[94m|[0m
+[1m[94m1182 |[0m __all__ = ["app", "procedures_db", "runs_db"]
+[1m[94m1183 |[0m     payload: ProcedureRunCreateRequest,
+     [1m[94m|[0m                                       [1m[91m^[0m
+[1m[94m1184 |[0m     db: Session = Depends(get_db),
+[1m[94m1185 |[0m     current_user=Depends(require_role("user")),
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+    [1m[94m-->[0m backend/app/main.py:1183:40
+     [1m[94m|[0m
+[1m[94m1182 |[0m __all__ = ["app", "procedures_db", "runs_db"]
+[1m[94m1183 |[0m     payload: ProcedureRunCreateRequest,
+     [1m[94m|[0m                                        [1m[91m^[0m
+[1m[94m1184 |[0m     db: Session = Depends(get_db),
+[1m[94m1185 |[0m     current_user=Depends(require_role("user")),
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+    [1m[94m-->[0m backend/app/main.py:1186:1
+     [1m[94m|[0m
+[1m[94m1184 |[0m     db: Session = Depends(get_db),
+[1m[94m1185 |[0m     current_user=Depends(require_role("user")),
+[1m[94m1186 |[0m ) -> Dict[str, Any]:
+     [1m[94m|[0m [1m[91m^[0m
+[1m[94m1187 |[0m     logger.info(
+[1m[94m1188 |[0m         "Starting procedure run",
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+    [1m[94m-->[0m backend/app/main.py:1186:3
+     [1m[94m|[0m
+[1m[94m1184 |[0m     db: Session = Depends(get_db),
+[1m[94m1185 |[0m     current_user=Depends(require_role("user")),
+[1m[94m1186 |[0m ) -> Dict[str, Any]:
+     [1m[94m|[0m   [1m[91m^^[0m
+[1m[94m1187 |[0m     logger.info(
+[1m[94m1188 |[0m         "Starting procedure run",
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an expression[0m
+    [1m[94m-->[0m backend/app/main.py:1186:21
+     [1m[94m|[0m
+[1m[94m1184 |[0m     db: Session = Depends(get_db),
+[1m[94m1185 |[0m     current_user=Depends(require_role("user")),
+[1m[94m1186 |[0m ) -> Dict[str, Any]:
+     [1m[94m|[0m                     [1m[91m^[0m
+[1m[94m1187 |[0m     logger.info(
+[1m[94m1188 |[0m         "Starting procedure run",
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mUnexpected indentation[0m
+    [1m[94m-->[0m backend/app/main.py:1187:1
+     [1m[94m|[0m
+[1m[94m1185 |[0m     current_user=Depends(require_role("user")),
+[1m[94m1186 |[0m ) -> Dict[str, Any]:
+[1m[94m1187 |[0m     logger.info(
+     [1m[94m|[0m [1m[91m^^^^[0m
+[1m[94m1188 |[0m         "Starting procedure run",
+[1m[94m1189 |[0m         extra={"procedure_id": payload.procedure_id, "user": current_user.username},
+     [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected a statement[0m
+    [1m[94m-->[0m backend/app/main.py:1216:1
+     [1m[94m|[0m
+[1m[94m1216 |[0m @app.get("/runs/{run_id}", response_model=ProcedureRun)
+     [1m[94m|[0m [1m[91m^[0m
+[1m[94m1217 |[0m def get_run(run_id: str, db: Session = Depends(get_db)):
+[1m[94m1218 |[0m     run = db.query(models.ProcedureRun).filter(models.ProcedureRun.id == run_id).first()
+     [1m[94m|[0m
+
+[1m[91mI001 [0m[[1m[96m*[0m] [1mImport block is un-sorted or un-formatted[0m
+  [1m[94m-->[0m backend/app/models.py:1:1
+   [1m[94m|[0m
+[1m[94m 1 |[0m [1m[91m/[0m from __future__ import annotations
+[1m[94m 2 |[0m [1m[91m|[0m
+[1m[94m 3 |[0m [1m[91m|[0m import uuid
+[1m[94m 4 |[0m [1m[91m|[0m from datetime import datetime
+[1m[94m 5 |[0m [1m[91m|[0m from typing import Dict, List, Optional
+[1m[94m 6 |[0m [1m[91m|[0m
+[1m[94m 7 |[0m [1m[91m|[0m from sqlalchemy import DateTime, ForeignKey, Index, String, Text, JSON, UniqueConstraint
+[1m[94m 8 |[0m [1m[91m|[0m from sqlalchemy.orm import relationship, Mapped, mapped_column
+[1m[94m 9 |[0m [1m[91m|[0m from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
+[1m[94m10 |[0m [1m[91m|[0m from sqlalchemy.orm import Mapped, mapped_column, relationship
+[1m[94m11 |[0m [1m[91m|[0m
+[1m[94m12 |[0m [1m[91m|[0m from .database import Base
+   [1m[94m|[0m [1m[91m|__________________________^[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: [1mOrganize imports[0m
+
+[1m[91mF811 [0m[[1m[96m*[0m] [1mRedefinition of unused `JSON` from line 7[0m
+  [1m[94m-->[0m backend/app/models.py:7:67
+   [1m[94m|[0m
+[1m[94m 5 |[0m from typing import Dict, List, Optional
+[1m[94m 6 |[0m
+[1m[94m 7 |[0m from sqlalchemy import DateTime, ForeignKey, Index, String, Text, JSON, UniqueConstraint
+   [1m[94m|[0m                                                                   [1m[33m----[0m [1m[33mprevious definition of `JSON` here[0m
+[1m[94m 8 |[0m from sqlalchemy.orm import relationship, Mapped, mapped_column
+[1m[94m 9 |[0m from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
+   [1m[94m|[0m                        [1m[91m^^^^[0m [1m[91m`JSON` redefined here[0m
+[1m[94m10 |[0m from sqlalchemy.orm import Mapped, mapped_column, relationship
+   [1m[94m|[0m
+[1m[96mhelp[0m: [1mRemove definition: `JSON`[0m
+
+[1m[91mF811 [0m[[1m[96m*[0m] [1mRedefinition of unused `DateTime` from line 7[0m
+  [1m[94m-->[0m backend/app/models.py:7:24
+   [1m[94m|[0m
+[1m[94m 5 |[0m from typing import Dict, List, Optional
+[1m[94m 6 |[0m
+[1m[94m 7 |[0m from sqlalchemy import DateTime, ForeignKey, Index, String, Text, JSON, UniqueConstraint
+   [1m[94m|[0m                        [1m[33m--------[0m [1m[33mprevious definition of `DateTime` here[0m
+[1m[94m 8 |[0m from sqlalchemy.orm import relationship, Mapped, mapped_column
+[1m[94m 9 |[0m from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
+   [1m[94m|[0m                              [1m[91m^^^^^^^^[0m [1m[91m`DateTime` redefined here[0m
+[1m[94m10 |[0m from sqlalchemy.orm import Mapped, mapped_column, relationship
+   [1m[94m|[0m
+[1m[96mhelp[0m: [1mRemove definition: `DateTime`[0m
+
+[1m[91mF811 [0m[[1m[96m*[0m] [1mRedefinition of unused `ForeignKey` from line 7[0m
+  [1m[94m-->[0m backend/app/models.py:7:34
+   [1m[94m|[0m
+[1m[94m 5 |[0m from typing import Dict, List, Optional
+[1m[94m 6 |[0m
+[1m[94m 7 |[0m from sqlalchemy import DateTime, ForeignKey, Index, String, Text, JSON, UniqueConstraint
+   [1m[94m|[0m                                  [1m[33m----------[0m [1m[33mprevious definition of `ForeignKey` here[0m
+[1m[94m 8 |[0m from sqlalchemy.orm import relationship, Mapped, mapped_column
+[1m[94m 9 |[0m from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
+   [1m[94m|[0m                                        [1m[91m^^^^^^^^^^[0m [1m[91m`ForeignKey` redefined here[0m
+[1m[94m10 |[0m from sqlalchemy.orm import Mapped, mapped_column, relationship
+   [1m[94m|[0m
+[1m[96mhelp[0m: [1mRemove definition: `ForeignKey`[0m
+
+[1m[91mF811 [0m[[1m[96m*[0m] [1mRedefinition of unused `String` from line 7[0m
+  [1m[94m-->[0m backend/app/models.py:7:53
+   [1m[94m|[0m
+[1m[94m 5 |[0m from typing import Dict, List, Optional
+[1m[94m 6 |[0m
+[1m[94m 7 |[0m from sqlalchemy import DateTime, ForeignKey, Index, String, Text, JSON, UniqueConstraint
+   [1m[94m|[0m                                                     [1m[33m------[0m [1m[33mprevious definition of `String` here[0m
+[1m[94m 8 |[0m from sqlalchemy.orm import relationship, Mapped, mapped_column
+[1m[94m 9 |[0m from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
+   [1m[94m|[0m                                                    [1m[91m^^^^^^[0m [1m[91m`String` redefined here[0m
+[1m[94m10 |[0m from sqlalchemy.orm import Mapped, mapped_column, relationship
+   [1m[94m|[0m
+[1m[96mhelp[0m: [1mRemove definition: `String`[0m
+
+[1m[91mF811 [0m[[1m[96m*[0m] [1mRedefinition of unused `Text` from line 7[0m
+  [1m[94m-->[0m backend/app/models.py:7:61
+   [1m[94m|[0m
+[1m[94m 5 |[0m from typing import Dict, List, Optional
+[1m[94m 6 |[0m
+[1m[94m 7 |[0m from sqlalchemy import DateTime, ForeignKey, Index, String, Text, JSON, UniqueConstraint
+   [1m[94m|[0m                                                             [1m[33m----[0m [1m[33mprevious definition of `Text` here[0m
+[1m[94m 8 |[0m from sqlalchemy.orm import relationship, Mapped, mapped_column
+[1m[94m 9 |[0m from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
+   [1m[94m|[0m                                                            [1m[91m^^^^[0m [1m[91m`Text` redefined here[0m
+[1m[94m10 |[0m from sqlalchemy.orm import Mapped, mapped_column, relationship
+   [1m[94m|[0m
+[1m[96mhelp[0m: [1mRemove definition: `Text`[0m
+
+[1m[91mF811 [0m[[1m[96m*[0m] [1mRedefinition of unused `UniqueConstraint` from line 7[0m
+  [1m[94m-->[0m backend/app/models.py:7:73
+   [1m[94m|[0m
+[1m[94m 5 |[0m from typing import Dict, List, Optional
+[1m[94m 6 |[0m
+[1m[94m 7 |[0m from sqlalchemy import DateTime, ForeignKey, Index, String, Text, JSON, UniqueConstraint
+   [1m[94m|[0m                                                                         [1m[33m----------------[0m [1m[33mprevious definition of `UniqueConstraint` here[0m
+[1m[94m 8 |[0m from sqlalchemy.orm import relationship, Mapped, mapped_column
+[1m[94m 9 |[0m from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
+   [1m[94m|[0m                                                                  [1m[91m^^^^^^^^^^^^^^^^[0m [1m[91m`UniqueConstraint` redefined here[0m
+[1m[94m10 |[0m from sqlalchemy.orm import Mapped, mapped_column, relationship
+   [1m[94m|[0m
+[1m[96mhelp[0m: [1mRemove definition: `UniqueConstraint`[0m
+
+[1m[91mF811 [0m[[1m[96m*[0m] [1mRedefinition of unused `Mapped` from line 8[0m
+  [1m[94m-->[0m backend/app/models.py:8:42
+   [1m[94m|[0m
+[1m[94m 7 |[0m from sqlalchemy import DateTime, ForeignKey, Index, String, Text, JSON, UniqueConstraint
+[1m[94m 8 |[0m from sqlalchemy.orm import relationship, Mapped, mapped_column
+   [1m[94m|[0m                                          [1m[33m------[0m [1m[33mprevious definition of `Mapped` here[0m
+[1m[94m 9 |[0m from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
+[1m[94m10 |[0m from sqlalchemy.orm import Mapped, mapped_column, relationship
+   [1m[94m|[0m                            [1m[91m^^^^^^[0m [1m[91m`Mapped` redefined here[0m
+[1m[94m11 |[0m
+[1m[94m12 |[0m from .database import Base
+   [1m[94m|[0m
+[1m[96mhelp[0m: [1mRemove definition: `Mapped`[0m
+
+[1m[91mF811 [0m[[1m[96m*[0m] [1mRedefinition of unused `mapped_column` from line 8[0m
+  [1m[94m-->[0m backend/app/models.py:8:50
+   [1m[94m|[0m
+[1m[94m 7 |[0m from sqlalchemy import DateTime, ForeignKey, Index, String, Text, JSON, UniqueConstraint
+[1m[94m 8 |[0m from sqlalchemy.orm import relationship, Mapped, mapped_column
+   [1m[94m|[0m                                                  [1m[33m-------------[0m [1m[33mprevious definition of `mapped_column` here[0m
+[1m[94m 9 |[0m from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
+[1m[94m10 |[0m from sqlalchemy.orm import Mapped, mapped_column, relationship
+   [1m[94m|[0m                                    [1m[91m^^^^^^^^^^^^^[0m [1m[91m`mapped_column` redefined here[0m
+[1m[94m11 |[0m
+[1m[94m12 |[0m from .database import Base
+   [1m[94m|[0m
+[1m[96mhelp[0m: [1mRemove definition: `mapped_column`[0m
+
+[1m[91mF811 [0m[[1m[96m*[0m] [1mRedefinition of unused `relationship` from line 8[0m
+  [1m[94m-->[0m backend/app/models.py:8:28
+   [1m[94m|[0m
+[1m[94m 7 |[0m from sqlalchemy import DateTime, ForeignKey, Index, String, Text, JSON, UniqueConstraint
+[1m[94m 8 |[0m from sqlalchemy.orm import relationship, Mapped, mapped_column
+   [1m[94m|[0m                            [1m[33m------------[0m [1m[33mprevious definition of `relationship` here[0m
+[1m[94m 9 |[0m from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
+[1m[94m10 |[0m from sqlalchemy.orm import Mapped, mapped_column, relationship
+   [1m[94m|[0m                                                   [1m[91m^^^^^^^^^^^^[0m [1m[91m`relationship` redefined here[0m
+[1m[94m11 |[0m
+[1m[94m12 |[0m from .database import Base
+   [1m[94m|[0m
+[1m[96mhelp[0m: [1mRemove definition: `relationship`[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+  [1m[94m-->[0m backend/app/tests/test_auth_integration.py:12:1
+   [1m[94m|[0m
+[1m[94m10 |[0m def get_token(username: str, password: str) -> str:
+[1m[94m11 |[0m
+[1m[94m12 |[0m def get_token(client: TestClient, username: str, password: str) -> str:
+   [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m13 |[0m     response = client.post(
+[1m[94m14 |[0m         "/auth/token",
+   [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+  [1m[94m-->[0m backend/app/tests/test_auth_integration.py:39:1
+   [1m[94m|[0m
+[1m[94m38 |[0m def test_create_procedure_requires_authentication() -> None:
+[1m[94m39 |[0m def test_create_procedure_requires_authentication(client: TestClient) -> None:
+   [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m40 |[0m     response = client.post(
+[1m[94m41 |[0m         "/procedures",
+   [1m[94m|[0m
+
+[1m[91mI001 [0m[[1m[96m*[0m] [1mImport block is un-sorted or un-formatted[0m
+  [1m[94m-->[0m backend/tests/conftest.py:6:1
+   [1m[94m|[0m
+[1m[94m 4 |[0m   # so that the configuration validation passes.
+[1m[94m 5 |[0m   os.environ.setdefault("REALISONS_SECRET_KEY", "test-secret-key")
+[1m[94m 6 |[0m [1m[91m/[0m from typing import Generator
+[1m[94m 7 |[0m [1m[91m|[0m import os
+[1m[94m 8 |[0m [1m[91m|[0m import sys
+[1m[94m 9 |[0m [1m[91m|[0m
+[1m[94m10 |[0m [1m[91m|[0m import pytest
+[1m[94m11 |[0m [1m[91m|[0m from fastapi.testclient import TestClient
+[1m[94m12 |[0m [1m[91m|[0m from sqlalchemy import create_engine
+[1m[94m13 |[0m [1m[91m|[0m from sqlalchemy.orm import Session, sessionmaker
+   [1m[94m|[0m [1m[91m|________________________________________________^[0m
+[1m[94m14 |[0m
+[1m[94m15 |[0m   sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+   [1m[94m|[0m
+[1m[96mhelp[0m: [1mOrganize imports[0m
+
+[1m[91mI001 [0m[[1m[96m*[0m] [1mImport block is un-sorted or un-formatted[0m
+  [1m[94m-->[0m backend/tests/conftest.py:17:1
+   [1m[94m|[0m
+[1m[94m15 |[0m   sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+[1m[94m16 |[0m
+[1m[94m17 |[0m [1m[91m/[0m from app.main import app  # noqa: E402
+[1m[94m18 |[0m [1m[91m|[0m from app.database import get_db, Base  # noqa: E402
+   [1m[94m|[0m [1m[91m|_____________________________________^[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: [1mOrganize imports[0m
+
+[1m[91mF404 [0m[1m`from __future__` imports must occur at the beginning of the file[0m
+  [1m[94m-->[0m backend/tests/conftest.py:49:1
+   [1m[94m|[0m
+[1m[94m47 |[0m         yield test_client
+[1m[94m48 |[0m     app.dependency_overrides.clear()
+[1m[94m49 |[0m from __future__ import annotations
+   [1m[94m|[0m [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m50 |[0m
+[1m[94m51 |[0m import sys
+   [1m[94m|[0m
+
+[1m[91mE402 [0m[1mModule level import not at top of file[0m
+  [1m[94m-->[0m backend/tests/conftest.py:49:1
+   [1m[94m|[0m
+[1m[94m47 |[0m         yield test_client
+[1m[94m48 |[0m     app.dependency_overrides.clear()
+[1m[94m49 |[0m from __future__ import annotations
+   [1m[94m|[0m [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m50 |[0m
+[1m[94m51 |[0m import sys
+   [1m[94m|[0m
+
+[1m[91mE402 [0m[1mModule level import not at top of file[0m
+  [1m[94m-->[0m backend/tests/conftest.py:51:1
+   [1m[94m|[0m
+[1m[94m49 |[0m from __future__ import annotations
+[1m[94m50 |[0m
+[1m[94m51 |[0m import sys
+   [1m[94m|[0m [1m[91m^^^^^^^^^^[0m
+[1m[94m52 |[0m from pathlib import Path
+   [1m[94m|[0m
+
+[1m[91mE402 [0m[1mModule level import not at top of file[0m
+  [1m[94m-->[0m backend/tests/conftest.py:52:1
+   [1m[94m|[0m
+[1m[94m51 |[0m import sys
+[1m[94m52 |[0m from pathlib import Path
+   [1m[94m|[0m [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[94m53 |[0m
+[1m[94m54 |[0m ROOT_DIR = Path(__file__).resolve().parents[1]
+   [1m[94m|[0m
+
+[1m[91mE402 [0m[1mModule level import not at top of file[0m
+  [1m[94m-->[0m backend/tests/test_environment.py:14:1
+   [1m[94m|[0m
+[1m[94m12 |[0m     sys.path.insert(0, str(ROOT))
+[1m[94m13 |[0m
+[1m[94m14 |[0m from app import env  # type: ignore[import-not-found]
+   [1m[94m|[0m [1m[91m^^^^^^^^^^^^^^^^^^^[0m
+   [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+  [1m[94m-->[0m backend/tests/test_persistence.py:85:1
+   [1m[94m|[0m
+[1m[94m85 |[0m def test_create_and_fetch_procedure(client: TestClient, auth_header) -> None:
+   [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m86 |[0m     admin_token = get_token(client, "alice", "adminpass")
+[1m[94m87 |[0m     payload = {
+   [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+   [1m[94m-->[0m backend/tests/test_persistence.py:130:1
+    [1m[94m|[0m
+[1m[94m128 |[0m     admin_token = get_token("alice", "adminpass")
+[1m[94m129 |[0m def test_start_and_get_run(client: TestClient) -> None:
+[1m[94m130 |[0m def test_start_and_get_run(client: TestClient, auth_header) -> None:
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m131 |[0m     admin_token = get_token(client, "alice", "adminpass")
+[1m[94m132 |[0m     procedure_response = client.post(
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+   [1m[94m-->[0m backend/tests/test_persistence.py:148:5
+    [1m[94m|[0m
+[1m[94m146 |[0m         json={"procedure_id": procedure_id, "user_id": "alice"},
+[1m[94m147 |[0m     user_token = get_token("bob", "userpass")
+[1m[94m148 |[0m     run_response = client.post(
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^[0m
+[1m[94m149 |[0m         "/runs",
+[1m[94m150 |[0m         params={"procedure_id": procedure_id},
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ',', found name[0m
+   [1m[94m-->[0m backend/tests/test_persistence.py:155:5
+    [1m[94m|[0m
+[1m[94m153 |[0m         json={"procedure_id": procedure_id, "user_id": "alice"},
+[1m[94m154 |[0m     user_token = get_token(client, "bob", "userpass")
+[1m[94m155 |[0m     run_response = client.post(
+    [1m[94m|[0m     [1m[91m^^^^^^^^^^^^[0m
+[1m[94m156 |[0m         "/runs",
+[1m[94m157 |[0m         params={"procedure_id": procedure_id},
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ')', found NonLogicalNewline[0m
+   [1m[94m-->[0m backend/tests/test_persistence.py:160:6
+    [1m[94m|[0m
+[1m[94m158 |[0m         json={"procedure_id": procedure_id},
+[1m[94m159 |[0m         headers=auth_header(user_token),
+[1m[94m160 |[0m     )
+    [1m[94m|[0m      [1m[91m^[0m
+[1m[94m161 |[0m     assert run_response.status_code == 201
+[1m[94m162 |[0m     run_data = run_response.json()
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected ')', found newline[0m
+   [1m[94m-->[0m backend/tests/test_validation.py:108:44
+    [1m[94m|[0m
+[1m[94m106 |[0m     response = client.post(
+[1m[94m107 |[0m         "/runs",
+[1m[94m108 |[0m         params={"procedure_id": "missing"},
+    [1m[94m|[0m                                            [1m[91m^[0m
+[1m[94m109 |[0m def test_run_creation_requires_procedure_id() -> None:
+[1m[94m110 |[0m     user_token = get_token("bob", "userpass")
+    [1m[94m|[0m
+
+[1m[91minvalid-syntax: [0m[1mExpected an indented block after function definition[0m
+   [1m[94m-->[0m backend/tests/test_validation.py:152:1
+    [1m[94m|[0m
+[1m[94m150 |[0m     admin_token = get_token("alice", "adminpass")
+[1m[94m151 |[0m def test_procedure_creation_requires_steps_structure(client: TestClient) -> None:
+[1m[94m152 |[0m def test_procedure_creation_requires_steps_structure() -> None:
+    [1m[94m|[0m [1m[91m^^^[0m
+[1m[94m153 |[0m     admin_token = get_token("alice", "adminpass")
+[1m[94m154 |[0m def test_procedure_creation_requires_steps_structure(client: TestClient, auth_header) -> None:
+    [1m[94m|[0m
+
+Found 191 errors.
+[[36m*[0m] 12 fixable with the `--fix` option.

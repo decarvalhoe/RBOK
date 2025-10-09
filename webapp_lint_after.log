@@ -1,0 +1,19 @@
+
+> realisons-webapp@0.1.0 lint
+> eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0
+
+
+/workspace/webapp/app/page.tsx
+   32:10  error  Replace `⏎······MESSAGE_MAX_LENGTH,⏎······`Le·message·ne·peut·pas·dépasser·${MESSAGE_MAX_LENGTH}·caractères.`,⏎····` with `MESSAGE_MAX_LENGTH,·`Le·message·ne·peut·pas·dépasser·${MESSAGE_MAX_LENGTH}·caractères.``                                  prettier/prettier
+   43:69  error  Unexpected any. Specify a different type                                                                                                                                                                                                             @typescript-eslint/no-explicit-any
+   44:23  error  Replace `error·as·{·response?:·{·data?:·{·detail?:·string;·message?:·string·};·status?:·number·}·}` with `⏎······error·as·{·response?:·{·data?:·{·detail?:·string;·message?:·string·};·status?:·number·}·}⏎····`                                     prettier/prettier
+  135:71  error  Replace `Assistant·Procédural·&quot;Réalisons&quot;·v0.1` with `⏎··········Assistant·Procédural·&quot;Réalisons&quot;·v0.1⏎········`                                                                                                                 prettier/prettier
+  136:49  error  Replace `Expérimentez·la·prochaine·génération·d&apos;assistant·procédural·intelligent.` with `⏎··········Expérimentez·la·prochaine·génération·d&apos;assistant·procédural·intelligent.⏎········`                                                     prettier/prettier
+  147:36  error  Replace `Partagez·un·objectif·et·laissez·l&apos;IA·vous·guider·étape·par·étape.` with `⏎··············Partagez·un·objectif·et·laissez·l&apos;IA·vous·guider·étape·par·étape.⏎············`                                                           prettier/prettier
+  152:18  error  Replace `·key={msg.id}·className={`flex·${msg.role·===·'user'·?·'justify-end'·:·'justify-start'}`}` with `⏎················key={msg.id}⏎················className={`flex·${msg.role·===·'user'·?·'justify-end'·:·'justify-start'}`}⏎··············`  prettier/prettier
+  182:56  error  Replace `Message` with `⏎············Message⏎··········`                                                                                                                                                                                             prettier/prettier
+  200:95  error  Insert `{'·'}⏎···············`                                                                                                                                                                                                                       prettier/prettier
+
+✖ 9 problems (9 errors, 0 warnings)
+  8 errors and 0 warnings potentially fixable with the `--fix` option.
+

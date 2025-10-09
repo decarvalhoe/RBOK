@@ -1,0 +1,11 @@
+
+> realisons-webapp@0.1.0 lint
+> eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0
+
+
+/workspace/webapp/app/page.tsx
+  47:10  error  Replace `typeof·value·===·'object'·&&·value·!==·null·&&·'response'·in·(value·as·Record<string,·unknown>` with `(⏎····typeof·value·===·'object'·&&·value·!==·null·&&·'response'·in·(value·as·Record<string,·unknown>)⏎··`  prettier/prettier
+
+✖ 1 problem (1 error, 0 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+

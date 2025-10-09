@@ -1,0 +1,13 @@
+
+> realisons-webapp@0.1.0 lint
+> eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0
+
+
+/workspace/webapp/app/page.tsx
+  127:3  error  Parsing error: Declaration or statement expected
+
+/workspace/webapp/next.config.js
+  1:27  error  Require statement not part of import statement  @typescript-eslint/no-var-requires
+
+✖ 2 problems (2 errors, 0 warnings)
+

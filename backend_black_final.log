@@ -1,0 +1,20 @@
+make: Entering directory '/workspace/backend'
+would reformat /workspace/backend/app/cache.py
+would reformat /workspace/backend/alembic/versions/20241107_add_audit_events.py
+would reformat /workspace/backend/app/config.py
+would reformat /workspace/backend/app/message_constraints.py
+error: cannot format /workspace/backend/app/tests/test_auth_integration.py: Cannot parse for target version Python 3.10: 12:0: def get_token(client: TestClient, username: str, password: str) -> str:
+would reformat /workspace/backend/app/env.py
+would reformat /workspace/backend/app/services/audit.py
+would reformat /workspace/backend/app/models.py
+would reformat /workspace/backend/app/tests/test_cache_integration.py
+would reformat /workspace/backend/tests/conftest.py
+error: cannot format /workspace/backend/tests/test_persistence.py: Cannot parse for target version Python 3.10: 85:0: def test_create_and_fetch_procedure(client: TestClient, auth_header) -> None:
+error: cannot format /workspace/backend/tests/test_validation.py: Cannot parse for target version Python 3.10: 109:0: def test_run_creation_requires_procedure_id() -> None:
+would reformat /workspace/backend/tests/test_audit_events.py
+would reformat /workspace/backend/tests/integration/test_authz_integration.py
+
+Oh no! 💥 💔 💥
+11 files would be reformatted, 11 files would be left unchanged, 3 files would fail to reformat.
+make: *** [Makefile:13: format-check] Error 123
+make: Leaving directory '/workspace/backend'

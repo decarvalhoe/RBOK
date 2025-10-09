@@ -1,0 +1,4 @@
+
+> realisons-webapp@0.1.0 lint:fix
+> eslint . --ext .js,.jsx,.ts,.tsx --fix
+

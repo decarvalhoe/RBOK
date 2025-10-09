@@ -1,0 +1,4 @@
+
+> realisons-webapp@0.1.0 lint
+> eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0
+

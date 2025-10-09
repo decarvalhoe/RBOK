@@ -1,0 +1,8 @@
+
+> realisons-webapp@0.1.0 format
+> prettier --check .
+
+Checking formatting...
+[warn] app/page.tsx
+[warn] README.md
+[warn] Code style issues found in 2 files. Run Prettier with --write to fix.

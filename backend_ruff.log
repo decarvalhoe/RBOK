@@ -1,0 +1,4 @@
+make: Entering directory '/workspace/backend'
+make: ruff: No such file or directory
+make: *** [Makefile:4: lint] Error 127
+make: Leaving directory '/workspace/backend'

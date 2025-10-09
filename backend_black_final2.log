@@ -1,0 +1,12 @@
+make: Entering directory '/workspace/backend'
+would reformat /workspace/backend/app/env.py
+would reformat /workspace/backend/alembic/versions/20241107_add_audit_events.py
+would reformat /workspace/backend/app/message_constraints.py
+would reformat /workspace/backend/app/cache.py
+would reformat /workspace/backend/app/config.py
+would reformat /workspace/backend/app/services/audit.py
+
+Oh no! 💥 💔 💥
+6 files would be reformatted, 9 files would be left unchanged.
+make: *** [Makefile:13: format-check] Error 1
+make: Leaving directory '/workspace/backend'
