@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:22.0.3
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/realms/realison/.well-known/openid-configuration"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  opa:
+    image: openpolicyagent/opa:0.57.0
+    command: ["run", "--server", "--addr=0.0.0.0:8181", "/policy/authz.rego"]
+    ports:
+      - "8181:8181"
+    volumes:
+      - ./opa:/policy:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8181/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10

@@ -95,31 +95,52 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
    uvicorn app.main:app --reload --port 8000
    ```
 
-   #### Authentification JWT de développement
+  #### Authentification Keycloak & OPA
 
-   L'API expose un flux OAuth2 password simplifié pour générer des tokens Bearer (JWT) destinés aux tests :
+  L'API s'appuie désormais sur un serveur **Keycloak** pour valider les tokens OIDC et sur **OPA** pour les politiques fines. Configurez les variables d'environnement suivantes avant de démarrer le service :
 
-   ```bash
-   # Récupération d'un token administrateur
-   curl -X POST http://localhost:8000/auth/token \
-     -H "Content-Type: application/x-www-form-urlencoded" \
-     -d "username=alice&password=adminpass"
-   ```
+  | Variable | Description | Valeur d'exemple |
+  |----------|-------------|------------------|
+  | `KEYCLOAK_SERVER_URL` | URL racine du serveur Keycloak | `http://localhost:8081` |
+  | `KEYCLOAK_REALM` | Nom du realm contenant le client RBOK | `realison` |
+  | `KEYCLOAK_CLIENT_ID` | ID du client public/confidentiel | `realison-backend` |
+  | `KEYCLOAK_CLIENT_SECRET` | Secret du client (si confidentiel) | `super-secret` |
+  | `KEYCLOAK_AUDIENCE` | Audience attendue pour les tokens (optionnel) | `realison-backend` |
+  | `KEYCLOAK_ROLE_MAPPING` | Mapping JSON `{"kc-role": "app-role"}` | `{"app-admin": "admin"}` |
+  | `OPA_URL` | Endpoint HTTP OPA évaluant la décision (`/v1/data/...`) | `http://localhost:8181/v1/data/realison/authz` |
+  | `OPA_TIMEOUT_SECONDS` | Délai max (s) pour une décision OPA | `2.0` |
 
-   Deux comptes in-memory sont disponibles par défaut :
+  Le backend n'émet plus de tokens localement : il délègue l'authentification à Keycloak.
 
-   | Utilisateur | Rôle  | Mot de passe |
-   |-------------|-------|--------------|
-   | `alice`     | admin | `adminpass`  |
-   | `bob`       | user  | `userpass`   |
+  ```bash
+  # Récupération d'un token utilisateur via Keycloak (password grant)
+  export KEYCLOAK_SERVER_URL=http://localhost:8081
+  export KEYCLOAK_REALM=realison
+  export KEYCLOAK_CLIENT_ID=realison-backend
+  export KEYCLOAK_CLIENT_SECRET=super-secret
 
-   Les appels nécessitant des droits d'écriture (ex. `POST /procedures`) doivent inclure l'en-tête :
+  curl -X POST "$KEYCLOAK_SERVER_URL/realms/$KEYCLOAK_REALM/protocol/openid-connect/token" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "client_id=$KEYCLOAK_CLIENT_ID" \
+    -d "client_secret=$KEYCLOAK_CLIENT_SECRET" \
+    -d "grant_type=password" \
+    -d "username=alice" \
+    -d "password=adminpass"
+  ```
 
-   ```http
-   Authorization: Bearer <token>
-   ```
+  Les endpoints `POST /auth/token`, `POST /auth/refresh` et `POST /auth/introspect` agissent comme proxys vers Keycloak pour respectivement générer, rafraîchir et introspecter les tokens. Avant toute action sensible (`POST /procedures`, `POST /runs`), l'API vérifie à la fois le rôle RBAC et une décision OPA (`allow=true`).
 
-   Les utilisateurs standards peuvent lancer des exécutions (`POST /runs`) tandis que seuls les administrateurs peuvent créer des procédures.
+  #### Tests d'intégration Keycloak/OPA
+
+  Un scénario d'intégration est disponible dans `backend/tests/integration`. Il démarre Keycloak et OPA via `docker compose` et vérifie les décisions d'autorisation de bout en bout :
+
+  ```bash
+  docker compose -f backend/tests/integration/docker-compose.yml up -d
+  pytest backend/tests/integration/test_authz_integration.py
+  docker compose -f backend/tests/integration/docker-compose.yml down -v
+  ```
+
+  Les tests unitaires classiques peuvent être exécutés via `pytest backend/tests` (ils utilisent des dépendances FastAPI surchargées pour éviter l'appel aux services externes).
 
 3. **Application Web**
    ```bash

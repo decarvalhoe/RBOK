@@ -13,3 +13,5 @@ pgvector
 redis
 alembic
 pytest
+python-keycloak
+httpx

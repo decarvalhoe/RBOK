@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from app.auth import User, get_current_user, oauth2_scheme
 from app.main import app
 from app.database import get_db, Base
 
@@ -38,9 +39,17 @@ def client(test_session: Session) -> Generator[TestClient, None, None]:
             test_session.rollback()
 
     app.dependency_overrides[get_db] = override_get_db
+
+    def override_user() -> User:
+        return User(subject="test", username="admin", roles=["app-admin"], role="admin")
+
+    app.dependency_overrides[get_current_user] = override_user
+    app.dependency_overrides[oauth2_scheme] = lambda: "test-token"
     with TestClient(app) as test_client:
         yield test_client
-    app.dependency_overrides.clear()
+    app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(oauth2_scheme, None)
 
 
 def test_create_and_fetch_procedure(client: TestClient) -> None:
@@ -64,7 +73,7 @@ def test_create_and_fetch_procedure(client: TestClient) -> None:
     }
 
     response = client.post("/procedures", json=payload)
-    assert response.status_code == 200
+    assert response.status_code == 201
     data = response.json()
     assert data["id"]
     assert data["name"] == payload["name"]
@@ -96,8 +105,11 @@ def test_start_and_get_run(client: TestClient) -> None:
     procedure_response.raise_for_status()
     procedure_id = procedure_response.json()["id"]
 
-    run_response = client.post("/runs", params={"procedure_id": procedure_id, "user_id": "alice"})
-    assert run_response.status_code == 200
+    run_response = client.post(
+        "/runs",
+        json={"procedure_id": procedure_id, "user_id": "alice"},
+    )
+    assert run_response.status_code == 201
     run_data = run_response.json()
     assert run_data["procedure_id"] == procedure_id
     assert run_data["user_id"] == "alice"
