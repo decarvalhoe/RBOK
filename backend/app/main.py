@@ -1,3 +1,26 @@
+from datetime import datetime
+import uuid
+from typing import List, Optional
+
+from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
+
+from .auth import (
+    Token,
+    authenticate_user,
+    create_access_token,
+    require_role,
+)
+
+app = FastAPI(
+    title="Réalisons API",
+    description=(
+        "API pour l'assistant procédural Réalisons. "
+        "Les opérations d'écriture nécessitent un token Bearer issu de l'endpoint ``/auth/token``. "
+        "Les administrateurs peuvent créer des procédures tandis que les utilisateurs standard peuvent uniquement lancer des exécutions."
+    ),
 import logging
 import time
 import uuid
@@ -115,7 +138,7 @@ class ProcedureStep(BaseModel):
 
 
 class Procedure(BaseModel):
-    id: str
+    id: Optional[str] = None
     name: str
     description: str
     steps: List[ProcedureStep]
@@ -181,6 +204,24 @@ def list_procedures():
     logger.info("Listing procedures", extra={"total": len(procedures_db)})
     return list(procedures_db.values())
 
+@app.post("/auth/token", response_model=Token, tags=["auth"])
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = authenticate_user(form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token = create_access_token({"sub": user.username, "role": user.role})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/procedures", response_model=Procedure, status_code=status.HTTP_201_CREATED)
+def create_procedure(
+    procedure: Procedure,
+    current_user=Depends(require_role("admin")),
+):
+    procedure.id = str(uuid.uuid4())
 
 @app.post("/procedures", response_model=Procedure)
 def create_procedure(payload: ProcedureCreateRequest):
@@ -204,6 +245,18 @@ def get_procedure(procedure_id: str):
         raise ProcedureNotFoundError("Procedure not found") from exc
 
 
+@app.post("/runs", response_model=ProcedureRun, status_code=status.HTTP_201_CREATED)
+def start_procedure_run(
+    procedure_id: str,
+    current_user=Depends(require_role("user")),
+):
+    if procedure_id not in procedures_db:
+        raise HTTPException(status_code=404, detail="Procedure not found")
+
+    run = ProcedureRun(
+        id=str(uuid.uuid4()),
+        procedure_id=procedure_id,
+        user_id=current_user.username,
 @app.post("/runs", response_model=ProcedureRun)
 def start_procedure_run(payload: ProcedureRunCreateRequest):
     logger.info(

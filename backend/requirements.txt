@@ -4,7 +4,7 @@ pydantic
 pytest
 sqlalchemy
 python-multipart
-passlib
+passlib[bcrypt]
 python-jose
 python-dotenv
 psycopg2-binary
@@ -12,3 +12,4 @@ asyncpg
 pgvector
 redis
 alembic
+pytest
