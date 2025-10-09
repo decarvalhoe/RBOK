@@ -42,9 +42,7 @@ describe('Home page conversation flow', () => {
       expect(screen.queryByText('Assistant est en train de répondre...')).not.toBeInTheDocument();
     });
 
-    expect(
-      screen.getByText('Bonjour! Comment puis-je vous aider ?'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Bonjour! Comment puis-je vous aider ?')).toBeInTheDocument();
   });
 
   it('displays an error message when the backend returns an error', async () => {

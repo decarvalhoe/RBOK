@@ -1,11 +1,8 @@
-import sys
-from pathlib import Path
+from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-sys.path.append(str(Path(__file__).resolve().parents[2]))
-
-from app.main import app, procedures_db, runs_db  # noqa: E402
+from app.main import app, procedures_db, runs_db
 
 client = TestClient(app)
 
@@ -24,19 +21,19 @@ def auth_header(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def setup_module(module):  # noqa: D401 - pytest style hook
+def setup_module(module) -> None:  # noqa: D401 - pytest style hook
     """Ensure the in-memory stores are reset before the test module runs."""
 
     procedures_db.clear()
     runs_db.clear()
 
 
-def teardown_function(function):
+def teardown_function(function) -> None:
     procedures_db.clear()
     runs_db.clear()
 
 
-def test_create_procedure_requires_authentication():
+def test_create_procedure_requires_authentication() -> None:
     response = client.post(
         "/procedures",
         json={
@@ -48,7 +45,7 @@ def test_create_procedure_requires_authentication():
     assert response.status_code == 401
 
 
-def test_create_procedure_requires_admin_role():
+def test_create_procedure_requires_admin_role() -> None:
     user_token = get_token("bob", "userpass")
     response = client.post(
         "/procedures",
@@ -62,7 +59,7 @@ def test_create_procedure_requires_admin_role():
     assert response.status_code == 403
 
 
-def test_create_procedure_with_admin_succeeds():
+def test_create_procedure_with_admin_succeeds() -> None:
     admin_token = get_token("alice", "adminpass")
     response = client.post(
         "/procedures",
@@ -79,7 +76,7 @@ def test_create_procedure_with_admin_succeeds():
     assert body["id"]
 
 
-def test_start_run_requires_token_and_uses_requesting_user():
+def test_start_run_requires_token_and_uses_requesting_user() -> None:
     admin_token = get_token("alice", "adminpass")
     proc_response = client.post(
         "/procedures",
