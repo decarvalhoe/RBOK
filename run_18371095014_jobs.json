@@ -1,0 +1,373 @@
+{
+  "total_count": 4,
+  "jobs": [
+    {
+      "id": 52334324741,
+      "run_id": 18371095014,
+      "workflow_name": "Docker Images",
+      "head_branch": "main",
+      "run_url": "https://api.github.com/repos/decarvalhoe/RBOK/actions/runs/18371095014",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOP85vLM8AAAAML15sBQ",
+      "head_sha": "95ecee572c0731de4d0db33204348cd7b7ff7ff3",
+      "url": "https://api.github.com/repos/decarvalhoe/RBOK/actions/jobs/52334324741",
+      "html_url": "https://github.com/decarvalhoe/RBOK/actions/runs/18371095014/job/52334324741",
+      "status": "completed",
+      "conclusion": "failure",
+      "created_at": "2025-10-09T09:00:31Z",
+      "started_at": "2025-10-09T09:00:38Z",
+      "completed_at": "2025-10-09T09:00:51Z",
+      "name": "build (backend, backend/Dockerfile)",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2025-10-09T09:00:38Z",
+          "completed_at": "2025-10-09T09:00:39Z"
+        },
+        {
+          "name": "Checkout repository",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2025-10-09T09:00:39Z",
+          "completed_at": "2025-10-09T09:00:40Z"
+        },
+        {
+          "name": "Set up Docker Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2025-10-09T09:00:40Z",
+          "completed_at": "2025-10-09T09:00:46Z"
+        },
+        {
+          "name": "Build backend image",
+          "status": "completed",
+          "conclusion": "failure",
+          "number": 4,
+          "started_at": "2025-10-09T09:00:46Z",
+          "completed_at": "2025-10-09T09:00:49Z"
+        },
+        {
+          "name": "Post Build backend image",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2025-10-09T09:00:49Z",
+          "completed_at": "2025-10-09T09:00:49Z"
+        },
+        {
+          "name": "Post Set up Docker Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2025-10-09T09:00:49Z",
+          "completed_at": "2025-10-09T09:00:49Z"
+        },
+        {
+          "name": "Post Checkout repository",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2025-10-09T09:00:49Z",
+          "completed_at": "2025-10-09T09:00:50Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2025-10-09T09:00:50Z",
+          "completed_at": "2025-10-09T09:00:50Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/decarvalhoe/RBOK/check-runs/52334324741",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1000003048,
+      "runner_name": "GitHub Actions 1000003048",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 52334324781,
+      "run_id": 18371095014,
+      "workflow_name": "Docker Images",
+      "head_branch": "main",
+      "run_url": "https://api.github.com/repos/decarvalhoe/RBOK/actions/runs/18371095014",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOP85vLM8AAAAML15sLQ",
+      "head_sha": "95ecee572c0731de4d0db33204348cd7b7ff7ff3",
+      "url": "https://api.github.com/repos/decarvalhoe/RBOK/actions/jobs/52334324781",
+      "html_url": "https://github.com/decarvalhoe/RBOK/actions/runs/18371095014/job/52334324781",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2025-10-09T09:00:31Z",
+      "started_at": "2025-10-09T09:00:34Z",
+      "completed_at": "2025-10-09T09:00:52Z",
+      "name": "build (ai_gateway, ai_gateway/Dockerfile)",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2025-10-09T09:00:35Z",
+          "completed_at": "2025-10-09T09:00:37Z"
+        },
+        {
+          "name": "Checkout repository",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2025-10-09T09:00:37Z",
+          "completed_at": "2025-10-09T09:00:38Z"
+        },
+        {
+          "name": "Set up Docker Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2025-10-09T09:00:38Z",
+          "completed_at": "2025-10-09T09:00:45Z"
+        },
+        {
+          "name": "Build ai_gateway image",
+          "status": "completed",
+          "conclusion": "failure",
+          "number": 4,
+          "started_at": "2025-10-09T09:00:45Z",
+          "completed_at": "2025-10-09T09:00:48Z"
+        },
+        {
+          "name": "Post Build ai_gateway image",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2025-10-09T09:00:48Z",
+          "completed_at": "2025-10-09T09:00:48Z"
+        },
+        {
+          "name": "Post Set up Docker Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2025-10-09T09:00:48Z",
+          "completed_at": "2025-10-09T09:00:49Z"
+        },
+        {
+          "name": "Post Checkout repository",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2025-10-09T09:00:49Z",
+          "completed_at": "2025-10-09T09:00:49Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2025-10-09T09:00:49Z",
+          "completed_at": "2025-10-09T09:00:49Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/decarvalhoe/RBOK/check-runs/52334324781",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1000003050,
+      "runner_name": "GitHub Actions 1000003050",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 52334324782,
+      "run_id": 18371095014,
+      "workflow_name": "Docker Images",
+      "head_branch": "main",
+      "run_url": "https://api.github.com/repos/decarvalhoe/RBOK/actions/runs/18371095014",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOP85vLM8AAAAML15sLg",
+      "head_sha": "95ecee572c0731de4d0db33204348cd7b7ff7ff3",
+      "url": "https://api.github.com/repos/decarvalhoe/RBOK/actions/jobs/52334324782",
+      "html_url": "https://github.com/decarvalhoe/RBOK/actions/runs/18371095014/job/52334324782",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2025-10-09T09:00:31Z",
+      "started_at": "2025-10-09T09:00:38Z",
+      "completed_at": "2025-10-09T09:00:56Z",
+      "name": "build (webapp-dev, webapp/Dockerfile, dev)",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2025-10-09T09:00:38Z",
+          "completed_at": "2025-10-09T09:00:39Z"
+        },
+        {
+          "name": "Checkout repository",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2025-10-09T09:00:39Z",
+          "completed_at": "2025-10-09T09:00:40Z"
+        },
+        {
+          "name": "Set up Docker Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2025-10-09T09:00:40Z",
+          "completed_at": "2025-10-09T09:00:47Z"
+        },
+        {
+          "name": "Build webapp-dev image",
+          "status": "completed",
+          "conclusion": "cancelled",
+          "number": 4,
+          "started_at": "2025-10-09T09:00:47Z",
+          "completed_at": "2025-10-09T09:00:51Z"
+        },
+        {
+          "name": "Post Build webapp-dev image",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2025-10-09T09:00:51Z",
+          "completed_at": "2025-10-09T09:00:52Z"
+        },
+        {
+          "name": "Post Set up Docker Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2025-10-09T09:00:52Z",
+          "completed_at": "2025-10-09T09:00:55Z"
+        },
+        {
+          "name": "Post Checkout repository",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2025-10-09T09:00:55Z",
+          "completed_at": "2025-10-09T09:00:55Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2025-10-09T09:00:55Z",
+          "completed_at": "2025-10-09T09:00:55Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/decarvalhoe/RBOK/check-runs/52334324782",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1000003049,
+      "runner_name": "GitHub Actions 1000003049",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 52334324838,
+      "run_id": 18371095014,
+      "workflow_name": "Docker Images",
+      "head_branch": "main",
+      "run_url": "https://api.github.com/repos/decarvalhoe/RBOK/actions/runs/18371095014",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOP85vLM8AAAAML15sZg",
+      "head_sha": "95ecee572c0731de4d0db33204348cd7b7ff7ff3",
+      "url": "https://api.github.com/repos/decarvalhoe/RBOK/actions/jobs/52334324838",
+      "html_url": "https://github.com/decarvalhoe/RBOK/actions/runs/18371095014/job/52334324838",
+      "status": "completed",
+      "conclusion": "failure",
+      "created_at": "2025-10-09T09:00:31Z",
+      "started_at": "2025-10-09T09:00:38Z",
+      "completed_at": "2025-10-09T09:00:51Z",
+      "name": "build (webapp, webapp/Dockerfile, production)",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2025-10-09T09:00:38Z",
+          "completed_at": "2025-10-09T09:00:39Z"
+        },
+        {
+          "name": "Checkout repository",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2025-10-09T09:00:39Z",
+          "completed_at": "2025-10-09T09:00:40Z"
+        },
+        {
+          "name": "Set up Docker Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2025-10-09T09:00:40Z",
+          "completed_at": "2025-10-09T09:00:47Z"
+        },
+        {
+          "name": "Build webapp image",
+          "status": "completed",
+          "conclusion": "failure",
+          "number": 4,
+          "started_at": "2025-10-09T09:00:47Z",
+          "completed_at": "2025-10-09T09:00:49Z"
+        },
+        {
+          "name": "Post Build webapp image",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2025-10-09T09:00:49Z",
+          "completed_at": "2025-10-09T09:00:49Z"
+        },
+        {
+          "name": "Post Set up Docker Buildx",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2025-10-09T09:00:49Z",
+          "completed_at": "2025-10-09T09:00:50Z"
+        },
+        {
+          "name": "Post Checkout repository",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2025-10-09T09:00:50Z",
+          "completed_at": "2025-10-09T09:00:50Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2025-10-09T09:00:50Z",
+          "completed_at": "2025-10-09T09:00:50Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/decarvalhoe/RBOK/check-runs/52334324838",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1000003051,
+      "runner_name": "GitHub Actions 1000003051",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    }
+  ]
+}
