@@ -91,6 +91,7 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
    source .venv/bin/activate  # Linux/Mac
    # .venv\Scripts\activate   # Windows
    pip install -r requirements.txt
+   alembic upgrade head
    uvicorn app.main:app --reload --port 8000
    ```
 
