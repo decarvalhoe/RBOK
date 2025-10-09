@@ -1,4 +1,5 @@
 """Audit trail helpers for recording domain changes."""
+
 from __future__ import annotations
 
 from typing import Any, Dict, Optional

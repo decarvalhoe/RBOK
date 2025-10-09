@@ -4,9 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, JSON, UniqueConstraint
-from sqlalchemy.orm import relationship, Mapped, mapped_column
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -68,10 +66,14 @@ class ProcedureRunStepState(Base):
     __table_args__ = (UniqueConstraint("run_id", "step_key", name="uq_run_step"),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
-    run_id: Mapped[str] = mapped_column(String, ForeignKey("procedure_runs.id", ondelete="CASCADE"), nullable=False)
+    run_id: Mapped[str] = mapped_column(
+        String, ForeignKey("procedure_runs.id", ondelete="CASCADE"), nullable=False
+    )
     step_key: Mapped[str] = mapped_column(String(255), nullable=False)
     payload: Mapped[Dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
-    committed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    committed_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
 
     run: Mapped[ProcedureRun] = relationship("ProcedureRun")
 

@@ -1,4 +1,5 @@
 """Redis cache helper utilities for the Réalisons backend."""
+
 from __future__ import annotations
 
 import os

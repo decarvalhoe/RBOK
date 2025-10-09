@@ -1,4 +1,5 @@
 """Environment validation helpers for the Réalisons backend."""
+
 from __future__ import annotations
 
 import os
@@ -34,15 +35,10 @@ def validate_environment() -> None:
     if issues["missing"]:
         problems.append(f"missing values: {', '.join(sorted(issues['missing']))}")
     if issues["insecure"]:
-        problems.append(
-            "insecure defaults detected: "
-            + ", ".join(sorted(issues["insecure"]))
-        )
+        problems.append("insecure defaults detected: " + ", ".join(sorted(issues["insecure"])))
 
     if problems:
-        raise RuntimeError(
-            "Invalid backend configuration – " + "; ".join(problems)
-        )
+        raise RuntimeError("Invalid backend configuration – " + "; ".join(problems))
 
 
 def get_secret_key() -> str:

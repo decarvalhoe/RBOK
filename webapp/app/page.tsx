@@ -1,14 +1,12 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import type { KeyboardEvent } from 'react';
-import type { FormEvent, KeyboardEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { sendChatMessage } from '../lib/api';
-import { MESSAGE_MAX_LENGTH, MESSAGE_MIN_LENGTH } from '../lib/messageConstraints';
+import { MESSAGE_MIN_LENGTH, MESSAGE_MAX_LENGTH } from '../lib/messageConstraints';
 
 type MessageStatus = 'pending' | 'success' | 'error';
 
@@ -31,106 +29,44 @@ const messageSchema = z.object({
         MESSAGE_MIN_LENGTH > 1 ? 's' : ''
       }`,
     )
-    .max(
-      MESSAGE_MAX_LENGTH,
-      `Le message ne peut pas dépasser ${MESSAGE_MAX_LENGTH} caractères.`,
-    ),
+    .max(MESSAGE_MAX_LENGTH, `Le message ne peut pas dépasser ${MESSAGE_MAX_LENGTH} caractères.`),
 });
 
 type MessageFormValues = z.infer<typeof messageSchema>;
 
-const getErrorMessage = (error: unknown): string => {
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  if (error && typeof error === 'object' && 'response' in error) {
-    const response = (
-      error as {
-        response?: { data?: { detail?: string; message?: string }; status?: number };
-      }
-    ).response;
-    const detail = response?.data?.detail ?? response?.data?.message;
-
-    if (detail) {
-      return `Erreur serveur: ${detail}`;
-    }
-
-    if (response?.status) {
-      return `Erreur serveur: code ${response.status}`;
-    }
-  }
-
-  if (error instanceof Error) {
-    return `Erreur serveur: ${error.message}`;
-  }
-
-  return 'Une erreur inconnue est survenue.';
+type ErrorResponsePayload = {
+  data?: { detail?: string; message?: string };
+  status?: number;
 };
 
+type HttpLikeError = {
+  response?: ErrorResponsePayload;
+};
+
+function hasHttpLikeResponse(value: unknown): value is HttpLikeError {
+  return (
+    typeof value === 'object' && value !== null && 'response' in (value as Record<string, unknown>)
+  );
+}
+
+function getErrorMessage(error: unknown): string {
+  if (typeof error === 'string') return error;
+
+  if (hasHttpLikeResponse(error)) {
+    const response = error.response;
+    const detail = response?.data?.detail ?? response?.data?.message;
+    if (detail) return `Erreur serveur: ${detail}`;
+    if (response?.status) return `Erreur serveur: code ${response.status}`;
+  }
+
+  if (error instanceof Error) return `Erreur serveur: ${error.message}`;
+  return 'Une erreur inconnue est survenue.';
+}
+
 export default function Home(): JSX.Element {
-  const [message, setMessage] = useState('');
-export default function Home() {
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const isSendDisabled = useMemo(() => isLoading || !message.trim(), [isLoading, message]);
-
-  const handleSendMessage = useCallback(async () => {
-    const trimmed = message.trim();
-    if (!trimmed || isLoading) {
-    if (isLoading || !message.trim()) {
-      return;
-    }
-
-    const userMessage: ConversationMessage = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: trimmed,
-      status: 'success',
-    };
-
-    const pendingMessage: ConversationMessage = {
-      id: `assistant-${Date.now()}`,
-      role: 'assistant',
-      content: PENDING_TEXT,
-      status: 'pending',
-    };
-
-    setConversation((prev) => [...prev, userMessage, pendingMessage]);
-    setMessage('');
-    setIsLoading(true);
-
-    try {
-      const response = await sendChatMessage(trimmed);
-      const assistantContent = response?.content?.trim()
-        ? response.content
-        : "L'assistant n'a renvoyé aucun contenu.";
-
-      setConversation((prev) =>
-        prev.map((msg) =>
-          msg.id === pendingMessage.id
-            ? { ...msg, content: assistantContent, status: 'success' }
-            : msg,
-        ),
-      );
-    } catch (error) {
-      const errorMessage = getErrorMessage(error);
-      setConversation((prev) =>
-        prev.map((msg) =>
-          msg.id === pendingMessage.id ? { ...msg, content: errorMessage, status: 'error' } : msg,
-        ),
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isLoading, message]);
-
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        void handleSendMessage();
   const {
     register,
     handleSubmit,
@@ -154,9 +90,7 @@ export default function Home() {
 
   const onSubmit = useCallback(
     async ({ content }: MessageFormValues) => {
-      if (isLoading) {
-        return;
-      }
+      if (isLoading) return;
 
       const trimmedContent = content.trim();
       const timestamp = Date.now();
@@ -196,24 +130,14 @@ export default function Home() {
         const errorMessage = getErrorMessage(error);
         setConversation((prev) =>
           prev.map((msg) =>
-            msg.id === pendingMessage.id
-              ? { ...msg, content: errorMessage, status: 'error' }
-              : msg,
+            msg.id === pendingMessage.id ? { ...msg, content: errorMessage, status: 'error' } : msg,
           ),
         );
       } finally {
         setIsLoading(false);
       }
     },
-    [isLoading, reset, setConversation, setIsLoading],
-  );
-
-  const handleSubmit = useCallback(
-    (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      void handleSendMessage();
-    },
-    [handleSendMessage],
+    [isLoading, reset],
   );
 
   return (
@@ -230,7 +154,8 @@ export default function Home() {
 
       <section
         aria-label="Historique de conversation"
-        className="flex-1 overflow-hidden rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-200"
+        role="region"
+        className="chat-container flex-1 overflow-hidden rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-200"
       >
         {conversation.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-slate-500">
@@ -243,9 +168,6 @@ export default function Home() {
           <ul className="flex h-full flex-col gap-3 overflow-y-auto">
             {conversation.map((msg) => (
               <li
-          <div className="flex h-full flex-col gap-3 overflow-y-auto">
-            {conversation.map((msg) => (
-              <div
                 key={msg.id}
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
@@ -254,17 +176,10 @@ export default function Home() {
                     msg.role === 'user'
                       ? 'bg-blue-600 text-white'
                       : msg.status === 'error'
-                      ? 'bg-red-100 text-red-700 border border-red-300'
-                      : msg.status === 'pending'
-                      ? 'bg-gray-200 text-gray-600 animate-pulse'
                         ? 'bg-red-100 text-red-700 ring-1 ring-red-200'
                         : msg.status === 'pending'
                           ? 'bg-slate-100 text-slate-600'
                           : 'bg-slate-50 text-slate-900'
-                      ? 'bg-red-100 text-red-700 border border-red-300'
-                      : msg.status === 'pending'
-                      ? 'bg-slate-200 text-slate-600'
-                      : 'bg-slate-100 text-slate-900'
                   }`}
                   aria-live={msg.status === 'pending' ? 'polite' : undefined}
                 >
@@ -281,33 +196,6 @@ export default function Home() {
 
       <form
         className="flex flex-col gap-3 rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-200 md:flex-row"
-        onSubmit={(event) => {
-          event.preventDefault();
-          handleSendMessage();
-        }}
-        onSubmit={handleSubmit}
-      >
-        <label className="sr-only" htmlFor="message">
-          Message
-        </label>
-        <input
-          id="message"
-          type="text"
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Tapez votre message..."
-          className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-          aria-label="Message"
-        />
-        <button
-          type="submit"
-          className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-base font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isLoading}
-        />
-        <button
-          type="submit"
-          className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-base font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 disabled:cursor-not-allowed disabled:opacity-60"
         onSubmit={handleSubmit(onSubmit)}
         noValidate
       >
@@ -327,23 +215,16 @@ export default function Home() {
           />
           <div className="mt-1 flex flex-col gap-1">
             {errors.content ? (
-              <p
-                id="message-error"
-                className="text-sm text-red-600"
-                role="alert"
-                aria-live="polite"
-              >
+              <p id="message-error" className="text-sm text-red-600" role="alert">
                 {errors.content.message}
               </p>
             ) : (
               <p id="message-help" className="text-sm text-slate-500">
-                Votre message doit contenir entre {MESSAGE_MIN_LENGTH} et {MESSAGE_MAX_LENGTH} caractères.
+                Votre message doit contenir entre {MESSAGE_MIN_LENGTH} et {MESSAGE_MAX_LENGTH}{' '}
+                caractères.
               </p>
             )}
-            <p
-              aria-live="polite"
-              className="text-xs text-slate-400"
-            >
+            <p aria-live="polite" className="text-xs text-slate-400">
               {remainingCharacters >= 0
                 ? `${remainingCharacters} caractères restants`
                 : `${Math.abs(remainingCharacters)} caractères au-delà de la limite`}

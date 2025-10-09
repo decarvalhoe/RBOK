@@ -2,10 +2,10 @@
 
 ## Configuration par variables d'environnement
 
-| Nom | Description | Valeur par défaut | Recommandations de sécurité |
-| --- | ----------- | ----------------- | ---------------------------- |
-| `NEXT_PUBLIC_API_BASE_URL` | URL de base de l'API FastAPI utilisée pour les appels REST. | `http://localhost:8000` | Aucune donnée sensible ne doit être exposée ; utilisez un domaine HTTPS en production. |
-| `NEXT_PUBLIC_AI_GATEWAY_BASE_URL` | URL du service AI Gateway pour les fonctionnalités voix/LLM. | `http://localhost:8010` | Conserver la valeur publique mais privilégier le HTTPS et limiter l'accès réseau. |
+| Nom                               | Description                                                  | Valeur par défaut       | Recommandations de sécurité                                                            |
+| --------------------------------- | ------------------------------------------------------------ | ----------------------- | -------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_BASE_URL`        | URL de base de l'API FastAPI utilisée pour les appels REST.  | `http://localhost:8000` | Aucune donnée sensible ne doit être exposée ; utilisez un domaine HTTPS en production. |
+| `NEXT_PUBLIC_AI_GATEWAY_BASE_URL` | URL du service AI Gateway pour les fonctionnalités voix/LLM. | `http://localhost:8010` | Conserver la valeur publique mais privilégier le HTTPS et limiter l'accès réseau.      |
 
 1. Copiez `.env.example` vers `.env.local` (ou `.env`) :
    ```bash
@@ -15,7 +15,7 @@
 3. Les valeurs doivent être revues et mises à jour lors de chaque rotation d'URL backend/gateway.
 
 Le fichier `next.config.js` charge automatiquement ces variables pour les commandes `next dev`, `next build` et `next start`. Les tests Jest chargent également `.env` via `dotenv`.
-| Nom                        | Description                                                   | Valeur par défaut       |
+| Nom | Description | Valeur par défaut |
 | -------------------------- | ------------------------------------------------------------- | ----------------------- |
 | `NEXT_PUBLIC_API_BASE_URL` | URL de base de l'API FastAPI consommée par l'application web. | `http://localhost:8000` |
 
@@ -40,6 +40,7 @@ npm install
 ```bash
 npm run dev
 ```
+
 L'application est servie sur `http://localhost:3000`.
 
 L'application est servie sur `http://localhost:3000` avec Tailwind CSS.
@@ -52,9 +53,11 @@ npm run start
 ```
 
 ## Tests
+
 ```bash
 npm test
 ```
+
 ## Tests de style
 
 ```bash
@@ -62,13 +65,17 @@ npm test
 ```
 
 Exécute les tests Jest/Testing Library qui vérifient la présence des classes Tailwind essentielles.
+
 ## Tests
+
 ```bash
 npm test
 ```
+
 Exécute les tests Jest/Testing Library qui couvrent les interactions de formulaire et la mise en page de la page d'accueil.
 
 ## Validation du formulaire de message
+
 - Les règles de validation sont partagées entre le frontend et le backend via le fichier [`shared/message-constraints.json`](../shared/message-constraints.json). Toute évolution doit être réalisée dans ce fichier pour conserver la cohérence des limites.
 - Un message est obligatoire et doit contenir au moins 1 caractère utile après suppression des espaces superflus.
 - Un message ne peut pas dépasser 1 000 caractères. La zone de saisie affiche le nombre de caractères restants et les erreurs sont annoncées aux technologies d'assistance grâce aux attributs `aria-invalid` et `aria-live`.

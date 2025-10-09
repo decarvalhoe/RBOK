@@ -1,13 +1,13 @@
 .PHONY: lint lint-fix format format-check
 
 lint:
-	@ruff check .
+	@python3 -m ruff check .
 
 lint-fix:
-	@ruff check . --fix
+	@python3 -m ruff check . --fix
 
 format:
-	@black .
+	@python3 -m black .
 
 format-check:
-	@black --check .
+	@python3 -m black --check .
