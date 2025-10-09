@@ -109,6 +109,7 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
    pip install -r requirements.txt
    python main.py
    ```
+   Consultez également `docs/ai_gateway.md` pour la description détaillée des endpoints et de la configuration.
 
 ### Accès
 - **Application web** : http://localhost:3000
