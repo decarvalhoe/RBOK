@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "lib": ["es2019"],
+    "jsx": "react",
+    "strict": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["jest", "react", "react-native"]
+  },
+  "include": ["src", "jest.setup.ts"],
+  "exclude": ["node_modules"]
+}
