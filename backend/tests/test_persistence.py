@@ -1,3 +1,16 @@
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+
+from app.main import app, procedures_db, runs_db
+
+client = TestClient(app)
+
+
+def setup_function():
+    procedures_db.clear()
+    runs_db.clear()
+
 from fastapi.testclient import TestClient
 from __future__ import annotations
 
@@ -19,6 +32,14 @@ def client() -> Generator[TestClient, None, None]:
 
 
 
+def get_token(username: str, password: str) -> str:
+    response = client.post(
+        "/auth/token",
+        data={"username": username, "password": password},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    response.raise_for_status()
+    return response.json()["access_token"]
 
 def get_token(client: TestClient, username: str, password: str) -> str:
     response = client.post(
@@ -34,6 +55,8 @@ def auth_header(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+def test_create_and_fetch_procedure() -> None:
+    admin_token = get_token("alice", "adminpass")
 def test_create_and_fetch_procedure(client: TestClient) -> None:
 
 
@@ -79,6 +102,8 @@ def test_create_and_fetch_procedure(client: TestClient, auth_header) -> None:
     assert fetched["steps"][1]["key"] == "step-2"
 
 
+def test_start_and_get_run() -> None:
+    admin_token = get_token("alice", "adminpass")
 def test_start_and_get_run(client: TestClient) -> None:
 def test_start_and_get_run(client: TestClient, auth_header) -> None:
     admin_token = get_token(client, "alice", "adminpass")
@@ -94,6 +119,10 @@ def test_start_and_get_run(client: TestClient, auth_header) -> None:
     procedure_response.raise_for_status()
     procedure_id = procedure_response.json()["id"]
 
+    user_token = get_token("bob", "userpass")
+    run_response = client.post(
+        "/runs",
+        params={"procedure_id": procedure_id},
     run_response = client.post(
         "/runs",
         json={"procedure_id": procedure_id, "user_id": "alice"},

@@ -1,3 +1,9 @@
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+
+from app.main import app, procedures_db, runs_db
+
 from fastapi.testclient import TestClient
 
 
@@ -36,6 +42,17 @@ def auth_header(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+def test_run_creation_requires_procedure_id():
+    user_token = get_token("bob", "userpass")
+    response = client.post("/runs", headers=auth_header(user_token))
+    assert response.status_code == 422
+
+
+def test_run_creation_requires_existing_procedure():
+    user_token = get_token("bob", "userpass")
+    response = client.post(
+        "/runs",
+        params={"procedure_id": "missing"},
 def test_run_creation_requires_procedure_id() -> None:
     user_token = get_token("bob", "userpass")
     response = client.post("/runs", json={}, headers=auth_header(user_token))
@@ -76,6 +93,8 @@ def test_run_creation_requires_existing_procedure(client: TestClient, auth_heade
     assert response.json()["detail"] == "Procedure not found"
 
 
+def test_procedure_creation_requires_steps_structure():
+    admin_token = get_token("alice", "adminpass")
 def test_procedure_creation_requires_steps_structure(client: TestClient) -> None:
 def test_procedure_creation_requires_steps_structure() -> None:
     admin_token = get_token("alice", "adminpass")

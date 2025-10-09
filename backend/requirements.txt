@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 pydantic
+pydantic-settings
 pytest
 httpx
 pytest-cov
@@ -15,5 +16,7 @@ pgvector
 redis
 fakeredis
 alembic
+pytest
+slowapi
 black
 ruff
