@@ -2,3 +2,6 @@ fastapi
 uvicorn
 openai
 httpx
+pytest
+pytest-asyncio
+pytest-cov

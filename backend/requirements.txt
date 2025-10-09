@@ -2,6 +2,7 @@ fastapi
 uvicorn
 pydantic
 pytest
+pytest-cov
 sqlalchemy
 python-multipart
 passlib[bcrypt]
@@ -12,4 +13,3 @@ asyncpg
 pgvector
 redis
 alembic
-pytest
