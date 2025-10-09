@@ -1,7 +1,6 @@
-const { loadEnvConfig } = require('@next/env');
+// @ts-check
 
-loadEnvConfig(process.cwd());
-
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
 };

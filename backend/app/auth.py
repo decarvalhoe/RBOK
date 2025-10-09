@@ -61,15 +61,6 @@ def get_settings() -> AuthSettings:
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
-from .env import get_secret_key
-
-SECRET_KEY = get_secret_key()
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
-
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
-optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 
 
 class Token(BaseModel):
@@ -226,12 +217,11 @@ def get_keycloak_service() -> KeycloakService:
         )
     return users
 
-    return KeycloakService(get_settings())
-
 
 # ---------------------------------------------------------------------------
-# OPA client
+# Role hierarchy and OPA client
 # ---------------------------------------------------------------------------
+
 # Role hierarchy used to compare permissions. Higher value == more privileges.
 ROLE_LEVELS = {"user": 0, "auditor": 5, "admin": 10}
 
@@ -273,6 +263,7 @@ def get_opa_client() -> Optional[OPAClient]:
 # ---------------------------------------------------------------------------
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
@@ -308,12 +299,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
         roles=kc_roles,
         role=role,
     )
-
-
-ROLE_LEVELS = {
-    "user": 0,
-    "admin": 10,
-}
 
 
 def require_role(required_role: str):
@@ -393,6 +378,8 @@ def introspect_access_token(token: str) -> TokenIntrospection:
 
     service = get_keycloak_service()
     return service.introspect_token(token)
+
+
 def get_current_user_optional(token: Optional[str] = Depends(optional_oauth2_scheme)) -> Optional[User]:
     """Resolve the current user when authentication is optional."""
 
@@ -402,10 +389,15 @@ def get_current_user_optional(token: Optional[str] = Depends(optional_oauth2_sch
 
 __all__ = [
     "Token",
-    "TokenData",
+    "TokenIntrospection",
     "User",
     "authenticate_user",
     "create_access_token",
     "get_current_user",
+    "get_current_user_optional",
     "require_role",
+    "authorize_action",
+    "password_grant",
+    "refresh_access_token",
+    "introspect_access_token",
 ]

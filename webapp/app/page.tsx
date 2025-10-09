@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import type { KeyboardEvent } from 'react';
-import type { FormEvent, KeyboardEvent } from 'react';
+import type { FormEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,10 +30,7 @@ const messageSchema = z.object({
         MESSAGE_MIN_LENGTH > 1 ? 's' : ''
       }`,
     )
-    .max(
-      MESSAGE_MAX_LENGTH,
-      `Le message ne peut pas dépasser ${MESSAGE_MAX_LENGTH} caractères.`,
-    ),
+    .max(MESSAGE_MAX_LENGTH, `Le message ne peut pas dépasser ${MESSAGE_MAX_LENGTH} caractères.`),
 });
 
 type MessageFormValues = z.infer<typeof messageSchema>;
@@ -68,69 +64,10 @@ const getErrorMessage = (error: unknown): string => {
   return 'Une erreur inconnue est survenue.';
 };
 
-export default function Home(): JSX.Element {
-  const [message, setMessage] = useState('');
 export default function Home() {
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const isSendDisabled = useMemo(() => isLoading || !message.trim(), [isLoading, message]);
-
-  const handleSendMessage = useCallback(async () => {
-    const trimmed = message.trim();
-    if (!trimmed || isLoading) {
-    if (isLoading || !message.trim()) {
-      return;
-    }
-
-    const userMessage: ConversationMessage = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: trimmed,
-      status: 'success',
-    };
-
-    const pendingMessage: ConversationMessage = {
-      id: `assistant-${Date.now()}`,
-      role: 'assistant',
-      content: PENDING_TEXT,
-      status: 'pending',
-    };
-
-    setConversation((prev) => [...prev, userMessage, pendingMessage]);
-    setMessage('');
-    setIsLoading(true);
-
-    try {
-      const response = await sendChatMessage(trimmed);
-      const assistantContent = response?.content?.trim()
-        ? response.content
-        : "L'assistant n'a renvoyé aucun contenu.";
-
-      setConversation((prev) =>
-        prev.map((msg) =>
-          msg.id === pendingMessage.id
-            ? { ...msg, content: assistantContent, status: 'success' }
-            : msg,
-        ),
-      );
-    } catch (error) {
-      const errorMessage = getErrorMessage(error);
-      setConversation((prev) =>
-        prev.map((msg) =>
-          msg.id === pendingMessage.id ? { ...msg, content: errorMessage, status: 'error' } : msg,
-        ),
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isLoading, message]);
-
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        void handleSendMessage();
   const {
     register,
     handleSubmit,
@@ -196,9 +133,7 @@ export default function Home() {
         const errorMessage = getErrorMessage(error);
         setConversation((prev) =>
           prev.map((msg) =>
-            msg.id === pendingMessage.id
-              ? { ...msg, content: errorMessage, status: 'error' }
-              : msg,
+            msg.id === pendingMessage.id ? { ...msg, content: errorMessage, status: 'error' } : msg,
           ),
         );
       } finally {
@@ -206,14 +141,6 @@ export default function Home() {
       }
     },
     [isLoading, reset, setConversation, setIsLoading],
-  );
-
-  const handleSubmit = useCallback(
-    (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      void handleSendMessage();
-    },
-    [handleSendMessage],
   );
 
   return (
@@ -235,17 +162,12 @@ export default function Home() {
         {conversation.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-slate-500">
             <p className="text-lg font-medium">Commencez une conversation avec l&apos;assistant…</p>
-            <p className="text-sm">
-              Partagez un objectif et laissez l&apos;IA vous guider étape par étape.
-            </p>
+            <p className="text-sm">Partagez un objectif et laissez l&apos;IA vous guider étape par étape.</p>
           </div>
         ) : (
           <ul className="flex h-full flex-col gap-3 overflow-y-auto">
             {conversation.map((msg) => (
               <li
-          <div className="flex h-full flex-col gap-3 overflow-y-auto">
-            {conversation.map((msg) => (
-              <div
                 key={msg.id}
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
@@ -254,24 +176,17 @@ export default function Home() {
                     msg.role === 'user'
                       ? 'bg-blue-600 text-white'
                       : msg.status === 'error'
-                      ? 'bg-red-100 text-red-700 border border-red-300'
-                      : msg.status === 'pending'
-                      ? 'bg-gray-200 text-gray-600 animate-pulse'
-                        ? 'bg-red-100 text-red-700 ring-1 ring-red-200'
-                        : msg.status === 'pending'
-                          ? 'bg-slate-100 text-slate-600'
-                          : 'bg-slate-50 text-slate-900'
-                      ? 'bg-red-100 text-red-700 border border-red-300'
-                      : msg.status === 'pending'
-                      ? 'bg-slate-200 text-slate-600'
-                      : 'bg-slate-100 text-slate-900'
+                        ? 'border border-red-300 bg-red-50 text-red-900'
+                        : 'border border-slate-200 bg-slate-50 text-slate-900'
                   }`}
-                  aria-live={msg.status === 'pending' ? 'polite' : undefined}
                 >
-                  <p>{msg.content}</p>
-                  {msg.status === 'pending' && (
-                    <span className="mt-2 block text-xs text-slate-500">Réponse en cours…</span>
-                  )}
+                  <p className="whitespace-pre-wrap break-words leading-relaxed">
+                    {msg.status === 'pending' && msg.role === 'assistant' ? (
+                      <span className="italic text-slate-600">{msg.content}</span>
+                    ) : (
+                      msg.content
+                    )}
+                  </p>
                 </div>
               </li>
             ))}
@@ -280,82 +195,41 @@ export default function Home() {
       </section>
 
       <form
-        className="flex flex-col gap-3 rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-200 md:flex-row"
-        onSubmit={(event) => {
-          event.preventDefault();
-          handleSendMessage();
-        }}
-        onSubmit={handleSubmit}
-      >
-        <label className="sr-only" htmlFor="message">
-          Message
-        </label>
-        <input
-          id="message"
-          type="text"
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Tapez votre message..."
-          className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-          aria-label="Message"
-        />
-        <button
-          type="submit"
-          className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-base font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isLoading}
-        />
-        <button
-          type="submit"
-          className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-base font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 disabled:cursor-not-allowed disabled:opacity-60"
         onSubmit={handleSubmit(onSubmit)}
-        noValidate
+        className="flex flex-col gap-3 rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-200"
       >
-        <div className="flex-1">
-          <label className="sr-only" htmlFor="message">
-            Message
+        <div className="flex flex-col gap-1">
+          <label htmlFor="message-input" className="text-sm font-medium text-slate-700">
+            Votre message
           </label>
-          <input
-            id="message"
-            type="text"
-            placeholder="Décrivez votre objectif..."
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            aria-label="Message"
-            aria-invalid={errors.content ? 'true' : 'false'}
-            aria-describedby={errors.content ? 'message-error' : 'message-help'}
+          <textarea
             {...register('content')}
+            id="message-input"
+            rows={3}
+            placeholder="Saisissez votre message ici..."
+            disabled={isLoading || isSubmitting}
+            className="resize-none rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
           />
-          <div className="mt-1 flex flex-col gap-1">
-            {errors.content ? (
-              <p
-                id="message-error"
-                className="text-sm text-red-600"
-                role="alert"
-                aria-live="polite"
-              >
-                {errors.content.message}
-              </p>
-            ) : (
-              <p id="message-help" className="text-sm text-slate-500">
-                Votre message doit contenir entre {MESSAGE_MIN_LENGTH} et {MESSAGE_MAX_LENGTH} caractères.
-              </p>
-            )}
-            <p
-              aria-live="polite"
-              className="text-xs text-slate-400"
+          <div className="flex items-center justify-between text-xs">
+            <div>
+              {errors.content && <span className="text-red-600">{errors.content.message}</span>}
+            </div>
+            <span
+              className={`${
+                remainingCharacters < 50 ? 'text-amber-600' : 'text-slate-500'
+              } ${remainingCharacters < 0 ? 'text-red-600' : ''}`}
             >
-              {remainingCharacters >= 0
-                ? `${remainingCharacters} caractères restants`
-                : `${Math.abs(remainingCharacters)} caractères au-delà de la limite`}
-            </p>
+              {currentLength}/{MESSAGE_MAX_LENGTH}
+            </span>
           </div>
         </div>
+
         <button
           type="submit"
-          className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-base font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={isSendDisabled}
+          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
         >
-          {isLoading ? 'Envoi...' : 'Envoyer'}
+          {isLoading || isSubmitting ? 'Envoi en cours...' : 'Envoyer'}
         </button>
       </form>
     </main>

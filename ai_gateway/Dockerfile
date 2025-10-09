@@ -12,11 +12,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY ai_gateway/requirements.txt ./requirements.txt
+COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-COPY ai_gateway/ ./
+COPY . .
 
 ARG AI_GATEWAY_PORT=8100
 ARG AI_GATEWAY_BACKEND_BASE_URL
@@ -30,19 +30,3 @@ ENV AI_GATEWAY_PORT=${AI_GATEWAY_PORT} \
 EXPOSE ${AI_GATEWAY_PORT}
 
 CMD ["sh", "-c", "uvicorn ai_gateway.main:app --host 0.0.0.0 --port ${AI_GATEWAY_PORT:-8100}"]
-FROM python:3.11-slim AS runtime
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
-WORKDIR /app
-
-COPY requirements.txt ./
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-EXPOSE 8100
-
-CMD ["uvicorn", "ai_gateway.main:app", "--host", "0.0.0.0", "--port", "8100"]
