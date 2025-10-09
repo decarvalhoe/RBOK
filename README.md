@@ -94,6 +94,32 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
    uvicorn app.main:app --reload --port 8000
    ```
 
+   #### Authentification JWT de développement
+
+   L'API expose un flux OAuth2 password simplifié pour générer des tokens Bearer (JWT) destinés aux tests :
+
+   ```bash
+   # Récupération d'un token administrateur
+   curl -X POST http://localhost:8000/auth/token \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     -d "username=alice&password=adminpass"
+   ```
+
+   Deux comptes in-memory sont disponibles par défaut :
+
+   | Utilisateur | Rôle  | Mot de passe |
+   |-------------|-------|--------------|
+   | `alice`     | admin | `adminpass`  |
+   | `bob`       | user  | `userpass`   |
+
+   Les appels nécessitant des droits d'écriture (ex. `POST /procedures`) doivent inclure l'en-tête :
+
+   ```http
+   Authorization: Bearer <token>
+   ```
+
+   Les utilisateurs standards peuvent lancer des exécutions (`POST /runs`) tandis que seuls les administrateurs peuvent créer des procédures.
+
 3. **Application Web**
    ```bash
    cd webapp
