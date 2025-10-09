@@ -30,3 +30,19 @@ ENV AI_GATEWAY_PORT=${AI_GATEWAY_PORT} \
 EXPOSE ${AI_GATEWAY_PORT}
 
 CMD ["sh", "-c", "uvicorn ai_gateway.main:app --host 0.0.0.0 --port ${AI_GATEWAY_PORT:-8100}"]
+FROM python:3.11-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8100
+
+CMD ["uvicorn", "ai_gateway.main:app", "--host", "0.0.0.0", "--port", "8100"]

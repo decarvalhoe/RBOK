@@ -149,8 +149,27 @@ export AI_GATEWAY_OPENAI_API_KEY="sk-..."
    # .venv\Scripts\activate   # Windows
    pip install -r requirements.txt
    alembic upgrade head
+   # Démarrer Redis en local (Docker)
+   docker run --rm -p 6379:6379 redis:7-alpine
+   # ou exporter REDIS_URL si un service managé est utilisé
+   export REDIS_URL=redis://localhost:6379/0
    uvicorn app.main:app --reload --port 8000
    ```
+
+   #### Cache Redis
+
+   L'API s'appuie sur Redis pour mettre en cache les listes de procédures, les détails et les exécutions. En développement, un conteneur Docker suffit ; en production, configurez les variables suivantes selon votre plateforme d'hébergement :
+
+   | Variable | Description | Valeur par défaut |
+   |----------|-------------|-------------------|
+   | `REDIS_URL` | Chaîne de connexion complète si disponible. | Générée à partir des variables ci-dessous. |
+   | `REDIS_HOST` | Hôte du serveur Redis. | `localhost` |
+   | `REDIS_PORT` | Port du serveur Redis. | `6379` |
+   | `REDIS_DB` | Index de base de données Redis. | `0` |
+   | `REDIS_PASSWORD` | Mot de passe si nécessaire. | *(vide)* |
+   | `REDIS_TLS` | `true`/`false` pour activer TLS (`rediss://`). | `false` |
+
+   L'invalidation du cache est automatique lors des créations/updates/suppressions de procédures. Assurez-vous simplement que l'instance Redis est accessible depuis l'API dans vos environnements de déploiement (VPC, service managé, etc.).
 
    #### Authentification JWT de développement
 
@@ -205,6 +224,54 @@ export AI_GATEWAY_OPENAI_API_KEY="sk-..."
 - **Erreur `OPENAI API key must be provided...`** : définissez `AI_GATEWAY_OPENAI_API_KEY` avant de lancer `docker compose up`.
 - **Hot-reload qui ne déclenche pas** : vérifiez que vos fichiers sont bien montés (`./backend`, `./ai_gateway`, `./webapp`). Un `docker compose restart <service>` force la prise en compte des volumes.
 - **Port déjà utilisé** : modifiez `BACKEND_PORT`, `AI_GATEWAY_PORT` ou `WEBAPP_PORT` dans votre environnement avant le lancement.
+## Qualité du code et linting
+
+### Frontend (webapp)
+1. Installer les dépendances :
+   ```bash
+   cd webapp
+   npm install
+   ```
+2. Lancer l'analyse ESLint :
+   ```bash
+   npm run lint
+   ```
+3. Vérifier la mise en forme Prettier :
+   ```bash
+   npm run format
+   ```
+4. Pour corriger automatiquement les problèmes détectés :
+   ```bash
+   npm run lint:fix
+   npm run format:fix
+   ```
+
+### Backend (FastAPI)
+1. Créer un environnement virtuel et installer les dépendances :
+   ```bash
+   cd backend
+   python -m venv .venv
+   source .venv/bin/activate  # Windows : .venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+2. Lancer Ruff pour l'analyse statique :
+   ```bash
+   make lint
+   ```
+3. Vérifier la mise en forme Black :
+   ```bash
+   make format-check
+   ```
+4. Pour appliquer automatiquement les correctifs :
+   ```bash
+   make lint-fix
+   make format
+   ```
+5. Les mêmes vérifications sont disponibles via tox :
+   ```bash
+   tox -e lint
+   tox -e format
+   ```
 
 ## Roadmap v0.1
 
