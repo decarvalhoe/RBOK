@@ -13,6 +13,10 @@
 | `DB_USER` | Utilisateur de la base. | `rbok` | S'assurer que chaque environnement possède son propre utilisateur. |
 | `DB_PASSWORD` | Mot de passe de la base. | `rbok` | Gérer via un secret manager et activer la rotation régulière. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Durée de vie des tokens JWT. | `60` | Réduire pour limiter l'impact d'une compromission. |
+| `WEBRTC_STUN_SERVERS` | Liste séparée par virgules des URLs STUN. | `""` | Fournir au moins un serveur public ou interne. |
+| `WEBRTC_TURN_SERVERS` | Liste séparée par virgules des URLs TURN. | `""` | Obligatoire derrière des pare-feux restrictifs. |
+| `WEBRTC_TURN_USERNAME` | Identifiant TURN partagé avec les clients. | `None` | Stocker dans un secret manager. |
+| `WEBRTC_TURN_PASSWORD` | Mot de passe TURN. | `None` | Transmettre via un canal chiffré uniquement. |
 
 ### Bonnes pratiques
 - Copier `.env.example` vers `.env` et définir des valeurs uniques par environnement.

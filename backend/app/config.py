@@ -31,6 +31,26 @@ class Settings(BaseSettings):
         alias="BACKEND_RATE_LIMIT_HEADERS_ENABLED",
         description="Expose rate limit headers on throttled responses.",
     )
+    webrtc_stun_servers: List[str] = Field(
+        default_factory=list,
+        alias="WEBRTC_STUN_SERVERS",
+        description="Comma separated STUN server URLs for WebRTC clients.",
+    )
+    webrtc_turn_servers: List[str] = Field(
+        default_factory=list,
+        alias="WEBRTC_TURN_SERVERS",
+        description="Comma separated TURN server URLs for WebRTC clients.",
+    )
+    webrtc_turn_username: str | None = Field(
+        default=None,
+        alias="WEBRTC_TURN_USERNAME",
+        description="TURN server username shared with clients.",
+    )
+    webrtc_turn_password: str | None = Field(
+        default=None,
+        alias="WEBRTC_TURN_PASSWORD",
+        description="TURN server credential shared with clients.",
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -46,6 +66,14 @@ class Settings(BaseSettings):
             parts = [origin.strip() for origin in value.split(",")]
             origins = [origin for origin in parts if origin]
             return origins or ["http://localhost:3000"]
+        return value
+
+    @field_validator("webrtc_stun_servers", "webrtc_turn_servers", mode="before")
+    @classmethod
+    def _split_servers(cls, value: List[str] | str) -> List[str]:
+        if isinstance(value, str):
+            items = [item.strip() for item in value.split(",")]
+            return [item for item in items if item]
         return value
 
 

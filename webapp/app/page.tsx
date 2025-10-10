@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useForm } from 'react-hook-form';
@@ -255,6 +256,20 @@ export default function Home(): JSX.Element {
           {isLoading ? 'Envoi...' : 'Envoyer'}
         </button>
       </form>
+
+      <section className="rounded-lg border border-dashed border-slate-300 bg-white/60 p-4 text-sm text-slate-600">
+        <h2 className="text-lg font-semibold text-slate-900">Nouveau : essai WebRTC</h2>
+        <p className="mt-1">
+          Expérimentez la capture audio/vidéo et la négociation de session via nos nouvelles APIs de
+          signalisation.
+        </p>
+        <Link
+          href="/webrtc"
+          className="mt-3 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+        >
+          Ouvrir le banc de test WebRTC
+        </Link>
+      </section>
     </main>
   );
 }

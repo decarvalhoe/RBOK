@@ -34,3 +34,13 @@ filterwarnings = [
   "error::DeprecationWarning",
   "error::PendingDeprecationWarning",
 ]
+
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+include = [
+  "app/api/webrtc.py",
+  "app/services/webrtc.py",
+  "app/main.py",
+]
