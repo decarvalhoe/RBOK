@@ -8,6 +8,7 @@ from sqlalchemy import DateTime, ForeignKey, Index, String, Text, JSON, UniqueCo
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.ext.mutable import MutableDict, MutableList
 
 from .database import Base
 
@@ -91,3 +92,29 @@ class AuditEvent(Base):
     entity_type: Mapped[str] = mapped_column(String(255), nullable=False)
     entity_id: Mapped[str] = mapped_column(String(255), nullable=False)
     payload_diff: Mapped[Dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class WebRTCSession(Base):
+    """Persisted WebRTC signaling session state."""
+
+    __tablename__ = "webrtc_sessions"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
+    client_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    responder_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="awaiting_answer")
+    offer_sdp: Mapped[str] = mapped_column(Text, nullable=False)
+    answer_sdp: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    session_metadata: Mapped[Dict[str, object]] = mapped_column(
+        "metadata", MutableDict.as_mutable(JSON), nullable=False, default=dict
+    )
+    responder_metadata: Mapped[Dict[str, object]] = mapped_column(
+        MutableDict.as_mutable(JSON), nullable=False, default=dict
+    )
+    ice_candidates: Mapped[List[Dict[str, object]]] = mapped_column(
+        MutableList.as_mutable(JSON), nullable=False, default=list
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
