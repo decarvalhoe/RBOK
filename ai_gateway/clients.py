@@ -5,14 +5,22 @@ import asyncio
 import base64
 import io
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional
 
 import httpx
+from opentelemetry import trace
+from opentelemetry.propagate import inject
+from opentelemetry.trace import Status, StatusCode
 from openai import OpenAI
 from openai import OpenAIError
+from structlog.contextvars import get_contextvars
+
+from .telemetry import get_correlation_id
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 class OpenAIClientError(RuntimeError):
@@ -96,7 +104,32 @@ class OpenAIClient:
                 finish_reason=getattr(choice, "finish_reason", None),
             )
 
-        return await asyncio.to_thread(_call)
+        span_attributes = {
+            "llm.system": "openai",
+            "llm.operation": "chat.completion",
+            "llm.model": model or self._chat_model,
+        }
+        correlation_id = get_correlation_id()
+        if correlation_id:
+            span_attributes["correlation.id"] = correlation_id
+
+        with tracer.start_as_current_span("OpenAI.chatCompletion") as span:
+            for key, value in span_attributes.items():
+                span.set_attribute(key, value)
+            try:
+                result = await asyncio.to_thread(_call)
+            except OpenAIClientError as exc:
+                span.record_exception(exc)
+                span.set_status(Status(StatusCode.ERROR, str(exc)))
+                raise
+            span.set_status(Status(StatusCode.OK))
+            if result.finish_reason:
+                span.set_attribute("llm.finish_reason", result.finish_reason)
+            if result.usage:
+                for usage_key, usage_value in result.usage.items():
+                    if isinstance(usage_value, (int, float)):
+                        span.set_attribute(f"llm.usage.{usage_key}", usage_value)
+            return result
 
     async def transcribe_audio(
         self,
@@ -131,7 +164,26 @@ class OpenAIClient:
 
             return TranscriptionResult(text=text, language=language)
 
-        return await asyncio.to_thread(_call)
+        span_attributes = {
+            "asr.system": "openai",
+            "asr.model": self._asr_model,
+            "asr.audio_format": audio_format,
+        }
+        correlation_id = get_correlation_id()
+        if correlation_id:
+            span_attributes["correlation.id"] = correlation_id
+
+        with tracer.start_as_current_span("OpenAI.transcription") as span:
+            for key, value in span_attributes.items():
+                span.set_attribute(key, value)
+            try:
+                result = await asyncio.to_thread(_call)
+            except OpenAIClientError as exc:
+                span.record_exception(exc)
+                span.set_status(Status(StatusCode.ERROR, str(exc)))
+                raise
+            span.set_status(Status(StatusCode.OK))
+            return result
 
     async def synthesize_speech(
         self,
@@ -170,7 +222,28 @@ class OpenAIClient:
                 voice=voice,
             )
 
-        return await asyncio.to_thread(_call)
+        span_attributes = {
+            "tts.system": "openai",
+            "tts.model": self._tts_model,
+            "tts.audio_format": audio_format,
+        }
+        if voice:
+            span_attributes["tts.voice"] = voice
+        correlation_id = get_correlation_id()
+        if correlation_id:
+            span_attributes["correlation.id"] = correlation_id
+
+        with tracer.start_as_current_span("OpenAI.speechSynthesis") as span:
+            for key, value in span_attributes.items():
+                span.set_attribute(key, value)
+            try:
+                result = await asyncio.to_thread(_call)
+            except OpenAIClientError as exc:
+                span.record_exception(exc)
+                span.set_status(Status(StatusCode.ERROR, str(exc)))
+                raise
+            span.set_status(Status(StatusCode.OK))
+            return result
 
 
 class BackendClientError(RuntimeError):
@@ -186,9 +259,14 @@ class BackendClient:
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> Dict[str, Any]:
         url = f"{self._base_url}{path}"
+        headers = kwargs.pop("headers", {})
+        correlation_id = get_contextvars().get("correlation_id")
+        if correlation_id and "X-Correlation-ID" not in headers:
+            headers["X-Correlation-ID"] = correlation_id
+
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.request(method, url, **kwargs)
+                response = await client.request(method, url, headers=headers, **kwargs)
         except httpx.HTTPError as exc:
             logger.exception("Backend request failed: %s %s", method, url)
             raise BackendClientError(str(exc)) from exc
@@ -205,7 +283,8 @@ class BackendClient:
                 f"Backend error {response.status_code}: {response.text}"
             )
 
-        return response.json()
+            span.set_status(Status(StatusCode.OK))
+            return response.json()
 
     async def get_procedure(self, procedure_id: str) -> Dict[str, Any]:
         return await self._request("GET", f"/procedures/{procedure_id}")

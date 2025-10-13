@@ -7,10 +7,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import logging
+import time
 from typing import Dict
 
-from fastapi import Depends, FastAPI, HTTPException
+import httpx
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
+from prometheus_client.parser import text_string_to_metric_families
 
 from .clients import (
     BackendClient,
@@ -22,6 +27,7 @@ from .clients import (
     TranscriptionResult,
 )
 from .config import Settings, get_settings
+from .observability import Observability
 from .models import (
     AsrRequest,
     AsrResponse,
@@ -36,21 +42,148 @@ from .models import (
     ValidateSlotRequest,
     ValidateSlotResponse,
 )
+from .telemetry import (
+    configure_tracing,
+    get_correlation_id,
+    reset_correlation_id,
+    set_correlation_id,
+)
 
 logger = logging.getLogger("ai_gateway")
+correlation_id_var: ContextVar[str | None] = ContextVar("correlation_id", default=None)
 
 
-def configure_logging() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+class CorrelationIdFilter(logging.Filter):
+    """Inject the correlation identifier into log records."""
+
+    def filter(self, record: logging.LogRecord) -> bool:  # pragma: no cover - logging helper
+        record.correlation_id = correlation_id_var.get() or "unknown"
+        return True
+
+
+def _add_correlation_id(_: Any, __: str, event_dict: Dict[str, Any]) -> Dict[str, Any]:  # pragma: no cover - logging helper
+    event_dict.setdefault("correlation_id", correlation_id_var.get() or "unknown")
+    return event_dict
+
+
+def _configure_otlp_logging(service_name: str) -> None:
+    if not (
+        os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+        or os.getenv("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT")
+    ):
+        return
+
+    root_logger = logging.getLogger()
+    try:
+        resource = Resource.create(
+            {"service.name": os.getenv("OTEL_SERVICE_NAME", service_name)}
+        )
+        logger_provider = LoggerProvider(resource=resource)
+        exporter = OTLPLogExporter()
+        logger_provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
+        set_logger_provider(logger_provider)
+        otlp_handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
+        root_logger.addHandler(otlp_handler)
+        root_logger.debug(
+            "OTLP log exporter configured",
+            extra={"service_name": resource.attributes.get("service.name")},
+        )
+    except Exception:  # pragma: no cover - defensive
+        root_logger.exception("Failed to configure OTLP log exporter")
+
+
+def configure_logging(service_name: str = "rbok-ai-gateway") -> None:
+    timestamper = structlog.processors.TimeStamper(fmt="iso", utc=True)
+    shared_processors = [
+        structlog.contextvars.merge_contextvars,
+        _add_correlation_id,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        timestamper,
+        structlog.processors.format_exc_info,
+    ]
+
+    formatter = ProcessorFormatter(
+        processor=structlog.processors.JSONRenderer(),
+        foreign_pre_chain=shared_processors,
     )
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    handler.addFilter(CorrelationIdFilter())
+
+    root_logger = logging.getLogger()
+    root_logger.handlers = [handler]
+    root_logger.setLevel(logging.INFO)
+
+    old_factory = logging.getLogRecordFactory()
+
+    def record_factory(*args, **kwargs):  # type: ignore[override]
+        record = old_factory(*args, **kwargs)
+        if not hasattr(record, "correlation_id"):
+            record.correlation_id = correlation_id_var.get() or "unknown"
+        return record
+
+    logging.setLogRecordFactory(record_factory)
+
+    structlog.configure(
+        processors=shared_processors + [ProcessorFormatter.wrap_for_formatter],
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+    logging.getLogger().addFilter(CorrelationIdFilter())
+    old_factory = logging.getLogRecordFactory()
+
+    def record_factory(*args, **kwargs):  # type: ignore[override]
+        record = old_factory(*args, **kwargs)
+        if not hasattr(record, "correlation_id"):
+            record.correlation_id = get_correlation_id() or "unknown"
+        return record
+
+    logging.setLogRecordFactory(record_factory)
+
+    _configure_otlp_logging(service_name)
 
 
 configure_logging()
 
 
+class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    """Attach correlation identifiers and latency to responses."""
+
+    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+        correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
+        token = correlation_id_var.set(correlation_id)
+        bind_contextvars(correlation_id=correlation_id)
+        start = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            logger.exception("Unhandled exception during request", extra={"path": request.url.path})
+            raise
+        finally:
+            duration_ms = (time.perf_counter() - start) * 1000
+            correlation_id_var.reset(token)
+            unbind_contextvars("correlation_id")
+            logger.info(
+                "Request completed",
+                extra={
+                    "path": request.url.path,
+                    "method": request.method,
+                    "duration_ms": round(duration_ms, 2),
+                },
+            )
+
+        response.headers["X-Correlation-ID"] = correlation_id
+        response.headers["X-Process-Time-ms"] = f"{duration_ms:.2f}"
+        return response
+
+
 app = FastAPI(title="Réalisons AI Gateway", version="0.2.0")
+telemetry = Observability(app, service_name="rbok-ai-gateway")
+app.state.telemetry = telemetry
 settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
@@ -59,6 +192,51 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(CorrelationIdMiddleware)
+
+
+# Metrics -------------------------------------------------------------------
+
+REQUEST_DURATION = Histogram(
+    "ai_gateway_request_duration_seconds",
+    "Time spent processing requests",
+    labelnames=("method", "path", "status_code"),
+)
+REQUEST_COUNT = Counter(
+    "ai_gateway_request_total",
+    "Total number of processed requests",
+    labelnames=("method", "path", "status_code"),
+)
+BACKEND_DATABASE_HEALTH = Gauge(
+    "ai_gateway_backend_database_up",
+    "Database status as reported by the backend service",
+)
+BACKEND_CACHE_HEALTH = Gauge(
+    "ai_gateway_backend_cache_up",
+    "Cache status as reported by the backend service",
+)
+
+
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):  # type: ignore[override]
+    if request.url.path == "/metrics":
+        return await call_next(request)
+
+    start_time = time.perf_counter()
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        elapsed = time.perf_counter() - start_time
+        labels = {
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": str(status_code),
+        }
+        REQUEST_DURATION.labels(**labels).observe(elapsed)
+        REQUEST_COUNT.labels(**labels).inc()
 
 
 # Dependency factories -----------------------------------------------------
@@ -209,3 +387,39 @@ async def commit_step(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     return CommitStepResponse(**acknowledgement)
+
+
+async def _refresh_backend_dependency_metrics(settings: Settings) -> None:
+    """Scrape backend metrics and update gateway dependency gauges."""
+
+    base_url = settings.backend_base_url.rstrip("/")
+    if not base_url:
+        BACKEND_DATABASE_HEALTH.set(0)
+        BACKEND_CACHE_HEALTH.set(0)
+        return
+
+    database_status = 0.0
+    cache_status = 0.0
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            response = await client.get(f"{base_url}/metrics")
+            response.raise_for_status()
+        for family in text_string_to_metric_families(response.text):
+            if family.name == "backend_database_up":
+                for sample in family.samples:
+                    database_status = float(sample.value)
+            elif family.name == "backend_cache_up":
+                for sample in family.samples:
+                    cache_status = float(sample.value)
+    except Exception as exc:  # pragma: no cover - defensive monitoring path
+        logger.warning("Failed to refresh backend dependency metrics", exc_info=exc)
+
+    BACKEND_DATABASE_HEALTH.set(database_status)
+    BACKEND_CACHE_HEALTH.set(cache_status)
+
+
+@app.get("/metrics")
+async def metrics(settings: Settings = Depends(get_settings)) -> Response:
+    await _refresh_backend_dependency_metrics(settings)
+    payload = generate_latest()
+    return Response(content=payload, media_type=CONTENT_TYPE_LATEST)

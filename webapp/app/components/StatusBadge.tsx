@@ -23,11 +23,7 @@ export function StatusBadge({ label, variant = 'info', className }: StatusBadgeP
   }
 
   return (
-    <span
-      className={classes.join(' ')}
-      role="status"
-      aria-label={`${variant} status: ${label}`}
-    >
+    <span className={classes.join(' ')} role="status" aria-label={`${variant} status: ${label}`}>
       {label}
     </span>
   );
