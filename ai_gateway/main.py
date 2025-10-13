@@ -7,10 +7,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import logging
+import time
+import uuid
 from typing import Dict
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from opentelemetry import trace
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from .clients import (
     BackendClient,
@@ -37,18 +41,67 @@ from .models import (
     ValidateSlotRequest,
     ValidateSlotResponse,
 )
+from .telemetry import (
+    configure_tracing,
+    get_correlation_id,
+    reset_correlation_id,
+    set_correlation_id,
+)
 
 logger = logging.getLogger("ai_gateway")
 
 
 def configure_logging() -> None:
+    class CorrelationIdFilter(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:  # pragma: no cover - logging helper
+            record.correlation_id = get_correlation_id() or "unknown"
+            return True
+
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        format="%(asctime)s %(levelname)s %(name)s [correlation_id=%(correlation_id)s] %(message)s",
     )
+    logging.getLogger().addFilter(CorrelationIdFilter())
+    old_factory = logging.getLogRecordFactory()
+
+    def record_factory(*args, **kwargs):  # type: ignore[override]
+        record = old_factory(*args, **kwargs)
+        if not hasattr(record, "correlation_id"):
+            record.correlation_id = get_correlation_id() or "unknown"
+        return record
+
+    logging.setLogRecordFactory(record_factory)
 
 
 configure_logging()
+
+
+class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    """Attach correlation identifiers and timing information to responses."""
+
+    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+        correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
+        token = set_correlation_id(correlation_id)
+        start = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            logger.exception("Unhandled exception during request", extra={"path": request.url.path})
+            raise
+        finally:
+            duration_ms = (time.perf_counter() - start) * 1000
+            reset_correlation_id(token)
+            logger.info(
+                "Request completed",
+                extra={"path": request.url.path, "method": request.method, "duration_ms": round(duration_ms, 2)},
+            )
+        current_span = trace.get_current_span()
+        if current_span and current_span.is_recording():
+            current_span.set_attribute("correlation.id", correlation_id)
+            current_span.set_attribute("http.server_duration_ms", round(duration_ms, 2))
+        response.headers["X-Correlation-ID"] = correlation_id
+        response.headers["X-Process-Time-ms"] = f"{duration_ms:.2f}"
+        return response
 
 
 app = FastAPI(title="Réalisons AI Gateway", version="0.2.0")
@@ -62,6 +115,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(CorrelationIdMiddleware)
+configure_tracing(app, "rbok-ai-gateway")
 
 
 # Dependency factories -----------------------------------------------------

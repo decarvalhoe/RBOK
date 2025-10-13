@@ -3,14 +3,20 @@ from __future__ import annotations
 
 import os
 from typing import Optional
+from urllib.parse import urlparse
 
 import redis
 from redis import Redis
+
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 __all__ = ["get_redis_client", "set_redis_client", "reset_redis_client"]
 
 
 _redis_client: Optional[Redis] = None
+
+tracer = trace.get_tracer(__name__)
 
 
 def _build_redis_url() -> str:
@@ -35,7 +41,24 @@ def _build_redis_url() -> str:
 def _create_client() -> Redis:
     """Instantiate a Redis client using the resolved configuration."""
 
-    return redis.Redis.from_url(_build_redis_url(), decode_responses=True)
+    url = _build_redis_url()
+    with tracer.start_as_current_span("cache.connect") as span:
+        span.set_attribute("cache.system", "redis")
+        parsed = urlparse(url)
+        if parsed.hostname:
+            span.set_attribute("net.peer.name", parsed.hostname)
+        if parsed.port:
+            span.set_attribute("net.peer.port", parsed.port)
+        database = parsed.path.lstrip("/") or "0"
+        span.set_attribute("db.redis.database_index", database)
+        try:
+            client = redis.Redis.from_url(url, decode_responses=True)
+        except Exception as exc:  # pragma: no cover - defensive
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, str(exc)))
+            raise
+        span.set_status(Status(StatusCode.OK))
+        return client
 
 
 def get_redis_client() -> Redis:

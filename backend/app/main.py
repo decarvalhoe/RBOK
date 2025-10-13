@@ -3,6 +3,7 @@ from __future__ import annotations
 """FastAPI entry-point for the Réalisons backend."""
 
 import logging
+import os
 import time
 import uuid
 from contextvars import ContextVar
@@ -11,6 +12,12 @@ from typing import Any, Dict, List, Optional
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -22,6 +29,7 @@ from .observability import Observability
 
 logger = logging.getLogger("rbok.api")
 correlation_id_var: ContextVar[Optional[str]] = ContextVar("correlation_id", default=None)
+_tracing_configured = False
 
 
 class CorrelationIdFilter(logging.Filter):
@@ -52,6 +60,42 @@ def configure_logging() -> None:
 configure_logging()
 
 
+def _parse_otlp_headers(raw_value: Optional[str]) -> Dict[str, str]:
+    headers: Dict[str, str] = {}
+    if not raw_value:
+        return headers
+    for item in raw_value.split(","):
+        if "=" not in item:
+            continue
+        key, value = item.split("=", 1)
+        key = key.strip()
+        if not key:
+            continue
+        headers[key] = value.strip()
+    return headers
+
+
+def configure_tracing(app: FastAPI) -> None:
+    """Initialise OpenTelemetry tracing for the service."""
+
+    global _tracing_configured
+    if _tracing_configured:
+        return
+
+    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318")
+    exporter = OTLPSpanExporter(
+        endpoint=f"{endpoint.rstrip('/')}/v1/traces",
+        headers=_parse_otlp_headers(os.getenv("OTEL_EXPORTER_OTLP_HEADERS")) or None,
+    )
+    provider = TracerProvider(
+        resource=Resource.create({"service.name": "rbok-backend"}),
+    )
+    provider.add_span_processor(BatchSpanProcessor(exporter))
+    trace.set_tracer_provider(provider)
+    FastAPIInstrumentor().instrument_app(app, tracer_provider=provider)
+    _tracing_configured = True
+
+
 class CorrelationIdMiddleware(BaseHTTPMiddleware):
     """Attach correlation identifiers and timing information to responses."""
 
@@ -71,12 +115,17 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
                 "Request completed",
                 extra={"path": request.url.path, "method": request.method, "duration_ms": round(duration_ms, 2)},
             )
+        current_span = trace.get_current_span()
+        if current_span and current_span.is_recording():
+            current_span.set_attribute("correlation.id", correlation_id)
+            current_span.set_attribute("http.server_duration_ms", round(duration_ms, 2))
         response.headers["X-Correlation-ID"] = correlation_id
         response.headers["X-Process-Time-ms"] = f"{duration_ms:.2f}"
         return response
 
 
 app = FastAPI(title="Réalisons API", version="0.3.0")
+configure_tracing(app)
 
 telemetry = Observability(app, service_name="rbok-backend")
 app.state.telemetry = telemetry
