@@ -35,6 +35,7 @@ from .clients import (
     TranscriptionResult,
 )
 from .config import Settings, get_settings
+from .observability import Observability
 from .models import (
     AsrRequest,
     AsrResponse,
@@ -48,6 +49,12 @@ from .models import (
     TtsResponse,
     ValidateSlotRequest,
     ValidateSlotResponse,
+)
+from .telemetry import (
+    configure_tracing,
+    get_correlation_id,
+    reset_correlation_id,
+    set_correlation_id,
 )
 
 logger = logging.getLogger("ai_gateway")
@@ -134,6 +141,16 @@ def configure_logging(service_name: str = "rbok-ai-gateway") -> None:
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
+    logging.getLogger().addFilter(CorrelationIdFilter())
+    old_factory = logging.getLogRecordFactory()
+
+    def record_factory(*args, **kwargs):  # type: ignore[override]
+        record = old_factory(*args, **kwargs)
+        if not hasattr(record, "correlation_id"):
+            record.correlation_id = get_correlation_id() or "unknown"
+        return record
+
+    logging.setLogRecordFactory(record_factory)
 
     _configure_otlp_logging(service_name)
 
@@ -173,6 +190,8 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 
 
 app = FastAPI(title="Réalisons AI Gateway", version="0.2.0")
+telemetry = Observability(app, service_name="rbok-ai-gateway")
+app.state.telemetry = telemetry
 settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
