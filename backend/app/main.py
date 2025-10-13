@@ -20,11 +20,17 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from structlog.contextvars import bind_contextvars, unbind_contextvars
 from structlog.stdlib import ProcessorFormatter
 
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
+
 from .api.webrtc import router as webrtc_router
 from .cache import get_redis_client
 from .config import Settings, get_settings
 from .database import engine, get_db
 from .env import analyse_environment, validate_environment
+from .observability import Observability
 
 logger = logging.getLogger("rbok.api")
 correlation_id_var: ContextVar[Optional[str]] = ContextVar("correlation_id", default=None)
@@ -162,6 +168,48 @@ def configure_tracing(app: FastAPI) -> None:
     _tracing_configured = True
 
 
+def configure_rate_limiter(app: FastAPI, settings: Settings) -> None:
+    """Configure SlowAPI rate limiting according to runtime settings."""
+
+    default_limits: List[str] = []
+    if settings.rate_limit_default:
+        default_limits = [settings.rate_limit_default]
+
+    limiter = Limiter(
+        key_func=get_remote_address,
+        default_limits=default_limits,
+        headers_enabled=settings.rate_limit_headers_enabled,
+        enabled=settings.rate_limit_enabled,
+    )
+    app.state.limiter = limiter
+
+    if not any(middleware.cls is SlowAPIMiddleware for middleware in app.user_middleware):
+        app.add_middleware(SlowAPIMiddleware)
+
+    async def rate_limit_exceeded_handler(
+        request: Request, exc: RateLimitExceeded
+    ) -> JSONResponse:
+        response = JSONResponse(
+            {"error": f"Rate limit exceeded: {exc.detail}"},
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+        if settings.rate_limit_headers_enabled:
+            current_limit = getattr(request.state, "view_rate_limit", None)
+            if current_limit is not None:
+                response = limiter._inject_headers(response, current_limit)
+            elif exc.limit is not None and exc.limit.limit is not None:
+                response.headers.setdefault(
+                    "X-RateLimit-Limit", str(exc.limit.limit.amount)
+                )
+                retry_after = exc.limit.limit.get_expiry()
+                response.headers.setdefault("Retry-After", str(retry_after))
+
+        return response
+
+    app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
+
 class CorrelationIdMiddleware(BaseHTTPMiddleware):
     """Attach correlation identifiers and timing information to responses."""
 
@@ -200,6 +248,7 @@ app.state.telemetry = telemetry
 
 
 settings = get_settings()
+configure_rate_limiter(app, settings)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allow_origins,
@@ -265,6 +314,11 @@ class ChatResponse(BaseModel):
 @app.get("/")
 async def root() -> Dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/health", include_in_schema=False)
+async def health() -> Dict[str, Any]:
+    return await healthz()
 
 
 @app.get("/healthz")
@@ -334,4 +388,4 @@ async def metrics() -> Response:
     return Response(content=payload, media_type=CONTENT_TYPE_LATEST)
 
 
-__all__ = ["app", "get_db"]
+__all__ = ["app", "configure_rate_limiter", "get_db"]
