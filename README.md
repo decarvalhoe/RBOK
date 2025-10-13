@@ -27,7 +27,7 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
 - **Authentification** : Keycloak (OIDC/OAuth2) avec MFA
 - **Politiques** : Open Policy Agent (OPA) pour le contrôle d'accès granulaire
 - **Secrets** : HashiCorp Vault pour la gestion sécurisée
-- **Observabilité** : OpenTelemetry + Loki/Grafana + Sentry
+- **Observabilité** : OpenTelemetry + Loki/Grafana + Sentry (voir [docs/observability.md](docs/observability.md) pour la configuration et l'exploitation)
 
 ## Fonctionnalités Clés
 
@@ -65,6 +65,7 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
 ├── docs/                 # Documentation
 │   ├── architecture.md   # Architecture détaillée
 │   ├── backlog.md       # Backlog et sprints
+│   ├── observability.md  # Stack d'observabilité et runbooks
 │   └── *.json           # Schémas et exemples
 └── scripts/             # Scripts utilitaires
 ```
@@ -122,8 +123,12 @@ Un environnement Docker Compose est fourni pour exécuter l'API, la passerelle I
 |--------------|----------------------------------------|-----------------------------------------------------|
 | Backend      | `DATABASE_URL`                         | `postgresql+asyncpg://rbok:rbok@postgres:5432/rbok` |
 | Backend      | `REDIS_URL`                            | `redis://redis:6379/0`                              |
+| Backend      | `OTEL_EXPORTER_OTLP_ENDPOINT`          | *(vide)* – URL du collecteur OTLP (ex. `https://otel.example.com:4318`) |
+| Backend      | `OTEL_SERVICE_NAME`                    | `rbok-backend`                                      |
 | AI Gateway   | `AI_GATEWAY_OPENAI_API_KEY`            | `changeme` (à remplacer pour un usage réel)        |
 | AI Gateway   | `AI_GATEWAY_ALLOWED_ORIGINS`           | `http://localhost:3000`                             |
+| AI Gateway   | `OTEL_EXPORTER_OTLP_ENDPOINT`          | *(vide)* – URL du collecteur OTLP pour les logs     |
+| AI Gateway   | `OTEL_SERVICE_NAME`                    | `rbok-ai-gateway`                                   |
 | Webapp       | `NEXT_PUBLIC_API_URL`                  | `http://localhost:8000`                             |
 | Webapp       | `NEXT_PUBLIC_AI_GATEWAY_URL`           | `http://localhost:8100`                             |
 

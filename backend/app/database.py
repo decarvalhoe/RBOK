@@ -6,6 +6,9 @@ from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
+
 
 def _build_database_url() -> str:
     """Build the database URL from environment variables."""
@@ -47,14 +50,26 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, futu
 Base = declarative_base()
 
 
+tracer = trace.get_tracer(__name__)
+
+
 def get_db() -> Generator[Session, None, None]:
     """Provide a transactional database session."""
 
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    with tracer.start_as_current_span("database.session") as span:
+        span.set_attribute("db.system", engine.url.get_backend_name())
+        if engine.url.database:
+            span.set_attribute("db.name", engine.url.database)
+        db = SessionLocal()
+        try:
+            yield db
+            span.set_status(Status(StatusCode.OK))
+        except Exception as exc:  # pragma: no cover - defensive
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, str(exc)))
+            raise
+        finally:
+            db.close()
 
 
 __all__ = ["Base", "SessionLocal", "engine", "get_db"]

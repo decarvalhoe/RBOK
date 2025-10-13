@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import warnings
 from functools import lru_cache
 from typing import Any, Dict, Iterable, Optional, Sequence
 
@@ -11,6 +12,10 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from keycloak import KeycloakOpenID
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    from passlib.context import CryptContext
 from pydantic import BaseModel, ConfigDict, Field
 
 # ---------------------------------------------------------------------------
@@ -199,32 +204,6 @@ class KeycloakService:
 @lru_cache()
 def get_keycloak_service() -> KeycloakService:
     """Return a cached ``KeycloakService`` instance."""
-    seed_data = {
-        "alice": {
-            "full_name": "Alice Admin",
-            "password": "adminpass",
-            "role": "admin",
-        },
-        "audra": {
-            "full_name": "Audra Auditor",
-            "password": "auditpass",
-            "role": "auditor",
-        },
-        "bob": {
-            "full_name": "Bob Builder",
-            "password": "userpass",
-            "role": "user",
-        },
-    }
-    users: Dict[str, UserInDB] = {}
-    for username, info in seed_data.items():
-        users[username] = UserInDB(
-            username=username,
-            full_name=info["full_name"],
-            role=info["role"],
-            hashed_password=get_password_hash(info["password"]),
-        )
-    return users
 
     return KeycloakService(get_settings())
 
@@ -272,9 +251,6 @@ def get_opa_client() -> Optional[OPAClient]:
 # FastAPI dependencies
 # ---------------------------------------------------------------------------
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
-
-
 def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     """FastAPI dependency resolving the currently authenticated user."""
 
@@ -308,12 +284,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
         roles=kc_roles,
         role=role,
     )
-
-
-ROLE_LEVELS = {
-    "user": 0,
-    "admin": 10,
-}
 
 
 def require_role(required_role: str):
@@ -373,26 +343,6 @@ def authorize_action(action: str, resource: Optional[str] = None):
 # Convenience functions
 # ---------------------------------------------------------------------------
 
-
-def password_grant(username: str, password: str) -> Token:
-    """Obtain an access token from Keycloak using the password grant."""
-
-    service = get_keycloak_service()
-    return service.obtain_token(username, password)
-
-
-def refresh_access_token(refresh_token: str) -> Token:
-    """Refresh the access token using Keycloak."""
-
-    service = get_keycloak_service()
-    return service.refresh_token(refresh_token)
-
-
-def introspect_access_token(token: str) -> TokenIntrospection:
-    """Return the introspection result for the provided access token."""
-
-    service = get_keycloak_service()
-    return service.introspect_token(token)
 def get_current_user_optional(token: Optional[str] = Depends(optional_oauth2_scheme)) -> Optional[User]:
     """Resolve the current user when authentication is optional."""
 
@@ -401,11 +351,16 @@ def get_current_user_optional(token: Optional[str] = Depends(optional_oauth2_sch
     return get_current_user(token=token)
 
 __all__ = [
+    "AuthSettings",
+    "KeycloakService",
     "Token",
-    "TokenData",
+    "TokenIntrospection",
     "User",
-    "authenticate_user",
-    "create_access_token",
+    "get_settings",
+    "get_keycloak_service",
+    "get_opa_client",
     "get_current_user",
+    "get_current_user_optional",
     "require_role",
+    "authorize_action",
 ]
