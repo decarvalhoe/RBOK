@@ -161,6 +161,7 @@ export default function ConversationScreen() {
           style={[styles.sendButton, (isResponding || !message.trim()) && styles.sendButtonDisabled]}
           onPress={handleSend}
           disabled={isResponding || !message.trim()}
+          testID="send-button"
         >
           <Text style={styles.sendButtonText}>{isResponding ? '...' : 'Envoyer'}</Text>
         </TouchableOpacity>

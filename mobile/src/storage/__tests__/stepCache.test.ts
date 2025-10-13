@@ -1,42 +1,26 @@
+import { storage, storageKeys } from '../mmkv';
 import { cacheProcedureSteps, getCachedProcedureSteps } from '../stepCache';
-import { readJSON, storageKeys, writeJSON } from '../mmkv';
 
-jest.mock('../mmkv', () => ({
-  readJSON: jest.fn(),
-  writeJSON: jest.fn(),
-  storageKeys: { sessions: 'sessions', cachedSteps: 'cached-steps' },
-}));
-
-const mockedReadJSON = readJSON as jest.Mock;
-const mockedWriteJSON = writeJSON as jest.Mock;
-
-beforeEach(() => {
-  jest.clearAllMocks();
-});
-
-afterEach(() => {
-  jest.clearAllMocks();
-});
-
-afterAll(() => {
-  jest.resetModules();
-});
-
-describe('stepCache', () => {
-  it('persists cached steps through writeJSON', () => {
-    const existingCache = { other: ['Alpha'] };
-    mockedReadJSON.mockReturnValue(existingCache);
-
-    cacheProcedureSteps('proc-1', ['First', 'Second']);
-
-    expect(existingCache['proc-1']).toEqual(['First', 'Second']);
-    expect(mockedWriteJSON).toHaveBeenCalledWith(storageKeys.cachedSteps, existingCache);
+describe('step cache helpers', () => {
+  beforeEach(() => {
+    storage.delete(storageKeys.cachedSteps);
   });
 
-  it('hydrates cached steps from storage', () => {
-    mockedReadJSON.mockReturnValueOnce({ 'proc-2': ['Stored'] });
+  it('returns undefined when no cache exists', () => {
+    expect(getCachedProcedureSteps('missing')).toBeUndefined();
+  });
 
-    expect(getCachedProcedureSteps('proc-2')).toEqual(['Stored']);
-    expect(mockedReadJSON).toHaveBeenCalledWith(storageKeys.cachedSteps, {});
+  it('stores and retrieves procedure steps', () => {
+    cacheProcedureSteps('proc-1', ['Step 1', 'Step 2']);
+
+    expect(getCachedProcedureSteps('proc-1')).toEqual(['Step 1', 'Step 2']);
+  });
+
+  it('merges steps across procedures', () => {
+    cacheProcedureSteps('proc-1', ['Step 1']);
+    cacheProcedureSteps('proc-2', ['Step A']);
+
+    expect(getCachedProcedureSteps('proc-1')).toEqual(['Step 1']);
+    expect(getCachedProcedureSteps('proc-2')).toEqual(['Step A']);
   });
 });

@@ -1,82 +1,74 @@
-import { appendMessage, clearSessions, getSession, upsertSession } from '../sessionStore';
-import { readJSON, storage, storageKeys, writeJSON } from '../mmkv';
+import {
+  appendMessage,
+  clearSessions,
+  getSession,
+  upsertSession,
+  ConversationMessage,
+  ConversationSession,
+} from '../sessionStore';
+import { storage, storageKeys } from '../mmkv';
 
-jest.mock('../mmkv', () => ({
-  readJSON: jest.fn(),
-  writeJSON: jest.fn(),
-  storage: { delete: jest.fn() },
-  storageKeys: { sessions: 'sessions', cachedSteps: 'cached-steps' },
-}));
+describe('session store', () => {
+  beforeEach(() => {
+    clearSessions();
+    storage.delete(storageKeys.cachedSteps);
+  });
 
-const mockedReadJSON = readJSON as jest.Mock;
-const mockedWriteJSON = writeJSON as jest.Mock;
-const mockedStorageDelete = storage.delete as jest.Mock;
+  it('returns null when session missing', () => {
+    expect(getSession('missing')).toBeNull();
+  });
 
-beforeEach(() => {
-  jest.clearAllMocks();
-});
-
-afterEach(() => {
-  jest.clearAllMocks();
-});
-
-afterAll(() => {
-  jest.resetModules();
-});
-
-describe('sessionStore', () => {
-  it('hydrates an existing session from storage', () => {
-    const session = {
+  it('upserts and retrieves sessions', () => {
+    const session: ConversationSession = {
       runId: 'run-1',
       procedureId: 'proc-1',
       messages: [],
     };
-    mockedReadJSON.mockReturnValueOnce({ 'run-1': session });
-
-    expect(getSession('run-1')).toEqual(session);
-    expect(mockedReadJSON).toHaveBeenCalledWith(storageKeys.sessions, {});
-  });
-
-  it('persists sessions via writeJSON when upserting', () => {
-    const session = {
-      runId: 'run-2',
-      procedureId: 'proc-1',
-      messages: [],
-    };
-    const existingSessions = { existing: { runId: 'existing', procedureId: 'other', messages: [] } };
-    mockedReadJSON.mockReturnValue(existingSessions);
 
     upsertSession(session);
 
-    expect(existingSessions['run-2']).toEqual(session);
-    expect(mockedWriteJSON).toHaveBeenCalledWith(storageKeys.sessions, existingSessions);
+    expect(getSession('run-1')).toEqual(session);
   });
 
-  it('appends a message to a new session', () => {
-    mockedReadJSON.mockReturnValueOnce({}).mockReturnValueOnce({});
-
-    const message = {
-      id: 'msg-1',
-      role: 'assistant' as const,
-      content: 'Hello',
-      createdAt: '2023-01-01T00:00:00.000Z',
+  it('appends messages to existing session', () => {
+    const base: ConversationSession = {
+      runId: 'run-1',
+      procedureId: 'proc-1',
+      messages: [],
     };
 
-    const session = appendMessage('run-3', message, 'proc-3');
+    upsertSession(base);
 
-    expect(session).toEqual({
-      runId: 'run-3',
-      procedureId: 'proc-3',
-      messages: [message],
-    });
-    expect(mockedWriteJSON).toHaveBeenCalledWith(storageKeys.sessions, {
-      'run-3': session,
-    });
+    const message: ConversationMessage = {
+      id: 'msg-1',
+      role: 'user',
+      content: 'Bonjour',
+      createdAt: '2024-01-01T00:00:00.000Z',
+    };
+
+    const updated = appendMessage('run-1', message);
+
+    expect(updated.messages).toHaveLength(1);
+    expect(getSession('run-1')?.messages[0]).toEqual(message);
   });
 
-  it('clears all sessions from storage', () => {
-    clearSessions();
+  it('creates session when missing on append', () => {
+    const message: ConversationMessage = {
+      id: 'msg-1',
+      role: 'assistant',
+      content: 'Bonjour',
+      createdAt: '2024-01-01T00:00:00.000Z',
+    };
 
-    expect(mockedStorageDelete).toHaveBeenCalledWith(storageKeys.sessions);
+    const session = appendMessage('run-2', message, 'proc-2');
+
+    expect(session.procedureId).toBe('proc-2');
+    expect(session.messages).toEqual([message]);
+  });
+
+  it('clears sessions from storage', () => {
+    upsertSession({ runId: 'run-1', procedureId: 'proc-1', messages: [] });
+    clearSessions();
+    expect(getSession('run-1')).toBeNull();
   });
 });
