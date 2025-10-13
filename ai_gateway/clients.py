@@ -15,6 +15,7 @@ from opentelemetry.propagate import inject
 from opentelemetry.trace import Status, StatusCode
 from openai import OpenAI
 from openai import OpenAIError
+from structlog.contextvars import get_contextvars
 
 from .telemetry import get_correlation_id
 
@@ -258,44 +259,29 @@ class BackendClient:
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> Dict[str, Any]:
         url = f"{self._base_url}{path}"
-        correlation_id = get_correlation_id()
-        headers = dict(kwargs.pop("headers", {}) or {})
-        if correlation_id:
-            headers.setdefault("X-Correlation-ID", correlation_id)
-        inject(headers)
-        kwargs["headers"] = headers
+        headers = kwargs.pop("headers", {})
+        correlation_id = get_contextvars().get("correlation_id")
+        if correlation_id and "X-Correlation-ID" not in headers:
+            headers["X-Correlation-ID"] = correlation_id
 
-        with tracer.start_as_current_span("Backend.request") as span:
-            span.set_attribute("http.method", method.upper())
-            span.set_attribute("http.url", url)
-            if correlation_id:
-                span.set_attribute("correlation.id", correlation_id)
-            start = time.perf_counter()
-            try:
-                async with httpx.AsyncClient(timeout=self._timeout) as client:
-                    response = await client.request(method, url, **kwargs)
-            except httpx.HTTPError as exc:
-                span.record_exception(exc)
-                span.set_status(Status(StatusCode.ERROR, str(exc)))
-                logger.exception("Backend request failed: %s %s", method, url)
-                raise BackendClientError(str(exc)) from exc
-            finally:
-                duration_ms = (time.perf_counter() - start) * 1000
-                span.set_attribute("http.client_duration_ms", round(duration_ms, 2))
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.request(method, url, headers=headers, **kwargs)
+        except httpx.HTTPError as exc:
+            logger.exception("Backend request failed: %s %s", method, url)
+            raise BackendClientError(str(exc)) from exc
 
-            span.set_attribute("http.status_code", response.status_code)
-            if response.status_code >= 400:
-                span.set_status(Status(StatusCode.ERROR, f"HTTP {response.status_code}"))
-                logger.error(
-                    "Backend returned error %s for %s %s: %s",
-                    response.status_code,
-                    method,
-                    url,
-                    response.text,
-                )
-                raise BackendClientError(
-                    f"Backend error {response.status_code}: {response.text}"
-                )
+        if response.status_code >= 400:
+            logger.error(
+                "Backend returned error %s for %s %s: %s",
+                response.status_code,
+                method,
+                url,
+                response.text,
+            )
+            raise BackendClientError(
+                f"Backend error {response.status_code}: {response.text}"
+            )
 
             span.set_status(Status(StatusCode.OK))
             return response.json()

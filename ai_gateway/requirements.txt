@@ -6,7 +6,6 @@ python-dotenv
 pytest
 pytest-asyncio
 pytest-cov
+structlog
 opentelemetry-sdk
 opentelemetry-exporter-otlp
-opentelemetry-instrumentation-fastapi
-opentelemetry-instrumentation-httpx
