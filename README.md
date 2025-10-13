@@ -27,7 +27,7 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
 - **Authentification** : Keycloak (OIDC/OAuth2) avec MFA
 - **Politiques** : Open Policy Agent (OPA) pour le contrôle d'accès granulaire
 - **Secrets** : HashiCorp Vault pour la gestion sécurisée
-- **Observabilité** : OpenTelemetry + Loki/Grafana + Sentry
+- **Observabilité** : OpenTelemetry + Loki/Grafana + Sentry (voir [docs/observability.md](docs/observability.md) pour la configuration et l'exploitation)
 
 ## Fonctionnalités Clés
 
@@ -65,6 +65,7 @@ L'architecture est basée sur un modèle de microservices avec trois composants 
 ├── docs/                 # Documentation
 │   ├── architecture.md   # Architecture détaillée
 │   ├── backlog.md       # Backlog et sprints
+│   ├── observability.md  # Stack d'observabilité et runbooks
 │   └── *.json           # Schémas et exemples
 └── scripts/             # Scripts utilitaires
 ```

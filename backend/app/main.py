@@ -25,6 +25,7 @@ from .config import Settings, get_settings
 from .database import get_db
 from .env import analyse_environment, validate_environment
 from .api.webrtc import router as webrtc_router
+from .observability import Observability
 
 logger = logging.getLogger("rbok.api")
 correlation_id_var: ContextVar[Optional[str]] = ContextVar("correlation_id", default=None)
@@ -125,6 +126,9 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 
 app = FastAPI(title="Réalisons API", version="0.3.0")
 configure_tracing(app)
+
+telemetry = Observability(app, service_name="rbok-backend")
+app.state.telemetry = telemetry
 
 
 settings = get_settings()

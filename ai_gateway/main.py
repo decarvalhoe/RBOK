@@ -26,6 +26,7 @@ from .clients import (
     TranscriptionResult,
 )
 from .config import Settings, get_settings
+from .observability import Observability
 from .models import (
     AsrRequest,
     AsrResponse,
@@ -104,6 +105,8 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 
 
 app = FastAPI(title="Réalisons AI Gateway", version="0.2.0")
+telemetry = Observability(app, service_name="rbok-ai-gateway")
+app.state.telemetry = telemetry
 settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
