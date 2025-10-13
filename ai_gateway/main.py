@@ -7,10 +7,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import logging
+import time
 from typing import Dict
 
-from fastapi import Depends, FastAPI, HTTPException
+import httpx
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
+from prometheus_client.parser import text_string_to_metric_families
 
 from .clients import (
     BackendClient,
@@ -59,6 +64,50 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Metrics -------------------------------------------------------------------
+
+REQUEST_DURATION = Histogram(
+    "ai_gateway_request_duration_seconds",
+    "Time spent processing requests",
+    labelnames=("method", "path", "status_code"),
+)
+REQUEST_COUNT = Counter(
+    "ai_gateway_request_total",
+    "Total number of processed requests",
+    labelnames=("method", "path", "status_code"),
+)
+BACKEND_DATABASE_HEALTH = Gauge(
+    "ai_gateway_backend_database_up",
+    "Database status as reported by the backend service",
+)
+BACKEND_CACHE_HEALTH = Gauge(
+    "ai_gateway_backend_cache_up",
+    "Cache status as reported by the backend service",
+)
+
+
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):  # type: ignore[override]
+    if request.url.path == "/metrics":
+        return await call_next(request)
+
+    start_time = time.perf_counter()
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        elapsed = time.perf_counter() - start_time
+        labels = {
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": str(status_code),
+        }
+        REQUEST_DURATION.labels(**labels).observe(elapsed)
+        REQUEST_COUNT.labels(**labels).inc()
 
 
 # Dependency factories -----------------------------------------------------
@@ -209,3 +258,39 @@ async def commit_step(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     return CommitStepResponse(**acknowledgement)
+
+
+async def _refresh_backend_dependency_metrics(settings: Settings) -> None:
+    """Scrape backend metrics and update gateway dependency gauges."""
+
+    base_url = settings.backend_base_url.rstrip("/")
+    if not base_url:
+        BACKEND_DATABASE_HEALTH.set(0)
+        BACKEND_CACHE_HEALTH.set(0)
+        return
+
+    database_status = 0.0
+    cache_status = 0.0
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            response = await client.get(f"{base_url}/metrics")
+            response.raise_for_status()
+        for family in text_string_to_metric_families(response.text):
+            if family.name == "backend_database_up":
+                for sample in family.samples:
+                    database_status = float(sample.value)
+            elif family.name == "backend_cache_up":
+                for sample in family.samples:
+                    cache_status = float(sample.value)
+    except Exception as exc:  # pragma: no cover - defensive monitoring path
+        logger.warning("Failed to refresh backend dependency metrics", exc_info=exc)
+
+    BACKEND_DATABASE_HEALTH.set(database_status)
+    BACKEND_CACHE_HEALTH.set(cache_status)
+
+
+@app.get("/metrics")
+async def metrics(settings: Settings = Depends(get_settings)) -> Response:
+    await _refresh_backend_dependency_metrics(settings)
+    payload = generate_latest()
+    return Response(content=payload, media_type=CONTENT_TYPE_LATEST)

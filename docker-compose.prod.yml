@@ -4,6 +4,10 @@ services:
   backend:
     command: sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${BACKEND_PORT:-8000}"
     volumes: []
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/path=/metrics"
+      - "prometheus.io/port=${BACKEND_PORT:-8000}"
 
   ai_gateway:
     command: sh -c "uvicorn ai_gateway.main:app --host 0.0.0.0 --port ${AI_GATEWAY_PORT:-8100}"
@@ -11,6 +15,10 @@ services:
       AI_GATEWAY_BACKEND_BASE_URL: ${AI_GATEWAY_BACKEND_BASE_URL:-http://backend:8000}
       AI_GATEWAY_OPENAI_API_KEY: ${AI_GATEWAY_OPENAI_API_KEY:?Set AI_GATEWAY_OPENAI_API_KEY before running}
     volumes: []
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/path=/metrics"
+      - "prometheus.io/port=${AI_GATEWAY_PORT:-8100}"
 
   webapp:
     build:
