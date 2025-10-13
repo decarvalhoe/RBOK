@@ -21,6 +21,4 @@ slowapi
 black
 ruff
 httpx==0.27.0
-structlog
-opentelemetry-sdk
-opentelemetry-exporter-otlp
+prometheus-client

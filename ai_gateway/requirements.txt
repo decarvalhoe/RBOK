@@ -6,6 +6,4 @@ python-dotenv
 pytest
 pytest-asyncio
 pytest-cov
-structlog
-opentelemetry-sdk
-opentelemetry-exporter-otlp
+prometheus-client

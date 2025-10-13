@@ -9,6 +9,10 @@ services:
     env_file:
       - backend/.env
     command: bash -c "pip install --no-cache-dir -r requirements.txt && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/path=/metrics"
+      - "prometheus.io/port=8000"
 version: "3.9"
 
 services:
@@ -50,6 +54,10 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/path=/metrics"
+      - "prometheus.io/port=8000"
 
   ai_gateway:
     image: python:3.11-slim
@@ -63,6 +71,10 @@ services:
     command: bash -c "pip install --no-cache-dir -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8010"
     ports:
       - "8010:8010"
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/path=/metrics"
+      - "prometheus.io/port=8010"
 
   webapp:
     image: node:20-alpine
