@@ -5,8 +5,6 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 from sqlalchemy import DateTime, ForeignKey, Index, String, Text, JSON, UniqueConstraint
-from sqlalchemy.orm import relationship, Mapped, mapped_column
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 
