@@ -7,10 +7,23 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import logging
-from typing import Dict
+import os
+import time
+import uuid
+from contextvars import ContextVar
+from typing import Any, Dict
 
-from fastapi import Depends, FastAPI, HTTPException
+import structlog
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from opentelemetry._logs import set_logger_provider
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.sdk.resources import Resource
+from starlette.middleware.base import BaseHTTPMiddleware
+from structlog.contextvars import bind_contextvars, unbind_contextvars
+from structlog.stdlib import ProcessorFormatter
 
 from .clients import (
     BackendClient,
@@ -38,16 +51,125 @@ from .models import (
 )
 
 logger = logging.getLogger("ai_gateway")
+correlation_id_var: ContextVar[str | None] = ContextVar("correlation_id", default=None)
 
 
-def configure_logging() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+class CorrelationIdFilter(logging.Filter):
+    """Inject the correlation identifier into log records."""
+
+    def filter(self, record: logging.LogRecord) -> bool:  # pragma: no cover - logging helper
+        record.correlation_id = correlation_id_var.get() or "unknown"
+        return True
+
+
+def _add_correlation_id(_: Any, __: str, event_dict: Dict[str, Any]) -> Dict[str, Any]:  # pragma: no cover - logging helper
+    event_dict.setdefault("correlation_id", correlation_id_var.get() or "unknown")
+    return event_dict
+
+
+def _configure_otlp_logging(service_name: str) -> None:
+    if not (
+        os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+        or os.getenv("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT")
+    ):
+        return
+
+    root_logger = logging.getLogger()
+    try:
+        resource = Resource.create(
+            {"service.name": os.getenv("OTEL_SERVICE_NAME", service_name)}
+        )
+        logger_provider = LoggerProvider(resource=resource)
+        exporter = OTLPLogExporter()
+        logger_provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
+        set_logger_provider(logger_provider)
+        otlp_handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
+        root_logger.addHandler(otlp_handler)
+        root_logger.debug(
+            "OTLP log exporter configured",
+            extra={"service_name": resource.attributes.get("service.name")},
+        )
+    except Exception:  # pragma: no cover - defensive
+        root_logger.exception("Failed to configure OTLP log exporter")
+
+
+def configure_logging(service_name: str = "rbok-ai-gateway") -> None:
+    timestamper = structlog.processors.TimeStamper(fmt="iso", utc=True)
+    shared_processors = [
+        structlog.contextvars.merge_contextvars,
+        _add_correlation_id,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        timestamper,
+        structlog.processors.format_exc_info,
+    ]
+
+    formatter = ProcessorFormatter(
+        processor=structlog.processors.JSONRenderer(),
+        foreign_pre_chain=shared_processors,
     )
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    handler.addFilter(CorrelationIdFilter())
+
+    root_logger = logging.getLogger()
+    root_logger.handlers = [handler]
+    root_logger.setLevel(logging.INFO)
+
+    old_factory = logging.getLogRecordFactory()
+
+    def record_factory(*args, **kwargs):  # type: ignore[override]
+        record = old_factory(*args, **kwargs)
+        if not hasattr(record, "correlation_id"):
+            record.correlation_id = correlation_id_var.get() or "unknown"
+        return record
+
+    logging.setLogRecordFactory(record_factory)
+
+    structlog.configure(
+        processors=shared_processors + [ProcessorFormatter.wrap_for_formatter],
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+
+    _configure_otlp_logging(service_name)
 
 
 configure_logging()
+
+
+class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    """Attach correlation identifiers and latency to responses."""
+
+    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+        correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
+        token = correlation_id_var.set(correlation_id)
+        bind_contextvars(correlation_id=correlation_id)
+        start = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            logger.exception("Unhandled exception during request", extra={"path": request.url.path})
+            raise
+        finally:
+            duration_ms = (time.perf_counter() - start) * 1000
+            correlation_id_var.reset(token)
+            unbind_contextvars("correlation_id")
+            logger.info(
+                "Request completed",
+                extra={
+                    "path": request.url.path,
+                    "method": request.method,
+                    "duration_ms": round(duration_ms, 2),
+                },
+            )
+
+        response.headers["X-Correlation-ID"] = correlation_id
+        response.headers["X-Process-Time-ms"] = f"{duration_ms:.2f}"
+        return response
 
 
 app = FastAPI(title="Réalisons AI Gateway", version="0.2.0")
@@ -59,6 +181,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(CorrelationIdMiddleware)
 
 
 # Dependency factories -----------------------------------------------------

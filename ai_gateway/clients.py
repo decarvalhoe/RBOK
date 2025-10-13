@@ -11,6 +11,7 @@ from typing import Any, Dict, Iterable, List, Optional
 import httpx
 from openai import OpenAI
 from openai import OpenAIError
+from structlog.contextvars import get_contextvars
 
 logger = logging.getLogger(__name__)
 
@@ -186,9 +187,14 @@ class BackendClient:
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> Dict[str, Any]:
         url = f"{self._base_url}{path}"
+        headers = kwargs.pop("headers", {})
+        correlation_id = get_contextvars().get("correlation_id")
+        if correlation_id and "X-Correlation-ID" not in headers:
+            headers["X-Correlation-ID"] = correlation_id
+
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.request(method, url, **kwargs)
+                response = await client.request(method, url, headers=headers, **kwargs)
         except httpx.HTTPError as exc:
             logger.exception("Backend request failed: %s %s", method, url)
             raise BackendClientError(str(exc)) from exc

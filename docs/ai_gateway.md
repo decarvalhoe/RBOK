@@ -15,6 +15,9 @@ Configuration is managed through environment variables loaded via `ai_gateway.co
 | `AI_GATEWAY_OPENAI_TTS_VOICE` | Default voice preset for `/tts/speech` when the request omits one. | `alloy` |
 | `AI_GATEWAY_BACKEND_BASE_URL` | Base URL for the procedural backend (used by tool endpoints). | `http://localhost:8000` |
 | `AI_GATEWAY_ALLOWED_ORIGINS` | CSV list of origins allowed by CORS middleware. | `*` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` / `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` | Optional OTLP collector endpoint used to ship JSON logs. | *(empty)* |
+| `OTEL_EXPORTER_OTLP_HEADERS` / `OTEL_EXPORTER_OTLP_LOGS_HEADERS` | Optional authentication headers for OTLP log export. | *(empty)* |
+| `OTEL_SERVICE_NAME` | Service name attribute attached to OTLP log records. | `rbok-ai-gateway` |
 
 > **Note:** the service automatically falls back to the legacy `OPENAI_API_KEY` environment variable when `AI_GATEWAY_OPENAI_API_KEY` is not provided.
 

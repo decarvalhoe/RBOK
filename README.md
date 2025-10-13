@@ -122,8 +122,12 @@ Un environnement Docker Compose est fourni pour exécuter l'API, la passerelle I
 |--------------|----------------------------------------|-----------------------------------------------------|
 | Backend      | `DATABASE_URL`                         | `postgresql+asyncpg://rbok:rbok@postgres:5432/rbok` |
 | Backend      | `REDIS_URL`                            | `redis://redis:6379/0`                              |
+| Backend      | `OTEL_EXPORTER_OTLP_ENDPOINT`          | *(vide)* – URL du collecteur OTLP (ex. `https://otel.example.com:4318`) |
+| Backend      | `OTEL_SERVICE_NAME`                    | `rbok-backend`                                      |
 | AI Gateway   | `AI_GATEWAY_OPENAI_API_KEY`            | `changeme` (à remplacer pour un usage réel)        |
 | AI Gateway   | `AI_GATEWAY_ALLOWED_ORIGINS`           | `http://localhost:3000`                             |
+| AI Gateway   | `OTEL_EXPORTER_OTLP_ENDPOINT`          | *(vide)* – URL du collecteur OTLP pour les logs     |
+| AI Gateway   | `OTEL_SERVICE_NAME`                    | `rbok-ai-gateway`                                   |
 | Webapp       | `NEXT_PUBLIC_API_URL`                  | `http://localhost:8000`                             |
 | Webapp       | `NEXT_PUBLIC_AI_GATEWAY_URL`           | `http://localhost:8100`                             |
 
