@@ -32,10 +32,7 @@ const messageSchema = z.object({
         MESSAGE_MIN_LENGTH > 1 ? 's' : ''
       }`,
     )
-    .max(
-      MESSAGE_MAX_LENGTH,
-      `Le message ne peut pas dépasser ${MESSAGE_MAX_LENGTH} caractères.`,
-    ),
+    .max(MESSAGE_MAX_LENGTH, `Le message ne peut pas dépasser ${MESSAGE_MAX_LENGTH} caractères.`),
 });
 
 type MessageFormValues = z.infer<typeof messageSchema>;
@@ -168,7 +165,10 @@ export default function Home(): JSX.Element {
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
       <header className="space-y-2 text-center">
-        <StatusBadge label={isLoading ? 'Traitement en cours' : 'Prêt'} variant={isLoading ? 'info' : 'success'} />
+        <StatusBadge
+          label={isLoading ? 'Traitement en cours' : 'Prêt'}
+          variant={isLoading ? 'info' : 'success'}
+        />
         <h1 className="text-3xl font-semibold text-slate-900">Assistant procédural</h1>
         <p className="text-sm text-slate-600">
           Décrivez votre objectif et l&apos;assistant vous guidera étape par étape.
@@ -196,10 +196,10 @@ export default function Home(): JSX.Element {
                     message.role === 'user'
                       ? 'bg-blue-600 text-white'
                       : message.status === 'error'
-                      ? 'bg-rose-100 text-rose-800 ring-1 ring-rose-200'
-                      : message.status === 'pending'
-                      ? 'bg-slate-100 text-slate-600'
-                      : 'bg-slate-50 text-slate-900'
+                        ? 'bg-rose-100 text-rose-800 ring-1 ring-rose-200'
+                        : message.status === 'pending'
+                          ? 'bg-slate-100 text-slate-600'
+                          : 'bg-slate-50 text-slate-900'
                   }`}
                   aria-live={message.status === 'pending' ? 'polite' : undefined}
                 >
@@ -224,7 +224,10 @@ export default function Home(): JSX.Element {
             id="message"
             type="text"
             placeholder="Décrivez votre objectif..."
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-base shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            className={[
+              'w-full rounded-md border border-slate-300 px-3 py-2 text-base shadow-sm',
+              'focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20',
+            ].join(' ')}
             aria-invalid={errors.content ? 'true' : 'false'}
             aria-describedby={errors.content ? 'message-error' : 'message-help'}
             {...register('content')}
@@ -237,7 +240,8 @@ export default function Home(): JSX.Element {
               </p>
             ) : (
               <p id="message-help" className="text-sm text-slate-500">
-                Votre message doit contenir entre {MESSAGE_MIN_LENGTH} et {MESSAGE_MAX_LENGTH} caractères.
+                Votre message doit contenir entre {MESSAGE_MIN_LENGTH} et {MESSAGE_MAX_LENGTH}{' '}
+                caractères.
               </p>
             )}
             <p aria-live="polite" className="text-xs text-slate-400">

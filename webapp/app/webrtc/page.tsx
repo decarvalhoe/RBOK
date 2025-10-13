@@ -62,7 +62,6 @@ export default function WebRTCSessionPage(): JSX.Element {
   const sessionIdRef = useRef<string | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const localStreamRef = useRef<MediaStream | null>(null);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream] = useState<MediaStream>(() => new MediaStream());
 
   const stopPolling = useCallback(() => {
@@ -77,7 +76,6 @@ export default function WebRTCSessionPage(): JSX.Element {
     peerConnectionRef.current?.close();
     peerConnectionRef.current = null;
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
-    setLocalStream(null);
     localStreamRef.current = null;
     setSession(null);
     sessionIdRef.current = null;
@@ -145,16 +143,13 @@ export default function WebRTCSessionPage(): JSX.Element {
     [stopPolling],
   );
 
-  const sendCandidate = useCallback(
-    async (sessionId: string, candidate: RTCIceCandidateInit) => {
-      try {
-        await submitWebRTCCandidate(sessionId, { candidate } satisfies IceCandidatePayload);
-      } catch (error) {
-        console.error('Failed to submit ICE candidate', error);
-      }
-    },
-    [],
-  );
+  const sendCandidate = useCallback(async (sessionId: string, candidate: RTCIceCandidateInit) => {
+    try {
+      await submitWebRTCCandidate(sessionId, { candidate } satisfies IceCandidatePayload);
+    } catch (error) {
+      console.error('Failed to submit ICE candidate', error);
+    }
+  }, []);
 
   const startSession = useCallback(async () => {
     if (connectionStatus !== 'idle') {
@@ -167,7 +162,6 @@ export default function WebRTCSessionPage(): JSX.Element {
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-      setLocalStream(stream);
       localStreamRef.current = stream;
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
@@ -205,7 +199,10 @@ export default function WebRTCSessionPage(): JSX.Element {
     stream.getTracks().forEach((track) => peer.addTrack(track, stream));
 
     try {
-      const offer = await peer.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+      const offer = await peer.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true,
+      });
       await peer.setLocalDescription(offer);
 
       const payload: CreateWebRTCSessionRequest = {
@@ -245,10 +242,10 @@ export default function WebRTCSessionPage(): JSX.Element {
             status.tone === 'success'
               ? 'bg-emerald-100 text-emerald-800'
               : status.tone === 'warning'
-              ? 'bg-amber-100 text-amber-800'
-              : status.tone === 'error'
-              ? 'bg-rose-100 text-rose-800'
-              : 'bg-blue-100 text-blue-800'
+                ? 'bg-amber-100 text-amber-800'
+                : status.tone === 'error'
+                  ? 'bg-rose-100 text-rose-800'
+                  : 'bg-blue-100 text-blue-800'
           }`}
         >
           {status.label}
@@ -337,7 +334,7 @@ export default function WebRTCSessionPage(): JSX.Element {
           <li>Démarrez une session depuis ce navigateur et copiez l’identifiant affiché.</li>
           <li>
             Depuis un autre poste (ou un navigateur différent), appelez l’API
-            <code className="mx-1 rounded bg-slate-100 px-1 py-0.5">/webrtc/sessions/{{id}}</code>
+            <code className="mx-1 rounded bg-slate-100 px-1 py-0.5">/webrtc/sessions/{{ id }}</code>
             pour récupérer l’offre et répondre avec <code className="mx-1">/answer</code>.
           </li>
           <li>
