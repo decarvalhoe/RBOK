@@ -13,6 +13,33 @@ from alembic import op
 import sqlalchemy as sa
 
 
+_pre_normalized_procedure_steps = sa.Table(
+    "procedure_steps",
+    sa.MetaData(),
+    sa.Column("id", sa.String(), primary_key=True),
+    sa.Column("procedure_id", sa.String(), nullable=False),
+    sa.Column("key", sa.String(length=255), nullable=False),
+    sa.Column("title", sa.String(length=255), nullable=False),
+    sa.Column("prompt", sa.Text(), nullable=False),
+    sa.Column("slots", sa.JSON(), nullable=False),
+    sa.Column("metadata", sa.JSON(), nullable=False),
+    sa.Column("checklists", sa.JSON(), nullable=False),
+    sa.Column("position", sa.Integer(), nullable=False),
+)
+
+_post_normalized_procedure_steps = sa.Table(
+    "procedure_steps",
+    sa.MetaData(),
+    sa.Column("id", sa.String(), primary_key=True),
+    sa.Column("procedure_id", sa.String(), nullable=False),
+    sa.Column("key", sa.String(length=255), nullable=False),
+    sa.Column("title", sa.String(length=255), nullable=False),
+    sa.Column("prompt", sa.Text(), nullable=False),
+    sa.Column("metadata", sa.JSON(), nullable=False),
+    sa.Column("position", sa.Integer(), nullable=False),
+)
+
+
 # revision identifiers, used by Alembic.
 revision: str = "c6f7d8a9b0c1"
 down_revision: Union[str, Sequence[str], None] = "b7e4d2f9c8a1"
@@ -22,6 +49,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Apply the normalized procedural schema aligned with SQLAlchemy models."""
+
+    with op.batch_alter_table(
+        "procedure_steps", schema=None, copy_from=_pre_normalized_procedure_steps
+    ) as batch_op:
+        batch_op.drop_column("slots")
+        batch_op.drop_column("checklists")
 
     op.create_table(
         "procedure_slots",
@@ -156,3 +189,29 @@ def downgrade() -> None:
         table_name="procedure_slots",
     )
     op.drop_table("procedure_slots")
+
+    with op.batch_alter_table(
+        "procedure_steps", schema=None, copy_from=_post_normalized_procedure_steps
+    ) as batch_op:
+        batch_op.add_column(
+            sa.Column(
+                "checklists",
+                sa.JSON(),
+                nullable=False,
+                server_default=sa.text("'[]'"),
+            )
+        )
+        batch_op.add_column(
+            sa.Column(
+                "slots",
+                sa.JSON(),
+                nullable=False,
+                server_default=sa.text("'[]'"),
+            )
+        )
+
+    with op.batch_alter_table(
+        "procedure_steps", schema=None, copy_from=_pre_normalized_procedure_steps
+    ) as batch_op:
+        batch_op.alter_column("checklists", server_default=None)
+        batch_op.alter_column("slots", server_default=None)
