@@ -9,11 +9,22 @@ from .exceptions import (
     StepNotFoundError,
     StepOrderError,
 )
-from .fsm import ProcedureFSM
+from .fsm import (
+    ProcedureRunState,
+    TERMINAL_STATES,
+    apply_transition,
+    can_transition,
+    is_terminal_state,
+)
 from .validators import ChecklistValidator, SlotValidator
 from ..procedure_definitions import ProcedureService
 
 __all__ = [
+    "ProcedureRunState",
+    "TERMINAL_STATES",
+    "apply_transition",
+    "can_transition",
+    "is_terminal_state",
     "ProcedureFSM",
     "ProcedureService",
     "ChecklistValidationError",
