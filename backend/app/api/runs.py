@@ -48,10 +48,9 @@ class RunChecklistItemPayload(BaseModel):
     )
 
 
-class ProcedureRunCommitStepRequest(BaseModel):
-    """Payload used when committing a step within a run."""
+class ProcedureRunStepCommitPayload(BaseModel):
+    """Payload shared by endpoints committing a run step."""
 
-    step_key: str = Field(..., description="Key of the step to commit")
     slots: Dict[str, Any] = Field(
         default_factory=dict,
         description="Slot values collected for the step",
@@ -62,6 +61,14 @@ class ProcedureRunCommitStepRequest(BaseModel):
     )
 
 
+class ProcedureRunCommitStepRequest(ProcedureRunStepCommitPayload):
+    """Payload used when committing a step within a run."""
+
+    step_key: str = Field(..., description="Key of the step to commit")
+
+
+class RunChecklistItemState(BaseModel):
+    key: str
 class ChecklistStatusModel(BaseModel):
     """Public representation of a checklist item status."""
 
@@ -87,6 +94,18 @@ class RunStepStateModel(BaseModel):
     committed_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class StepCommitResponse(BaseModel):
+    """Representation returned when committing a run step."""
+
+    run_state: str = Field(description="Current state of the run after the commit")
+    step_state: RunStepStateModel = Field(
+        description="State recorded for the committed step"
+    )
+    checklist_statuses: List[RunChecklistItemState] = Field(
+        description="Aggregate checklist status for the run"
+    )
 
 
 class ProcedureRunModel(BaseModel):
@@ -145,6 +164,34 @@ def _serialize_run(snapshot: RunSnapshot) -> ProcedureRunModel:
         step_states=step_states,
         checklist_statuses=checklist_statuses,
         checklist_progress=checklist_progress,
+    )
+
+
+def _serialize_checklist_statuses(snapshot: RunSnapshot) -> List[RunChecklistItemState]:
+    return [
+        RunChecklistItemState(
+            key=status.checklist_item.key,
+            label=status.checklist_item.label,
+            completed=status.is_completed,
+            completed_at=status.completed_at,
+        )
+        for status in sorted(
+            snapshot.run.checklist_states,
+            key=lambda entry: (entry.checklist_item.position, entry.checklist_item.key),
+        )
+    ]
+
+
+def _serialize_step_commit(snapshot: RunSnapshot, step_key: str) -> StepCommitResponse:
+    step_state = snapshot.step_states[step_key]
+    return StepCommitResponse(
+        run_state=snapshot.run.state,
+        step_state=RunStepStateModel(
+            step_key=step_state.step_key,
+            payload=dict(step_state.payload or {}),
+            committed_at=step_state.committed_at,
+        ),
+        checklist_statuses=_serialize_checklist_statuses(snapshot),
     )
 
 
@@ -235,4 +282,49 @@ async def commit_step(
 
     invalidate_run_cache(run_id)
     return _serialize_run(snapshot)
+
+
+@router.post(
+    "/{run_id}/steps/{step_key}/commit",
+    response_model=StepCommitResponse,
+)
+async def commit_step_v2(
+    run_id: str,
+    step_key: str,
+    payload: ProcedureRunStepCommitPayload,
+    service: ProcedureRunService = Depends(_service),
+    current_user: User = Depends(get_current_user),
+) -> StepCommitResponse:
+    """Commit a step payload using the explicit step path structure."""
+
+    try:
+        snapshot = service.commit_step(
+            run_id=run_id,
+            step_key=step_key,
+            slots=payload.slots,
+            checklist=[item.model_dump() for item in payload.checklist],
+            actor=current_user.username or current_user.subject,
+        )
+    except ProcedureRunNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": str(exc), "run_id": exc.run_id},
+        ) from exc
+    except InvalidTransitionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": str(exc), "run_id": exc.run_id},
+        ) from exc
+    except SlotValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"message": str(exc), "issues": exc.issues},
+        ) from exc
+    except ChecklistValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"message": str(exc), "issues": exc.issues},
+        ) from exc
+
+    return _serialize_step_commit(snapshot, step_key)
 

@@ -85,6 +85,29 @@ def _create_procedure(client, *, name: str) -> str:
 
 def test_run_lifecycle_success(client, admin_user: User, standard_user: User) -> None:
     _set_user(admin_user)
+    procedure_payload = {
+        "name": "Customer onboarding",
+        "description": "Collect profile and verify",
+        "steps": [
+            {
+                "key": "profile",
+                "title": "Profile",
+                "prompt": "Collect contact info",
+                "slots": [{"name": "email", "type": "email", "required": True}],
+                "checklists": [{"key": "consent", "label": "Consent", "required": True}],
+            },
+            {
+                "key": "verification",
+                "title": "Verification",
+                "prompt": "Upload ID",
+                "slots": [{"name": "document", "type": "string", "required": True}],
+                "checklists": [],
+            },
+        ],
+    }
+    create_response = client.post("/procedures", json=procedure_payload)
+    assert create_response.status_code == 201
+    procedure_id = create_response.json()["id"]
     procedure_id = _create_procedure(client, name="Customer onboarding")
 
     _set_user(standard_user)
@@ -110,6 +133,10 @@ def test_run_lifecycle_success(client, admin_user: User, standard_user: User) ->
     )
     assert commit_first.status_code == 200, commit_first.text
     first_state = commit_first.json()
+    assert first_state["run_state"] == "in_progress"
+    assert first_state["step_state"]["step_key"] == "profile"
+    assert first_state["checklist_statuses"][0]["key"] == "consent"
+    assert first_state["checklist_statuses"][0]["completed"] is True
     assert first_state["state"] == "in_progress"
     assert len(first_state["step_states"]) == 1
     assert first_state["step_states"][0]["payload"]["slots"]["email"] == "user@example.com"
@@ -140,7 +167,27 @@ def test_commit_step_missing_slot_returns_422(
     client, admin_user: User, standard_user: User
 ) -> None:
     _set_user(admin_user)
-    procedure_id = _create_procedure(client, name="Validation")
+    procedure_payload = {
+        "name": "Restricted",
+        "description": "Blocked by policy",
+        "steps": [
+            {
+                "key": "only",
+                "title": "Only",
+                "prompt": "Do it",
+                "slots": [],
+                "checklists": [],
+            }
+        ],
+    }
+    create_response = client.post("/procedures", json=procedure_payload)
+    assert create_response.status_code == 201
+    procedure_id = create_response.json()["id"]
+
+    patch_opa.denied_resources.add(procedure_id)
+    _set_user(standard_user)
+    denied = client.post("/runs", json={"procedure_id": procedure_id, "user_id": "user-2"})
+    assert denied.status_code == 403
 
     _set_user(standard_user)
     run_id = client.post("/runs", json={"procedure_id": procedure_id, "user_id": "user-3"}).json()[
@@ -150,6 +197,16 @@ def test_commit_step_missing_slot_returns_422(
     response = client.post(
         f"/runs/{run_id}/commit-step",
         json={
+            "name": "Validation",
+            "description": "Check slot validation",
+            "steps": [
+                {
+                    "key": "step",
+                    "title": "Step",
+                    "prompt": "Provide email",
+                    "slots": [{"name": "email", "type": "email", "required": True}],
+                    "checklists": [],
+                }
             "step_key": "profile",
             "slots": {},
             "checklist": [
