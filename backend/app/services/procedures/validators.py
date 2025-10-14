@@ -15,6 +15,11 @@ _SUPPORTED_TRUTHY = {"true", "1", "yes", "y", "on"}
 _SUPPORTED_FALSY = {"false", "0", "no", "n", "off"}
 
 
+def _build_mask_regex(mask: str) -> re.Pattern[str]:
+    pattern = "^" + "".join(r"\d" if char == "X" else re.escape(char) for char in mask) + "$"
+    return re.compile(pattern)
+
+
 class SlotDefinition(TypedDict, total=False):
     """Legacy slot definition structure used by :mod:`app.services.procedures.run`."""
 

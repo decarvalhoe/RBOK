@@ -19,6 +19,7 @@ from ..services.procedure_runs import (
     RunSnapshot,
     SlotValidationError,
 )
+from ..services.procedures.cache import cached_run_detail, invalidate_run_cache
 
 router = APIRouter(prefix="/runs", tags=["procedure runs"])
 
@@ -61,13 +62,23 @@ class ProcedureRunCommitStepRequest(BaseModel):
     )
 
 
-class RunChecklistItemState(BaseModel):
-    key: str
+class ChecklistStatusModel(BaseModel):
+    """Public representation of a checklist item status."""
+
+    id: str
     label: Optional[str] = None
     completed: bool
-    completed_at: Optional[datetime] = None
+    completed_le: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ChecklistProgressModel(BaseModel):
+    """Aggregated progression metrics for checklist completion."""
+
+    total: int
+    completed: int
+    percentage: float
 
 
 class RunStepStateModel(BaseModel):
@@ -88,7 +99,8 @@ class ProcedureRunModel(BaseModel):
     created_at: datetime
     closed_at: Optional[datetime]
     step_states: List[RunStepStateModel]
-    checklist_states: List[RunChecklistItemState]
+    checklist_statuses: List[ChecklistStatusModel]
+    checklist_progress: ChecklistProgressModel
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -103,18 +115,26 @@ def _serialize_run(snapshot: RunSnapshot) -> ProcedureRunModel:
         )
         for state in sorted(snapshot.step_states.values(), key=lambda item: item.committed_at)
     ]
-    checklist_states = [
-        RunChecklistItemState(
-            key=status.checklist_item.key,
+    checklist_statuses = [
+        ChecklistStatusModel(
+            id=status.checklist_item_id,
             label=status.checklist_item.label,
             completed=status.is_completed,
-            completed_at=status.completed_at,
+            completed_le=status.completed_at,
         )
         for status in sorted(
             run.checklist_states,
             key=lambda entry: (entry.checklist_item.position, entry.checklist_item.key),
         )
     ]
+    total_items = len(checklist_statuses)
+    completed_items = sum(1 for status in checklist_statuses if status.completed)
+    percentage = (completed_items / total_items * 100.0) if total_items else 0.0
+    checklist_progress = ChecklistProgressModel(
+        total=total_items,
+        completed=completed_items,
+        percentage=percentage,
+    )
     return ProcedureRunModel(
         id=run.id,
         procedure_id=run.procedure_id,
@@ -123,7 +143,8 @@ def _serialize_run(snapshot: RunSnapshot) -> ProcedureRunModel:
         created_at=run.created_at,
         closed_at=run.closed_at,
         step_states=step_states,
-        checklist_states=checklist_states,
+        checklist_statuses=checklist_statuses,
+        checklist_progress=checklist_progress,
     )
 
 
@@ -161,14 +182,17 @@ async def get_run(
     """Return the state of a specific procedure run."""
 
     try:
-        snapshot = service.get_snapshot(run_id)
+        payload = cached_run_detail(
+            run_id,
+            lambda: _serialize_run(service.get_snapshot(run_id)).model_dump(mode="json"),
+        )
     except ProcedureRunNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"message": str(exc), "run_id": exc.run_id},
         ) from exc
 
-    return _serialize_run(snapshot)
+    return ProcedureRunModel.model_validate(payload)
 
 
 @router.post("/{run_id}/commit-step", response_model=ProcedureRunModel)
@@ -200,14 +224,15 @@ async def commit_step(
         ) from exc
     except SlotValidationError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={"message": str(exc), "issues": exc.issues},
         ) from exc
     except ChecklistValidationError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={"message": str(exc), "issues": exc.issues},
         ) from exc
 
+    invalidate_run_cache(run_id)
     return _serialize_run(snapshot)
 

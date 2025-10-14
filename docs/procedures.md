@@ -26,10 +26,12 @@ curl -X POST http://localhost:8000/procedures \
   -H 'Content-Type: application/json' \
   -d @- <<'JSON'
 {
-  "actor": "demo-admin",
   "id": "proc_001_onboarding_client",
   "name": "Onboarding Client",
   "description": "Procédure d'accueil et d'enregistrement d'un nouveau client",
+  "metadata": {
+    "category": "onboarding"
+  },
   "steps": [
     {
       "key": "welcome",
@@ -84,49 +86,136 @@ curl -X POST http://localhost:8000/procedures \
 JSON
 ```
 
-La réponse renvoie l’identifiant interne de chaque étape (`id`) qui servira lors de l’audit.
+Réponse attendue (`201 Created`) :
+
+```json
+{
+  "id": "proc_001_onboarding_client",
+  "name": "Onboarding Client",
+  "description": "Procédure d'accueil et d'enregistrement d'un nouveau client",
+  "metadata": {
+    "category": "onboarding"
+  },
+  "steps": [
+    {
+      "id": "step_01HZY5KD1D2C3M4N5P6Q7R8S9T",
+      "key": "welcome",
+      "title": "Accueil du client",
+      "prompt": "Accueillez chaleureusement le nouveau client et expliquez-lui le processus d'onboarding.",
+      "position": 0,
+      "metadata": {},
+      "slots": [
+        {"name": "client_name", "type": "string", "required": true, "label": null, "description": null, "validate": "^[A-Za-zÀ-ÿ\\s]{2,50}$", "mask": null, "options": null, "position": 0, "metadata": {}}
+      ],
+      "checklists": []
+    }
+  ]
+}
+```
+
+Les autres étapes de la procédure sont retournées de la même manière. La réponse renvoie l’identifiant interne de chaque étape (`id`) qui servira lors de l’audit.
 
 ## 3. Lancer une exécution (« run »)
 
-Créez un run en précisant l’acteur (utilisateur opérateur) :
+Créez un run en précisant l’opérateur concerné via `user_id` (facultatif si l’identifiant peut être dérivé du jeton d’authentification) :
 
 ```bash
 curl -X POST http://localhost:8000/runs \
   -H 'Content-Type: application/json' \
-  -d '{"actor": "agent-qa", "procedure_id": "proc_001_onboarding_client"}'
+  -d '{"procedure_id": "proc_001_onboarding_client", "user_id": "agent-qa"}'
 ```
 
-La réponse contient `id`, `state` et les timestamps. Conservez `id` pour les commits suivants.
+Réponse attendue (`201 Created`) :
+
+```json
+{
+  "id": "run_01HZY5M0ZK7A1XTB7JH3G5C8K2",
+  "procedure_id": "proc_001_onboarding_client",
+  "user_id": "agent-qa",
+  "state": "pending",
+  "created_at": "2025-01-14T08:52:12.486193Z",
+  "closed_at": null,
+  "step_states": [],
+  "checklist_states": []
+}
+```
+
+Conservez `id` pour les commits suivants.
 
 ## 4. Enregistrer les commits d’étapes
 
-Chaque commit inclut `actor` (traçabilité), la charge utile collectée et la clé d’étape :
+L’API expose désormais un point d’entrée unique `POST /runs/{id}/commit-step` qui reçoit la clé de l’étape, les valeurs saisies (`slots`) et, le cas échéant, l’état de la checklist. Dès que la variante `POST /runs/{id}/steps/{key}/commit` sera en production, la structure de la charge utile et des réponses restera identique.
 
 ```bash
-RUN_ID="<remplacer-par-l-id-du-run>"
-
-curl -X POST "http://localhost:8000/runs/${RUN_ID}/steps/welcome/commit" \
+curl -X POST "http://localhost:8000/runs/${RUN_ID}/commit-step" \
   -H 'Content-Type: application/json' \
-  -d '{"actor": "agent-qa", "payload": {"client_name": "Jane Doe", "preferred_language": "français"}}'
-
-curl -X POST "http://localhost:8000/runs/${RUN_ID}/steps/contact_info/commit" \
-  -H 'Content-Type: application/json' \
-  -d '{"actor": "agent-qa", "payload": {"email": "jane.doe@example.com", "phone": "+41 79 123 45 67"}}'
-
-curl -X POST "http://localhost:8000/runs/${RUN_ID}/steps/service_selection/commit" \
-  -H 'Content-Type: application/json' \
-  -d '{"actor": "agent-qa", "payload": {"services_interested": "consultation", "budget_range": "1000-5000 CHF"}}'
-
-curl -X POST "http://localhost:8000/runs/${RUN_ID}/steps/confirmation/commit" \
-  -H 'Content-Type: application/json' \
-  -d '{"actor": "agent-qa", "payload": {"confirmation_accepted": true, "next_steps_scheduled": "2025-01-15"}}'
-
-curl -X POST "http://localhost:8000/runs/${RUN_ID}/steps/completed/commit" \
-  -H 'Content-Type: application/json' \
-  -d '{"actor": "agent-qa", "payload": {"notes": "Client satisfait"}}'
+  -d '{
+        "step_key": "welcome",
+        "slots": {
+          "client_name": "Jane Doe",
+          "preferred_language": "français"
+        },
+        "checklist": []
+      }'
 ```
 
-La dernière étape clôture automatiquement le run (`state: completed`).
+Réponse attendue (`200 OK`) :
+
+```json
+{
+  "id": "run_01HZY5M0ZK7A1XTB7JH3G5C8K2",
+  "procedure_id": "proc_001_onboarding_client",
+  "user_id": "agent-qa",
+  "state": "in_progress",
+  "created_at": "2025-01-14T08:52:12.486193Z",
+  "closed_at": null,
+  "step_states": [
+    {
+      "step_key": "welcome",
+      "payload": {
+        "slots": {
+          "client_name": "Jane Doe",
+          "preferred_language": "français"
+        },
+        "checklist": []
+      },
+      "committed_at": "2025-01-14T08:55:01.124305Z"
+    }
+  ],
+  "checklist_states": []
+}
+```
+
+Pour les étapes suivantes, adaptez simplement `step_key`, les `slots` et la `checklist`. Une fois la dernière étape validée, la réponse inclura `"state": "completed"` et un `closed_at` renseigné.
+
+### Script complet (curl)
+
+Le bloc ci-dessous enchaîne l’import de la procédure (si elle n’existe pas déjà), la création du run, la validation de deux étapes et la consultation de l’audit trail. Ajustez `BASE_URL` au besoin. (`jq` est requis pour extraire les réponses JSON.)
+
+```bash
+bash <<'DEMO'
+set -euo pipefail
+BASE_URL="${BASE_URL:-http://localhost:8000}"
+
+curl -sS -X POST "${BASE_URL}/procedures" \
+  -H 'Content-Type: application/json' \
+  -d @docs/exemple_procedure_pilote.json >/dev/null
+
+RUN_ID=$(curl -sS -X POST "${BASE_URL}/runs" \
+  -H 'Content-Type: application/json' \
+  -d '{"procedure_id": "proc_001_onboarding_client", "user_id": "agent-qa"}' | jq -r '.id')
+
+curl -sS -X POST "${BASE_URL}/runs/${RUN_ID}/commit-step" \
+  -H 'Content-Type: application/json' \
+  -d '{"step_key": "welcome", "slots": {"client_name": "Jane Doe", "preferred_language": "français"}, "checklist": []}' | jq '.'
+
+curl -sS -X POST "${BASE_URL}/runs/${RUN_ID}/commit-step" \
+  -H 'Content-Type: application/json' \
+  -d '{"step_key": "contact_info", "slots": {"email": "jane.doe@example.com", "phone": "+41 79 123 45 67"}, "checklist": []}' >/dev/null
+
+curl -sS "${BASE_URL}/audit-events?entity_type=procedure_run&entity_id=${RUN_ID}" | jq '.'
+DEMO
+```
 
 ## 5. Vérifier l’audit trail (ALCOA+)
 
@@ -140,6 +229,26 @@ curl "http://localhost:8000/audit-events?entity_type=procedure&entity_id=proc_00
 
 Résultat attendu : un événement `procedure.created` avec les métadonnées complètes de la procédure importée.
 
+```json
+[
+  {
+    "id": "evt_01HZY5P92G3G1PPWEF8Z4CMX2B",
+    "type": "procedure.created",
+    "entity_type": "procedure",
+    "entity_id": "proc_001_onboarding_client",
+    "actor": "demo-admin",
+    "occurred_at": "2025-01-14T08:50:05.912384Z",
+    "payload_diff": {
+      "after": {
+        "id": "proc_001_onboarding_client",
+        "name": "Onboarding Client",
+        "step_count": 5
+      }
+    }
+  }
+]
+```
+
 ### Run
 
 ```bash
@@ -147,6 +256,44 @@ curl "http://localhost:8000/audit-events?entity_type=procedure_run&entity_id=${R
 ```
 
 On y observe `run.created` puis `run.updated` (passage à `completed` avec `closed_at`).
+
+```json
+[
+  {
+    "id": "evt_01HZY5QDY90NBJ4R26F6FH2SNQ",
+    "type": "run.created",
+    "entity_type": "procedure_run",
+    "entity_id": "run_01HZY5M0ZK7A1XTB7JH3G5C8K2",
+    "actor": "agent-qa",
+    "occurred_at": "2025-01-14T08:52:12.512009Z",
+    "payload_diff": {
+      "after": {
+        "state": "pending",
+        "procedure_id": "proc_001_onboarding_client",
+        "user_id": "agent-qa"
+      }
+    }
+  },
+  {
+    "id": "evt_01HZY5QFJ8R31CFVC1T34ZC8DJ",
+    "type": "run.updated",
+    "entity_type": "procedure_run",
+    "entity_id": "run_01HZY5M0ZK7A1XTB7JH3G5C8K2",
+    "actor": "agent-qa",
+    "occurred_at": "2025-01-14T08:59:42.101776Z",
+    "payload_diff": {
+      "before": {
+        "state": "in_progress",
+        "closed_at": null
+      },
+      "after": {
+        "state": "completed",
+        "closed_at": "2025-01-14T08:59:42.097634Z"
+      }
+    }
+  }
+]
+```
 
 ### Étapes
 
@@ -158,6 +305,30 @@ Chaque commit produit un événement `run.step_committed` contenant l’état av
 
 - **Attributable** – champ `actor`.
 - **Legible** – JSON structuré, timestamps ISO.
+```json
+[
+  {
+    "id": "evt_01HZY5QGN6Q9YH4VZ88A1YQ4TE",
+    "type": "run.step_committed",
+    "entity_type": "procedure_run_step",
+    "entity_id": "run_01HZY5M0ZK7A1XTB7JH3G5C8K2:confirmation",
+    "actor": "agent-qa",
+    "occurred_at": "2025-01-14T08:58:17.440512Z",
+    "payload_diff": {
+      "after": {
+        "payload": {
+          "slots": {
+            "confirmation_accepted": true,
+            "next_steps_scheduled": "2025-01-15"
+          },
+          "checklist": []
+        },
+        "committed_at": "2025-01-14T08:58:17.437211Z"
+      }
+    }
+  }
+]
+```
 - **Contemporaneous** – `occurred_at` généré lors de la requête.
 - **Original** – `payload_diff.after` contient la donnée brute.
 - **Accurate** – intégrité assurée par la base et les validations.
