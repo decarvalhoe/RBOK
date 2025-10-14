@@ -42,6 +42,7 @@ class ProcedureStep(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     slots: Mapped[List[dict]] = mapped_column(JSON, nullable=False, default=list)
+    checklist: Mapped[List[dict]] = mapped_column(JSON, nullable=False, default=list)
     position: Mapped[int] = mapped_column(default=0, nullable=False)
 
     procedure: Mapped[Procedure] = relationship("Procedure", back_populates="steps")
@@ -55,11 +56,17 @@ class ProcedureRun(Base):
         String, ForeignKey("procedures.id", ondelete="CASCADE"), nullable=False
     )
     user_id: Mapped[str] = mapped_column(String(255), nullable=False)
-    state: Mapped[str] = mapped_column(String(50), nullable=False)
+    state: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     procedure: Mapped[Procedure] = relationship("Procedure")
+    step_states: Mapped[List["ProcedureRunStepState"]] = relationship(
+        "ProcedureRunStepState",
+        back_populates="run",
+        cascade="all, delete-orphan",
+        order_by="ProcedureRunStepState.committed_at",
+    )
 
 
 class ProcedureRunStepState(Base):
@@ -72,7 +79,7 @@ class ProcedureRunStepState(Base):
     payload: Mapped[Dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
     committed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
-    run: Mapped[ProcedureRun] = relationship("ProcedureRun")
+    run: Mapped[ProcedureRun] = relationship("ProcedureRun", back_populates="step_states")
 
 
 class AuditEvent(Base):

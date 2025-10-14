@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import time
-from typing import Optional
+from typing import Dict, List, Optional
 
 from fastapi import FastAPI, Request, Response
 from prometheus_client import (
@@ -39,6 +39,7 @@ class Observability:
         self._in_progress: Gauge
         self._provider: TracerProvider | None = None
         self._processors: list[SimpleSpanProcessor] = []
+        self._trace_records: List[Dict[str, object]] = []
 
         self._install_metrics()
         self.configure_tracer(exporter)
@@ -67,9 +68,20 @@ class Observability:
                 resource=Resource.create({"service.name": self.service_name})
             )
             setattr(provider, "_rbok_service", self.service_name)
-            trace.set_tracer_provider(provider)
+            replaced = False
+            try:
+                trace.set_tracer_provider(provider)
+                replaced = trace.get_tracer_provider() is provider
+            except RuntimeError:
+                replaced = False
+            current_provider = trace.get_tracer_provider()
+            if not isinstance(current_provider, TracerProvider):  # pragma: no cover - defensive
+                raise RuntimeError("Tracer provider not available")
+            provider = current_provider
+            if replaced:
+                self._processors.clear()
+            setattr(provider, "_rbok_service", getattr(provider, "_rbok_service", self.service_name))
             self._provider = provider
-            self._processors.clear()
         else:
             provider = current
             self._provider = provider
@@ -85,6 +97,16 @@ class Observability:
 
         self.registry = registry or CollectorRegistry()
         self._install_metrics()
+
+    def reset_traces(self) -> None:
+        """Clear recorded trace snapshots (used by tests)."""
+
+        self._trace_records.clear()
+
+    def get_trace_records(self) -> List[Dict[str, object]]:
+        """Return a shallow copy of the collected trace summaries."""
+
+        return list(self._trace_records)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -110,7 +132,8 @@ class Observability:
         )
 
     async def _observe_request(self, request: Request, call_next):  # type: ignore[override]
-        tracer = trace.get_tracer(self.service_name)
+        tracer_provider = self._provider or trace.get_tracer_provider()
+        tracer = tracer_provider.get_tracer(self.service_name)
         start = time.perf_counter()
         route = self._resolve_route(request)
         labels = {
@@ -147,6 +170,17 @@ class Observability:
             self._request_counter.labels(**labels, status_code=str(status_code)).inc()
             self._request_duration.labels(**labels).observe(duration)
             self._in_progress.labels(**labels).dec()
+            self._trace_records.append(
+                {
+                    "service": self.service_name,
+                    "method": request.method,
+                    "route": route,
+                    "status_code": status_code,
+                    "duration": duration,
+                }
+            )
+            if len(self._trace_records) > 50:
+                self._trace_records.pop(0)
 
     def _metrics_endpoint(self) -> Response:
         payload = generate_latest(self.registry)

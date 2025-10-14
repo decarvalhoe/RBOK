@@ -1,125 +1,139 @@
-"""Integration tests covering Keycloak OIDC validation and OPA policies."""
+"""Integration tests covering the authorization flow with stubbed services."""
 from __future__ import annotations
 
-import json
-import os
-import shutil
+from typing import Dict
+
 import pytest
-
-pytest.skip(
-    "Legacy authorization integration suite requires external services and the previous API.",
-    allow_module_level=True,
-)
-
-import subprocess
-import time
-from pathlib import Path
-from typing import Generator
-
-import httpx
 from fastapi.testclient import TestClient
-from keycloak import KeycloakOpenID
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
 
-from app.auth import get_keycloak_service, get_opa_client, get_settings
-from app.database import Base, get_db
+from app import auth
+from app.api import runs as runs_api
+from app.auth import Token, TokenIntrospection
 from app.main import app
 
-COMPOSE_FILE = Path(__file__).with_name("docker-compose.yml")
-KEYCLOAK_URL = "http://localhost:8081"
-OPA_URL = "http://localhost:8181/v1/data/realison/authz"
+
+class DummyKeycloakService:
+    """Minimal Keycloak service used for integration tests."""
+
+    def __init__(self) -> None:
+        self._payloads: Dict[str, Dict[str, object]] = {
+            "admin-token": {
+                "sub": "admin",
+                "preferred_username": "alice",
+                "email": "alice@example.com",
+                "realm_access": {"roles": ["app-admin"]},
+            },
+            "user-token": {
+                "sub": "user",
+                "preferred_username": "bob",
+                "email": "bob@example.com",
+                "realm_access": {"roles": ["app-user"]},
+            },
+            "unauthorized-token": {
+                "sub": "unauthorized",
+                "preferred_username": "eve",
+                "email": "eve@example.com",
+                "realm_access": {"roles": []},
+            },
+        }
+
+    def obtain_token(self, username: str, password: str) -> Token:  # pragma: no cover - not exercised
+        return Token(access_token=f"{username}-token", refresh_token=f"{username}-refresh")
+
+    def refresh_token(self, refresh_token: str) -> Token:
+        return Token(access_token=f"refreshed-{refresh_token}", refresh_token=refresh_token)
+
+    def introspect_token(self, token: str) -> TokenIntrospection:
+        payload = self._payloads.get(token)
+        return TokenIntrospection(active=payload is not None, username=payload.get("preferred_username") if payload else None)
+
+    def decode_token(self, token: str) -> Dict[str, object]:
+        payload = self._payloads.get(token)
+        if payload is None:
+            raise RuntimeError("Unknown token")
+        return payload
+
+    def extract_roles(self, payload: Dict[str, object]):
+        return payload.get("realm_access", {}).get("roles", [])
+
+    def map_role(self, roles):
+        if "app-admin" in roles:
+            return "admin"
+        if "app-user" in roles:
+            return "user"
+        return "user"
 
 
-def _wait_for(url: str, timeout: int = 120) -> None:
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        try:
-            response = httpx.get(url, timeout=5.0)
-            if response.status_code < 500:
-                return
-        except httpx.HTTPError:
-            time.sleep(2)
-        else:
-            time.sleep(2)
-    raise RuntimeError(f"Service at {url} did not become ready in time")
+class DummyOPAClient:
+    def evaluate(self, payload: Dict[str, object]) -> Dict[str, object]:
+        subject = payload.get("input", {}).get("subject", {})
+        action = payload.get("input", {}).get("action")
+        resource = payload.get("input", {}).get("resource")
+        if subject.get("id") == "unauthorized":
+            return {"result": {"allow": False, "reason": "unauthorized"}}
+        if action == "runs:create" and resource == "missing":
+            return {"result": {"allow": False, "reason": "not-found"}}
+        return {"result": {"allow": True}}
 
 
-@pytest.fixture(scope="session")
-def docker_environment() -> Generator[None, None, None]:
-    if shutil.which("docker") is None:
-        pytest.skip("Docker is required for integration tests")
+@pytest.fixture()
+def auth_stubs(monkeypatch):
+    dummy_keycloak = DummyKeycloakService()
+    dummy_opa = DummyOPAClient()
 
-    subprocess.run(["docker", "compose", "-f", str(COMPOSE_FILE), "down", "-v"], check=False)
-    subprocess.run(["docker", "compose", "-f", str(COMPOSE_FILE), "up", "-d"], check=True)
+    original_get_keycloak_service = auth.get_keycloak_service
+    original_get_opa_client = auth.get_opa_client
 
+    original_get_keycloak_service.cache_clear()
+    original_get_opa_client.cache_clear()
+
+    monkeypatch.setattr(auth, "get_keycloak_service", lambda: dummy_keycloak)
+    monkeypatch.setattr(auth, "get_opa_client", lambda: dummy_opa)
+    monkeypatch.setattr(runs_api, "get_opa_client", lambda: dummy_opa)
+
+    yield dummy_keycloak, dummy_opa, original_get_keycloak_service, original_get_opa_client
+
+    original_get_keycloak_service.cache_clear()
+    original_get_opa_client.cache_clear()
+
+
+@pytest.fixture()
+def configured_client(
+    client: TestClient,
+    auth_stubs,
+    admin_headers: Dict[str, str],
+) -> TestClient:
+    dummy_keycloak, dummy_opa, original_get_keycloak_service, original_get_opa_client = auth_stubs
+    app.dependency_overrides[original_get_keycloak_service] = lambda: dummy_keycloak
+    app.dependency_overrides[original_get_opa_client] = lambda: dummy_opa
     try:
-        _wait_for(f"{KEYCLOAK_URL}/realms/realison/.well-known/openid-configuration")
-        _wait_for("http://localhost:8181/health")
-        yield
-    finally:
-        subprocess.run(["docker", "compose", "-f", str(COMPOSE_FILE), "down", "-v"], check=False)
-
-
-@pytest.fixture(scope="session")
-def configured_client(docker_environment: None, tmp_path_factory) -> Generator[TestClient, None, None]:
-    db_dir = tmp_path_factory.mktemp("db")
-    database_url = f"sqlite:///{db_dir}/integration.db"
-    engine = create_engine(database_url, connect_args={"check_same_thread": False}, future=True)
-    TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
-    Base.metadata.create_all(bind=engine)
-
-    os.environ["KEYCLOAK_SERVER_URL"] = KEYCLOAK_URL
-    os.environ["KEYCLOAK_REALM"] = "realison"
-    os.environ["KEYCLOAK_CLIENT_ID"] = "realison-backend"
-    os.environ["KEYCLOAK_CLIENT_SECRET"] = "backend-secret"
-    os.environ["KEYCLOAK_ROLE_MAPPING"] = json.dumps({"app-admin": "admin", "app-user": "user"})
-    os.environ["OPA_URL"] = OPA_URL
-
-    get_settings.cache_clear()
-    get_keycloak_service.cache_clear()
-    get_opa_client.cache_clear()
-
-    def override_get_db() -> Generator[Session, None, None]:
-        session = TestingSessionLocal()
-        try:
-            yield session
-        finally:
-            session.rollback()
-            session.close()
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    with TestClient(app) as client:
         yield client
-
-    app.dependency_overrides.pop(get_db, None)
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
-    get_settings.cache_clear()
-    get_keycloak_service.cache_clear()
-    get_opa_client.cache_clear()
+    finally:
+        app.dependency_overrides.pop(original_get_keycloak_service, None)
+        app.dependency_overrides.pop(original_get_opa_client, None)
 
 
-@pytest.fixture(scope="session")
-def keycloak_openid(docker_environment: None) -> KeycloakOpenID:
-    return KeycloakOpenID(
-        server_url=KEYCLOAK_URL,
-        realm_name="realison",
-        client_id="realison-backend",
-        client_secret_key="backend-secret",
-    )
+@pytest.fixture()
+def admin_headers() -> Dict[str, str]:
+    return {"Authorization": "Bearer admin-token"}
 
 
-def test_end_to_end_authorization(configured_client: TestClient, keycloak_openid: KeycloakOpenID) -> None:
-    admin_tokens = keycloak_openid.token(username="alice", password="adminpass")
-    user_tokens = keycloak_openid.token(username="bob", password="userpass")
-    unauthorized_tokens = keycloak_openid.token(username="eve", password="noroles")
+@pytest.fixture()
+def user_headers() -> Dict[str, str]:
+    return {"Authorization": "Bearer user-token"}
 
-    admin_headers = {"Authorization": f"Bearer {admin_tokens['access_token']}"}
-    user_headers = {"Authorization": f"Bearer {user_tokens['access_token']}"}
-    unauthorized_headers = {"Authorization": f"Bearer {unauthorized_tokens['access_token']}"}
 
+@pytest.fixture()
+def unauthorized_headers() -> Dict[str, str]:
+    return {"Authorization": "Bearer unauthorized-token"}
+
+
+def test_end_to_end_authorization(
+    configured_client: TestClient,
+    admin_headers: Dict[str, str],
+    user_headers: Dict[str, str],
+    unauthorized_headers: Dict[str, str],
+) -> None:
     procedure_payload = {
         "name": "Integration Procedure",
         "description": "Created via integration test",
@@ -129,12 +143,13 @@ def test_end_to_end_authorization(configured_client: TestClient, keycloak_openid
                 "title": "Step 1",
                 "prompt": "Do the first thing",
                 "slots": [],
+                "checklist": [],
             }
         ],
     }
 
     create_response = configured_client.post("/procedures", json=procedure_payload, headers=admin_headers)
-    assert create_response.status_code in (200, 201)
+    assert create_response.status_code == 201
     created_procedure = create_response.json()
     procedure_id = created_procedure["id"]
 
@@ -143,34 +158,36 @@ def test_end_to_end_authorization(configured_client: TestClient, keycloak_openid
 
     introspect_response = configured_client.post(
         "/auth/introspect",
-        json={"token": admin_tokens["access_token"]},
+        json={"token": "admin-token"},
+        headers=admin_headers,
     )
-    introspect_response.raise_for_status()
+    assert introspect_response.status_code == 200
     assert introspect_response.json()["active"] is True
 
     refresh_response = configured_client.post(
         "/auth/refresh",
-        json={"token": admin_tokens["refresh_token"]},
+        json={"token": "admin-refresh"},
+        headers=admin_headers,
     )
-    refresh_response.raise_for_status()
+    assert refresh_response.status_code == 200
     assert "access_token" in refresh_response.json()
 
-    run_payload = {"procedure_id": procedure_id}
+    run_payload = {"procedure_id": procedure_id, "user_id": "user-42"}
 
     run_response_user = configured_client.post("/runs", json=run_payload, headers=user_headers)
-    assert run_response_user.status_code in (200, 201)
+    assert run_response_user.status_code == 201
     run_data = run_response_user.json()
     assert run_data["procedure_id"] == procedure_id
 
     run_response_admin = configured_client.post("/runs", json=run_payload, headers=admin_headers)
-    assert run_response_admin.status_code in (200, 201)
+    assert run_response_admin.status_code == 201
 
     opa_denied = configured_client.post("/runs", json=run_payload, headers=unauthorized_headers)
     assert opa_denied.status_code == 403
 
     policy_denied = configured_client.post(
         "/runs",
-        json={"procedure_id": "missing"},
+        json={"procedure_id": "missing", "user_id": "user-42"},
         headers=user_headers,
     )
     assert policy_denied.status_code == 404

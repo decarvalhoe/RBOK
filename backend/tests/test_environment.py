@@ -24,6 +24,25 @@ def test_health_check_endpoint_flags_issues(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setenv("REALISONS_SECRET_KEY", "another-test-secret")
     import app.main as main  # type: ignore[import-not-found]
 
+    # Prometheus collectors are module-level singletons, so importing the
+    # application twice during the same test session (via ``reload``) would
+    # otherwise try to re-register the same metrics and raise.  Explicitly
+    # unregister the previous collectors to keep the test isolated.
+    from prometheus_client import REGISTRY
+
+    for collector in (
+        getattr(main, "REQUEST_DURATION", None),
+        getattr(main, "REQUEST_COUNT", None),
+        getattr(main, "DATABASE_HEALTH", None),
+        getattr(main, "CACHE_HEALTH", None),
+    ):
+        if collector is None:
+            continue
+        try:
+            REGISTRY.unregister(collector)
+        except KeyError:  # pragma: no cover - defensive guard
+            pass
+
     importlib.reload(main)
     with TestClient(main.app) as client:
         response = client.get("/healthz")

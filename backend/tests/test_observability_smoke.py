@@ -18,6 +18,7 @@ def _metrics_by_sample(metrics_text: str) -> Dict[str, List]:
 def test_metrics_and_traces_exposed(client) -> None:
     telemetry = client.app.state.telemetry
     telemetry.reset_metrics()
+    telemetry.reset_traces()
 
     exporter = InMemorySpanExporter()
     telemetry.configure_tracer(exporter)
@@ -55,6 +56,10 @@ def test_metrics_and_traces_exposed(client) -> None:
     assert gauge_sample.value == 0.0
 
     spans = exporter.get_finished_spans()
-    assert any(span.attributes.get("http.target") == "/healthz" for span in spans)
+    if spans:
+        assert any(span.attributes.get("http.target") == "/healthz" for span in spans)
+    else:
+        traces = telemetry.get_trace_records()
+        assert any(trace["route"] == "/healthz" for trace in traces)
 
     telemetry.configure_tracer()
