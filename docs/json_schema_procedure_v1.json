@@ -1,36 +1,99 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "procedure.v1.json",
+  "title": "ProcedureDefinition",
   "type": "object",
   "required": ["id", "name", "steps"],
+  "additionalProperties": false,
   "properties": {
     "id": {"type": "string"},
     "name": {"type": "string"},
     "description": {"type": "string"},
+    "metadata": {
+      "type": "object",
+      "description": "Arbitrary metadata stored alongside the procedure.",
+      "additionalProperties": true,
+      "default": {}
+    },
     "steps": {
       "type": "array",
+      "description": "Ordered list of steps forming the procedure.",
       "items": {
         "type": "object",
-        "required": ["key", "title", "slots"],
+        "required": ["key", "title"],
+        "additionalProperties": false,
         "properties": {
+          "id": {"type": "string"},
           "key": {"type": "string"},
           "title": {"type": "string"},
           "prompt": {"type": "string"},
+          "position": {"type": "integer", "minimum": 0},
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true,
+            "default": {}
+          },
           "slots": {
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["name", "type", "required"],
+              "required": ["name", "type"],
+              "additionalProperties": false,
               "properties": {
                 "name": {"type": "string"},
-                "type": {"enum": ["string", "number", "date", "enum", "phone", "email"]},
-                "required": {"type": "boolean"},
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "string",
+                    "number",
+                    "date",
+                    "enum",
+                    "phone",
+                    "email",
+                    "boolean"
+                  ]
+                },
+                "required": {"type": "boolean", "default": true},
+                "label": {"type": "string"},
+                "description": {"type": "string"},
                 "validate": {"type": "string"},
-                "mask": {"type": "string"}
+                "mask": {"type": "string"},
+                "options": {
+                  "type": "array",
+                  "items": {"type": "string"}
+                },
+                "position": {"type": "integer", "minimum": 0},
+                "metadata": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "default": {}
+                }
               }
-            }
+            },
+            "default": []
           },
-          "transitions": {"type": "object"}
+          "checklists": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["key", "label"],
+              "additionalProperties": false,
+              "properties": {
+                "key": {"type": "string"},
+                "label": {"type": "string"},
+                "description": {"type": "string"},
+                "required": {"type": "boolean", "default": false},
+                "default_state": {"type": "boolean"},
+                "position": {"type": "integer", "minimum": 0},
+                "metadata": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "default": {}
+                }
+              }
+            },
+            "default": []
+          }
         }
       }
     }

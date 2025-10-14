@@ -17,19 +17,28 @@ from app.services.procedures.fsm import RUN_COMPLETED, RUN_IN_PROGRESS, Procedur
 
 @pytest.fixture()
 def procedure(test_session: Session) -> models.Procedure:
-    procedure = models.Procedure(name="Onboarding", description="User onboarding workflow")
+    procedure = models.Procedure(
+        name="Onboarding",
+        description="User onboarding workflow",
+    )
     procedure.steps = [
         models.ProcedureStep(
             key="collect_profile",
             title="Collect profile",
             prompt="Request the basic profile information",
+            position=0,
             slots=[
                 models.ProcedureSlot(
                     name="email",
                     slot_type="email",
                     required=True,
-                    configuration={"mask": "email"},
-                )
+                ),
+                models.ProcedureSlot(
+                    name="phone",
+                    slot_type="phone",
+                    required=True,
+                    configuration={"mask": "+41 XX XXX XX XX"},
+                ),
             ],
             checklist_items=[
                 models.ProcedureStepChecklistItem(
@@ -38,12 +47,12 @@ def procedure(test_session: Session) -> models.Procedure:
                     required=True,
                 )
             ],
-            position=0,
         ),
         models.ProcedureStep(
             key="verify_identity",
             title="Verify identity",
             prompt="Validate the submitted identity document",
+            position=1,
             slots=[
                 models.ProcedureSlot(
                     name="document",
@@ -58,7 +67,6 @@ def procedure(test_session: Session) -> models.Procedure:
                     required=False,
                 )
             ],
-            position=1,
         ),
     ]
     test_session.add(procedure)
@@ -99,14 +107,14 @@ def test_commit_steps_progresses_and_completes(test_session: Session, run: model
     first_state = fsm.commit_step(
         run,
         "collect_profile",
-        slots={"email": "user@example.com"},
+        slots={"email": "user@example.com", "phone": "+41 21 555 77 88"},
         checklist=[{"name": "consent", "completed": True}],
     )
     test_session.commit()
     test_session.refresh(run)
 
     assert run.state == RUN_IN_PROGRESS
-    assert first_state.payload["slots"]["email"] == "user@example.com"
+    assert first_state.payload["slots"]["phone"] == "+41 21 555 77 88"
 
     second_state = fsm.commit_step(
         run,
@@ -129,11 +137,11 @@ def test_commit_step_requires_required_slots(test_session: Session, run: models.
         fsm.commit_step(
             run,
             "collect_profile",
-            slots={},
+            slots={"email": "user@example.com"},
             checklist=[{"name": "consent", "completed": True}],
         )
 
-    assert "Slot 'email' is required" in str(exc.value)
+    assert "Slot 'phone' is required" in str(exc.value)
 
 
 def test_commit_step_enforces_step_order(test_session: Session, run: models.ProcedureRun) -> None:
@@ -155,7 +163,7 @@ def test_commit_step_validates_checklists(test_session: Session, run: models.Pro
         fsm.commit_step(
             run,
             "collect_profile",
-            slots={"email": "user@example.com"},
+            slots={"email": "user@example.com", "phone": "+41 21 555 77 88"},
             checklist=[{"name": "consent", "completed": False}],
         )
 
@@ -169,8 +177,26 @@ def test_commit_step_rejects_unknown_slots(test_session: Session, run: models.Pr
         fsm.commit_step(
             run,
             "collect_profile",
-            slots={"email": "user@example.com", "unknown": "value"},
+            slots={
+                "email": "user@example.com",
+                "phone": "+41 21 555 77 88",
+                "unknown": "value",
+            },
             checklist=[{"name": "consent", "completed": True}],
         )
 
     assert "Unknown slots provided" in str(exc.value)
+
+
+def test_commit_step_rejects_mask_violations(test_session: Session, run: models.ProcedureRun) -> None:
+    fsm = ProcedureFSM(test_session)
+
+    with pytest.raises(SlotValidationError) as exc:
+        fsm.commit_step(
+            run,
+            "collect_profile",
+            slots={"email": "user@example.com", "phone": "+41-21-555-77-88"},
+            checklist=[{"name": "consent", "completed": True}],
+        )
+
+    assert "must follow mask" in str(exc.value)

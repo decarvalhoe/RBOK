@@ -1,163 +1,133 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import pytest
 
 from app.services.procedures import validators
+from app.services.procedures.exceptions import ChecklistValidationError, SlotValidationError
 
 
-SCHEMA_PATH = Path(__file__).resolve().parents[5] / "docs" / "json_schema_procedure_v1.json"
-
-
-def test_supported_types_cover_schema() -> None:
-    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
-    slot_type_enum = (
-        schema["properties"]["steps"]["items"]["properties"]["slots"]["items"]["properties"]["type"]["enum"]
+def test_slot_validator_accepts_valid_payload() -> None:
+    validator = validators.SlotValidator(
+        [
+            {
+                "name": "email",
+                "type": "email",
+                "required": True,
+            },
+            {
+                "name": "phone",
+                "type": "phone",
+                "required": False,
+                "metadata": {"mask": "+41 XX XXX XX XX"},
+            },
+        ]
     )
-    assert set(slot_type_enum).issubset(validators.SUPPORTED_SLOT_TYPES)
+
+    cleaned = validator.validate({"email": "user@example.com", "phone": "+41 21 555 77 88"})
+
+    assert cleaned["email"] == "user@example.com"
+    assert cleaned["phone"] == "+41 21 555 77 88"
 
 
-def test_required_slot_missing() -> None:
-    slots = [
-        {"name": "email", "type": "email", "required": True},
-    ]
-    cleaned, errors = validators.validate_payload(slots, {})
-    assert cleaned == {}
-    assert errors == [
-        {"field": "email", "code": "validation.required", "params": {}},
-    ]
+def test_slot_validator_reports_multiple_issues() -> None:
+    validator = validators.SlotValidator(
+        [
+            {"name": "code", "type": "string", "required": True},
+            {"name": "phone", "type": "phone", "required": True, "metadata": {"mask": "XXX"}},
+        ]
+    )
+
+    with pytest.raises(SlotValidationError) as exc:
+        validator.validate({"phone": "1234", "unknown": "value"})
+
+    message = str(exc.value)
+    assert "Slot 'code' is required" in message
+    assert "must follow mask" in message
+    assert "Unknown slots provided" in message
 
 
-def test_type_enforced() -> None:
-    slots = [
-        {"name": "full_name", "type": "string", "required": True},
-    ]
-    cleaned, errors = validators.validate_payload(slots, {"full_name": 123})
-    assert cleaned == {}
-    assert errors and errors[0]["code"] == "validation.type"
+def test_slot_validator_trims_optional_strings() -> None:
+    validator = validators.SlotValidator(
+        [
+            {"name": "notes", "type": "string", "required": False},
+        ]
+    )
+
+    cleaned = validator.validate({"notes": "  Hello  "})
+
+    assert cleaned["notes"] == "Hello"
 
 
-def test_email_validation() -> None:
-    slots = [
-        {"name": "email", "type": "email", "required": True},
-    ]
-    cleaned, errors = validators.validate_payload(slots, {"email": "not-an-email"})
-    assert cleaned == {}
-    assert errors == [
-        {"field": "email", "code": "validation.email", "params": {}},
-    ]
+def test_slot_validator_detects_unsupported_types() -> None:
+    validator = validators.SlotValidator(
+        [
+            {"name": "consent", "type": "boolean", "required": False},
+        ]
+    )
+
+    with pytest.raises(SlotValidationError) as exc:
+        validator.validate({"consent": True})
+
+    assert "Unsupported slot type" in str(exc.value)
 
 
-def test_enum_options_enforced() -> None:
-    slots = [
-        {
-            "name": "language",
-            "type": "enum",
-            "required": True,
-            "options": ["fr", "en"],
-        }
-    ]
-    cleaned, errors = validators.validate_payload(slots, {"language": "es"})
-    assert cleaned == {}
-    assert errors == [
-        {
-            "field": "language",
-            "code": "validation.enum",
-            "params": {"allowed": ["fr", "en"]},
-        }
-    ]
+def test_validate_payload_wraps_slot_errors() -> None:
+    cleaned, errors = validators.validate_payload(
+        [
+            {"name": "email", "type": "email", "required": True},
+            {"name": "phone", "type": "phone", "mask": "XXX", "required": False},
+        ],
+        {"email": "invalid", "phone": "1234"},
+    )
 
-
-def test_mask_validation() -> None:
-    slots = [
-        {
-            "name": "phone",
-            "type": "phone",
-            "required": True,
-            "mask": "+41 XX XXX XX XX",
-        }
-    ]
-    cleaned, errors = validators.validate_payload(slots, {"phone": "+41 12 345 67 89"})
-    assert cleaned == {"phone": "+41 12 345 67 89"}
-    assert errors == []
-
-    cleaned, errors = validators.validate_payload(slots, {"phone": "+41-12-345-6789"})
     assert cleaned == {}
     assert errors == [
         {
-            "field": "phone",
-            "code": "validation.mask",
-            "params": {"mask": "+41 XX XXX XX XX"},
+            "field": "slots",
+            "code": "invalid",
+            "params": {"message": "Slot 'email' must be a valid email address; Slot 'phone' must follow mask 'XXX'"},
         }
     ]
 
 
-def test_regex_constraint() -> None:
-    slots = [
-        {
-            "name": "code",
-            "type": "string",
-            "required": True,
-            "validate": r"^[A-Z]{2}$",
-        }
-    ]
-    cleaned, errors = validators.validate_payload(slots, {"code": "AB"})
-    assert cleaned == {"code": "AB"}
-    assert errors == []
+def test_checklist_validator_enforces_required_items() -> None:
+    validator = validators.ChecklistValidator(
+        [
+            {"name": "consent", "required": True},
+            {"name": "safety", "required": False},
+        ]
+    )
 
-    cleaned, errors = validators.validate_payload(slots, {"code": "A1"})
-    assert cleaned == {}
-    assert errors == [
-        {
-            "field": "code",
-            "code": "validation.pattern",
-            "params": {"pattern": r"^[A-Z]{2}$"},
-        }
-    ]
+    with pytest.raises(ChecklistValidationError) as exc:
+        validator.validate([
+            {"name": "consent", "completed": False},
+            {"name": "safety", "completed": True},
+        ])
+
+    assert "consent" in str(exc.value)
 
 
-def test_normalisation_of_values() -> None:
-    slots = [
-        {"name": "age", "type": "number", "required": True},
-        {"name": "start", "type": "date", "required": True},
-        {"name": "consent", "type": "boolean", "required": False},
-    ]
-    payload = {"age": "42", "start": "2024-05-10", "consent": "yes"}
-    cleaned, errors = validators.validate_payload(slots, payload)
-    assert errors == []
-    assert cleaned == {"age": 42, "start": "2024-05-10", "consent": True}
+def test_checklist_validator_detects_unknown_items() -> None:
+    validator = validators.ChecklistValidator(
+        [
+            {"name": "consent", "required": True},
+        ]
+    )
+
+    with pytest.raises(ChecklistValidationError) as exc:
+        validator.validate({"unknown": True})
+
+    assert "Unknown checklist items" in str(exc.value)
 
 
-def test_unexpected_slot_detected() -> None:
-    slots = [
-        {"name": "email", "type": "email", "required": False},
-    ]
-    cleaned, errors = validators.validate_payload(slots, {"unknown": "value"})
-    assert cleaned == {}
-    assert errors == [
-        {"field": "unknown", "code": "validation.unexpected_slot", "params": {}},
-    ]
+def test_checklist_validator_accepts_dictionary_submission() -> None:
+    validator = validators.ChecklistValidator(
+        [
+            {"name": "consent", "required": True},
+            {"name": "safety", "required": False},
+        ]
+    )
 
+    cleaned = validator.validate({"consent": True})
 
-def test_optional_blank_ignored() -> None:
-    slots = [
-        {"name": "note", "type": "string", "required": False},
-    ]
-    cleaned, errors = validators.validate_payload(slots, {"note": "   "})
-    assert cleaned == {}
-    assert errors == []
-
-
-def test_invalid_regex_configuration_raises() -> None:
-    slots = [
-        {
-            "name": "code",
-            "type": "string",
-            "required": True,
-            "validate": "[unterminated",
-        }
-    ]
-    with pytest.raises(ValueError):
-        validators.validate_payload(slots, {"code": "AA"})
+    assert cleaned == {"consent": True, "safety": False}

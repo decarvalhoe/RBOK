@@ -204,12 +204,12 @@ async def commit_step(
         ) from exc
     except SlotValidationError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={"message": str(exc), "issues": exc.issues},
         ) from exc
     except ChecklistValidationError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={"message": str(exc), "issues": exc.issues},
         ) from exc
 
