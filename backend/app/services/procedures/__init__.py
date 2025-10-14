@@ -17,6 +17,7 @@ from .fsm import (
     is_terminal_state,
 )
 from .validators import ChecklistValidator, SlotValidator
+from ..procedure_definitions import ProcedureService
 
 __all__ = [
     "ProcedureRunState",
@@ -24,6 +25,8 @@ __all__ = [
     "apply_transition",
     "can_transition",
     "is_terminal_state",
+    "ProcedureFSM",
+    "ProcedureService",
     "ChecklistValidationError",
     "InvalidTransitionError",
     "SlotValidationError",
