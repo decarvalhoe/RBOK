@@ -27,6 +27,7 @@ def upgrade() -> None:
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("description", sa.Text(), nullable=False),
+        sa.Column("metadata", sa.JSON(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
@@ -48,6 +49,8 @@ def upgrade() -> None:
         sa.Column("title", sa.String(length=255), nullable=False),
         sa.Column("prompt", sa.Text(), nullable=False),
         sa.Column("slots", sa.JSON(), nullable=False),
+        sa.Column("metadata", sa.JSON(), nullable=False),
+        sa.Column("checklists", sa.JSON(), nullable=False),
         sa.Column("position", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(["procedure_id"], ["procedures.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
