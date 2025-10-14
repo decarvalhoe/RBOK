@@ -1,8 +1,9 @@
 """Finite state machine coordinating procedure run transitions."""
+
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, Mapping, Optional
 
 from sqlalchemy.orm import Session
 
@@ -79,8 +80,16 @@ class ProcedureFSM:
                 f"Step '{step.key}' cannot be committed before '{expected_key}'"
             )
 
-        slot_validator = SlotValidator(step.slots or [])
-        checklist_validator = ChecklistValidator(step.checklist or [])
+        slot_definitions = [
+            _normalise_slot_definition(slot) for slot in getattr(step, "slots", []) or []
+        ]
+        checklist_definitions = [
+            _normalise_checklist_item(item)
+            for item in getattr(step, "checklist_items", []) or []
+        ]
+
+        slot_validator = SlotValidator(slot_definitions)
+        checklist_validator = ChecklistValidator(checklist_definitions)
 
         try:
             validated_slots = slot_validator.validate(slots or {})
@@ -142,7 +151,60 @@ class ProcedureFSM:
         self, step: models.ProcedureStep, procedure: models.Procedure
     ) -> bool:
         ordered = sorted(procedure.steps, key=lambda item: item.position)
-        return ordered and ordered[-1].key == step.key
+        return bool(ordered) and ordered[-1].key == step.key
+
+
+def _normalise_slot_definition(slot: Any) -> Dict[str, Any]:
+    """Convert a slot declaration into a serialisable dictionary."""
+
+    if isinstance(slot, Mapping):
+        name = str(slot.get("name") or slot.get("key"))
+        slot_type = str(slot.get("type") or slot.get("slot_type") or "string")
+        required = bool(slot.get("required", False))
+        metadata = dict(slot.get("metadata") or slot.get("configuration") or {})
+        options = slot.get("options") or slot.get("choices")
+    else:
+        name = str(getattr(slot, "name", getattr(slot, "key", "")))
+        slot_type = str(getattr(slot, "slot_type", getattr(slot, "type", "string")))
+        required = bool(getattr(slot, "required", False))
+        metadata = dict(getattr(slot, "configuration", {}) or {})
+        options = getattr(slot, "options", None)
+
+    definition: Dict[str, Any] = {
+        "name": name,
+        "type": slot_type,
+        "required": required,
+        "metadata": metadata,
+    }
+    if options is None:
+        options = metadata.get("options") or metadata.get("choices")
+    if options is not None:
+        definition["options"] = options
+    return definition
+
+
+def _normalise_checklist_item(item: Any) -> Dict[str, Any]:
+    """Convert a checklist item declaration into a serialisable dictionary."""
+
+    if isinstance(item, Mapping):
+        name = str(item.get("name") or item.get("key"))
+        required = bool(item.get("required", False))
+        metadata = dict(item.get("metadata") or {})
+        label = item.get("label")
+        description = item.get("description")
+    else:
+        name = str(getattr(item, "name", getattr(item, "key", "")))
+        required = bool(getattr(item, "required", False))
+        metadata: Dict[str, Any] = {}
+        label = getattr(item, "label", None)
+        description = getattr(item, "description", None)
+
+    if label is not None:
+        metadata.setdefault("label", label)
+    if description is not None:
+        metadata.setdefault("description", description)
+
+    return {"name": name, "required": required, "metadata": metadata}
 
 
 __all__ = [
@@ -151,118 +213,4 @@ __all__ = [
     "RUN_IN_PROGRESS",
     "RUN_COMPLETED",
     "RUN_FAILED",
-"""Finite state machine describing the lifecycle of a procedure run."""
-from __future__ import annotations
-
-from enum import Enum
-from typing import Dict, Iterable, Set, Union
-
-
-class ProcedureRunState(str, Enum):
-    """Allowed lifecycle states for a :class:`~app.models.ProcedureRun`."""
-
-    PENDING = "pending"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-class ProcedureRunStateError(RuntimeError):
-    """Base exception for procedure run state errors."""
-
-
-class UnknownProcedureRunState(ProcedureRunStateError):
-    """Raised when attempting to use an unknown state name."""
-
-    def __init__(self, state: Union[str, ProcedureRunState]) -> None:
-        super().__init__(f"Unknown procedure run state: {state}")
-        self.state = state
-
-
-class InvalidProcedureRunTransition(ProcedureRunStateError):
-    """Raised when an invalid transition between two states is requested."""
-
-    def __init__(self, current: ProcedureRunState, target: ProcedureRunState) -> None:
-        super().__init__(
-            f"Cannot transition procedure run from '{current.value}' to '{target.value}'"
-        )
-        self.current = current
-        self.target = target
-
-
-_VALID_TRANSITIONS: Dict[ProcedureRunState, Set[ProcedureRunState]] = {
-    ProcedureRunState.PENDING: {ProcedureRunState.IN_PROGRESS, ProcedureRunState.FAILED},
-    ProcedureRunState.IN_PROGRESS: {
-        ProcedureRunState.COMPLETED,
-        ProcedureRunState.FAILED,
-    },
-    ProcedureRunState.COMPLETED: set(),
-    ProcedureRunState.FAILED: set(),
-}
-
-_TERMINAL_STATES: Set[ProcedureRunState] = {
-    ProcedureRunState.COMPLETED,
-    ProcedureRunState.FAILED,
-}
-
-_StateLike = Union[str, ProcedureRunState]
-
-
-def _ensure_state(value: _StateLike) -> ProcedureRunState:
-    if isinstance(value, ProcedureRunState):
-        return value
-    try:
-        return ProcedureRunState(str(value))
-    except ValueError as exc:  # pragma: no cover - defensive
-        raise UnknownProcedureRunState(value) from exc
-
-
-def valid_transitions(state: _StateLike) -> Set[ProcedureRunState]:
-    """Return the set of states that ``state`` can transition to."""
-
-    return set(_VALID_TRANSITIONS[_ensure_state(state)])
-
-
-def can_transition(current: _StateLike, target: _StateLike) -> bool:
-    """Return ``True`` when the transition between ``current`` and ``target`` is valid."""
-
-    current_state = _ensure_state(current)
-    target_state = _ensure_state(target)
-    if current_state == target_state:
-        return True
-    return target_state in _VALID_TRANSITIONS[current_state]
-
-
-def assert_transition(current: _StateLike, target: _StateLike) -> ProcedureRunState:
-    """Ensure the requested transition is valid, raising if not."""
-
-    current_state = _ensure_state(current)
-    target_state = _ensure_state(target)
-    if not can_transition(current_state, target_state):
-        raise InvalidProcedureRunTransition(current_state, target_state)
-    return target_state
-
-
-def is_terminal_state(state: _StateLike) -> bool:
-    """Return ``True`` when ``state`` is a terminal state in the FSM."""
-
-    return _ensure_state(state) in _TERMINAL_STATES
-
-
-def all_states() -> Iterable[ProcedureRunState]:
-    """Yield all available states of the state machine."""
-
-    return ProcedureRunState
-
-
-__all__ = [
-    "ProcedureRunState",
-    "ProcedureRunStateError",
-    "UnknownProcedureRunState",
-    "InvalidProcedureRunTransition",
-    "valid_transitions",
-    "can_transition",
-    "assert_transition",
-    "is_terminal_state",
-    "all_states",
 ]

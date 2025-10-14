@@ -23,16 +23,41 @@ def procedure(test_session: Session) -> models.Procedure:
             key="collect_profile",
             title="Collect profile",
             prompt="Request the basic profile information",
-            slots=[{"name": "email", "type": "email", "required": True}],
-            checklist=[{"name": "consent", "required": True}],
+            slots=[
+                models.ProcedureSlot(
+                    name="email",
+                    slot_type="email",
+                    required=True,
+                    configuration={"mask": "email"},
+                )
+            ],
+            checklist_items=[
+                models.ProcedureStepChecklistItem(
+                    key="consent",
+                    label="Consent given",
+                    required=True,
+                )
+            ],
             position=0,
         ),
         models.ProcedureStep(
             key="verify_identity",
             title="Verify identity",
             prompt="Validate the submitted identity document",
-            slots=[{"name": "document", "type": "string", "required": True}],
-            checklist=[{"name": "signature", "required": False}],
+            slots=[
+                models.ProcedureSlot(
+                    name="document",
+                    slot_type="string",
+                    required=True,
+                )
+            ],
+            checklist_items=[
+                models.ProcedureStepChecklistItem(
+                    key="signature",
+                    label="Signature verified",
+                    required=False,
+                )
+            ],
             position=1,
         ),
     ]

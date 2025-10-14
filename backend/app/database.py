@@ -1,3 +1,5 @@
+"""Database helpers for the Réalisons backend."""
+
 from __future__ import annotations
 
 import os
@@ -6,8 +8,45 @@ from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
-from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
+try:  # pragma: no cover - optional dependency when telemetry disabled
+    from opentelemetry import trace
+    from opentelemetry.trace import Status, StatusCode
+except ModuleNotFoundError:  # pragma: no cover - provide no-op fallbacks for tests
+    class _NoopSpan:
+        def __enter__(self) -> "_NoopSpan":  # noqa: D401 - trivial
+            return self
+
+        def __exit__(self, exc_type, exc, traceback) -> bool:
+            return False
+
+        def set_attribute(self, *args, **kwargs) -> None:
+            return None
+
+        def set_status(self, *args, **kwargs) -> None:
+            return None
+
+        def record_exception(self, exc) -> None:
+            return None
+
+    class _NoopTracer:
+        def start_as_current_span(self, *args, **kwargs) -> _NoopSpan:
+            return _NoopSpan()
+
+    class _NoopTracerProvider:
+        def get_tracer(self, *args, **kwargs) -> _NoopTracer:
+            return _NoopTracer()
+
+    class _NoopStatusCode:
+        OK = "OK"
+        ERROR = "ERROR"
+
+    class _NoopStatus:
+        def __init__(self, *args, **kwargs) -> None:
+            return None
+
+    trace = _NoopTracerProvider()  # type: ignore[assignment]
+    StatusCode = _NoopStatusCode  # type: ignore[assignment]
+    Status = _NoopStatus  # type: ignore[assignment]
 
 
 def _build_database_url() -> str:
@@ -57,16 +96,23 @@ def get_db() -> Generator[Session, None, None]:
     """Provide a transactional database session."""
 
     with tracer.start_as_current_span("database.session") as span:
-        span.set_attribute("db.system", engine.url.get_backend_name())
-        if engine.url.database:
+        try:
+            backend_name = engine.url.get_backend_name()
+        except AttributeError:  # pragma: no cover - defensive when engine misconfigured
+            backend_name = "unknown"
+        span.set_attribute("db.system", backend_name)
+        if getattr(engine.url, "database", None):
             span.set_attribute("db.name", engine.url.database)
         db = SessionLocal()
         try:
             yield db
-            span.set_status(Status(StatusCode.OK))
+            if hasattr(StatusCode, "OK"):
+                span.set_status(Status(StatusCode.OK))  # type: ignore[arg-type]
         except Exception as exc:  # pragma: no cover - defensive
-            span.record_exception(exc)
-            span.set_status(Status(StatusCode.ERROR, str(exc)))
+            if hasattr(span, "record_exception"):
+                span.record_exception(exc)
+            if hasattr(StatusCode, "ERROR"):
+                span.set_status(Status(StatusCode.ERROR, str(exc)))  # type: ignore[arg-type]
             raise
         finally:
             db.close()
