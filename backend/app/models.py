@@ -313,6 +313,8 @@ class ProcedureRunStepState(Base):
     payload: Mapped[Dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
     committed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
+    run: Mapped[ProcedureRun] = relationship(
+        "ProcedureRun", back_populates="step_states"
     run: Mapped[ProcedureRun] = relationship("ProcedureRun", back_populates="step_states")
 
 

@@ -23,6 +23,7 @@ from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, REGISTRY, generate_latest
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -316,6 +317,7 @@ app.add_middleware(
 app.add_middleware(CorrelationIdMiddleware)
 app.include_router(procedures_router)
 app.include_router(webrtc_router)
+app.include_router(runs_router)
 app.include_router(procedures_router)
 app.include_router(runs_router)
 
