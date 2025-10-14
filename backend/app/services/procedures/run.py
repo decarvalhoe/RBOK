@@ -9,6 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ... import models
+from .exceptions import InvalidTransitionError
+from .fsm import ProcedureRunState, apply_transition, can_transition
 from .validators import SlotDefinition, ValidationError, validate_payload
 
 
@@ -68,6 +70,11 @@ class ProcedureRunService:
         """
 
         run = self._get_run(run_id)
+        if not can_transition(run.state, ProcedureRunState.IN_PROGRESS):
+            raise InvalidTransitionError(
+                f"Run '{run_id}' cannot accept new steps from state '{run.state}'"
+            )
+
         step = self._get_step(run.procedure_id, step_key)
 
         slot_definitions: Iterable[SlotDefinition] = step.slots or []
@@ -87,6 +94,8 @@ class ProcedureRunService:
             state.committed_at = datetime.utcnow()
 
         self._db.add(state)
+        apply_transition(run, ProcedureRunState.IN_PROGRESS)
+        self._db.add(run)
         self._db.commit()
         self._db.refresh(state)
         return state, []
