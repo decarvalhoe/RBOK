@@ -25,6 +25,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
+from .api.procedures import router as procedures_router
 from .api.webrtc import router as webrtc_router
 from .cache import get_redis_client
 from .config import Settings, get_settings
@@ -257,6 +258,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(CorrelationIdMiddleware)
+app.include_router(procedures_router)
 app.include_router(webrtc_router)
 
 

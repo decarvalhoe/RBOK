@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import DateTime, ForeignKey, Index, String, Text, JSON, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -21,6 +21,12 @@ class Procedure(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_payload: Mapped[Dict[str, Any]] = mapped_column(
+        "metadata",
+        MutableDict.as_mutable(JSON),
+        nullable=False,
+        default=dict,
+    )
 
     steps: Mapped[List["ProcedureStep"]] = relationship(
         "ProcedureStep",
@@ -41,7 +47,18 @@ class ProcedureStep(Base):
     key: Mapped[str] = mapped_column(String(255), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
-    slots: Mapped[List[dict]] = mapped_column(JSON, nullable=False, default=list)
+    slots: Mapped[List[dict]] = mapped_column(
+        MutableList.as_mutable(JSON), nullable=False, default=list
+    )
+    metadata_payload: Mapped[Dict[str, Any]] = mapped_column(
+        "metadata",
+        MutableDict.as_mutable(JSON),
+        nullable=False,
+        default=dict,
+    )
+    checklists: Mapped[List[Dict[str, Any]]] = mapped_column(
+        MutableList.as_mutable(JSON), nullable=False, default=list
+    )
     position: Mapped[int] = mapped_column(default=0, nullable=False)
 
     procedure: Mapped[Procedure] = relationship("Procedure", back_populates="steps")
