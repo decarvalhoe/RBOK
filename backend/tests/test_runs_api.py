@@ -53,14 +53,14 @@ def test_run_lifecycle_success(client, admin_user: User, standard_user: User, pa
                 "title": "Profile",
                 "prompt": "Collect contact info",
                 "slots": [{"name": "email", "type": "email", "required": True}],
-                "checklist": [{"name": "consent", "required": True}],
+                "checklists": [{"key": "consent", "label": "Consent", "required": True}],
             },
             {
                 "key": "verification",
                 "title": "Verification",
                 "prompt": "Upload ID",
                 "slots": [{"name": "document", "type": "string", "required": True}],
-                "checklist": [],
+                "checklists": [],
             },
         ],
     }
@@ -78,12 +78,15 @@ def test_run_lifecycle_success(client, admin_user: User, standard_user: User, pa
         f"/runs/{run_payload['id']}/steps/profile/commit",
         json={
             "slots": {"email": "user@example.com"},
-            "checklist": [{"name": "consent", "completed": True}],
+            "checklist": [{"key": "consent", "completed": True}],
         },
     )
     assert commit_first.status_code == 200, commit_first.text
     first_state = commit_first.json()
     assert first_state["run_state"] == "in_progress"
+    assert first_state["step_state"]["step_key"] == "profile"
+    assert first_state["checklist_statuses"][0]["key"] == "consent"
+    assert first_state["checklist_statuses"][0]["completed"] is True
 
     commit_second = client.post(
         f"/runs/{run_payload['id']}/steps/verification/commit",
@@ -111,7 +114,7 @@ def test_run_creation_denied_by_policy(client, admin_user: User, standard_user: 
                 "title": "Only",
                 "prompt": "Do it",
                 "slots": [],
-                "checklist": [],
+                "checklists": [],
             }
         ],
     }
@@ -138,7 +141,7 @@ def test_commit_step_missing_slot_returns_422(client, admin_user: User, standard
                     "title": "Step",
                     "prompt": "Provide email",
                     "slots": [{"name": "email", "type": "email", "required": True}],
-                    "checklist": [],
+                    "checklists": [],
                 }
             ],
         },
