@@ -60,6 +60,12 @@ class ProcedureRun(Base):
     closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     procedure: Mapped[Procedure] = relationship("Procedure")
+    step_states: Mapped[List["ProcedureRunStepState"]] = relationship(
+        "ProcedureRunStepState",
+        back_populates="run",
+        cascade="all, delete-orphan",
+        order_by="ProcedureRunStepState.committed_at",
+    )
 
 
 class ProcedureRunStepState(Base):
@@ -72,7 +78,9 @@ class ProcedureRunStepState(Base):
     payload: Mapped[Dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
     committed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
-    run: Mapped[ProcedureRun] = relationship("ProcedureRun")
+    run: Mapped[ProcedureRun] = relationship(
+        "ProcedureRun", back_populates="step_states"
+    )
 
 
 class AuditEvent(Base):
