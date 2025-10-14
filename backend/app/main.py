@@ -47,6 +47,12 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry._logs import set_logger_provider
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from .api.procedures import router as procedures_router
 from opentelemetry import trace
 from opentelemetry._logs import set_logger_provider
@@ -59,6 +65,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
+from .api.auth import router as auth_router
 from .api.procedures import router as procedures_router
 from .api.runs import router as runs_router
 from .api.webrtc import router as webrtc_router
@@ -315,6 +322,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(CorrelationIdMiddleware)
+app.include_router(auth_router)
+app.include_router(procedures_router)
+app.include_router(runs_router)
 app.include_router(procedures_router)
 app.include_router(webrtc_router)
 app.include_router(runs_router)
