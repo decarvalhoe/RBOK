@@ -1,0 +1,1874 @@
+{
+  "components": {
+    "schemas": {
+      "ChatRequest": {
+        "properties": {
+          "message": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "ChatRequest",
+        "type": "object"
+      },
+      "ChatResponse": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "role": {
+            "default": "assistant",
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "ChatResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "IceServerResponse": {
+        "properties": {
+          "credential": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential"
+          },
+          "urls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Urls",
+            "type": "array"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "urls"
+        ],
+        "title": "IceServerResponse",
+        "type": "object"
+      },
+      "IntrospectRequest": {
+        "properties": {
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "IntrospectRequest",
+        "type": "object"
+      },
+      "ProcedureChecklistItem": {
+        "additionalProperties": true,
+        "description": "Checklist items that can be ticked during a run.",
+        "properties": {
+          "default_state": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default State"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "required": {
+            "default": false,
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "ProcedureChecklistItem",
+        "type": "object"
+      },
+      "ProcedureCreateRequest": {
+        "description": "Incoming payload for the ``POST /procedures`` endpoint.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/ProcedureStepCreate"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ProcedureCreateRequest",
+        "type": "object"
+      },
+      "ProcedureResponse": {
+        "description": "Full representation returned by procedure endpoints.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/ProcedureStepResponse"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "id"
+        ],
+        "title": "ProcedureResponse",
+        "type": "object"
+      },
+      "ProcedureRunCommitStepRequest": {
+        "description": "Payload used when committing a step within a run.",
+        "properties": {
+          "checklist": {
+            "description": "Checklist state associated with the step",
+            "items": {
+              "$ref": "#/components/schemas/RunChecklistItemPayload"
+            },
+            "title": "Checklist",
+            "type": "array"
+          },
+          "slots": {
+            "additionalProperties": true,
+            "description": "Slot values collected for the step",
+            "title": "Slots",
+            "type": "object"
+          },
+          "step_key": {
+            "description": "Key of the step to commit",
+            "title": "Step Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step_key"
+        ],
+        "title": "ProcedureRunCommitStepRequest",
+        "type": "object"
+      },
+      "ProcedureRunCreateRequest": {
+        "description": "Payload used to initialise a new procedure run.",
+        "properties": {
+          "procedure_id": {
+            "description": "Identifier of the procedure to start",
+            "title": "Procedure Id",
+            "type": "string"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Identifier of the user running the procedure",
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "procedure_id"
+        ],
+        "title": "ProcedureRunCreateRequest",
+        "type": "object"
+      },
+      "ProcedureRunModel": {
+        "description": "Representation returned by run endpoints.",
+        "properties": {
+          "checklist_states": {
+            "items": {
+              "$ref": "#/components/schemas/RunChecklistItemState"
+            },
+            "title": "Checklist States",
+            "type": "array"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "procedure_id": {
+            "title": "Procedure Id",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "step_states": {
+            "items": {
+              "$ref": "#/components/schemas/RunStepStateModel"
+            },
+            "title": "Step States",
+            "type": "array"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "procedure_id",
+          "user_id",
+          "state",
+          "created_at",
+          "closed_at",
+          "step_states",
+          "checklist_states"
+        ],
+        "title": "ProcedureRunModel",
+        "type": "object"
+      },
+      "ProcedureSlot": {
+        "additionalProperties": true,
+        "description": "Describe a slot to be collected within a step.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "mask": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mask"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "validate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validate"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "ProcedureSlot",
+        "type": "object"
+      },
+      "ProcedureStepCreate": {
+        "description": "Payload used when creating or updating procedure steps.",
+        "properties": {
+          "checklists": {
+            "items": {
+              "$ref": "#/components/schemas/ProcedureChecklistItem"
+            },
+            "title": "Checklists",
+            "type": "array"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/ProcedureSlot"
+            },
+            "title": "Slots",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title"
+        ],
+        "title": "ProcedureStepCreate",
+        "type": "object"
+      },
+      "ProcedureStepResponse": {
+        "description": "Representation of a persisted step.",
+        "properties": {
+          "checklists": {
+            "items": {
+              "$ref": "#/components/schemas/ProcedureChecklistItem"
+            },
+            "title": "Checklists",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/ProcedureSlot"
+            },
+            "title": "Slots",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "id"
+        ],
+        "title": "ProcedureStepResponse",
+        "type": "object"
+      },
+      "RefreshRequest": {
+        "properties": {
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "RefreshRequest",
+        "type": "object"
+      },
+      "RunChecklistItemPayload": {
+        "description": "Checklist submission payload for a single item.",
+        "properties": {
+          "completed": {
+            "description": "Whether the item has been completed",
+            "title": "Completed",
+            "type": "boolean"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Timestamp of completion (defaults to now when omitted)",
+            "title": "Completed At"
+          },
+          "key": {
+            "description": "Unique identifier of the checklist item",
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "completed"
+        ],
+        "title": "RunChecklistItemPayload",
+        "type": "object"
+      },
+      "RunChecklistItemState": {
+        "properties": {
+          "completed": {
+            "title": "Completed",
+            "type": "boolean"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "required": [
+          "key",
+          "completed"
+        ],
+        "title": "RunChecklistItemState",
+        "type": "object"
+      },
+      "RunStepStateModel": {
+        "properties": {
+          "committed_at": {
+            "format": "date-time",
+            "title": "Committed At",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "step_key": {
+            "title": "Step Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step_key",
+          "payload",
+          "committed_at"
+        ],
+        "title": "RunStepStateModel",
+        "type": "object"
+      },
+      "Token": {
+        "description": "Bearer token returned after a successful authentication or refresh.",
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In"
+          },
+          "refresh_expires_in": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Expires In"
+          },
+          "refresh_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Token"
+          },
+          "token_type": {
+            "default": "bearer",
+            "title": "Token Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token"
+        ],
+        "title": "Token",
+        "type": "object"
+      },
+      "TokenIntrospection": {
+        "description": "Introspection response provided by Keycloak.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "aud": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aud"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "exp": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exp"
+          },
+          "iat": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iat"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          },
+          "sub": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "active"
+        ],
+        "title": "TokenIntrospection",
+        "type": "object"
+      },
+      "TokenRequest": {
+        "properties": {
+          "password": {
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "TokenRequest",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "WebRTCConfigResponse": {
+        "properties": {
+          "ice_servers": {
+            "items": {
+              "$ref": "#/components/schemas/IceServerResponse"
+            },
+            "title": "Ice Servers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ice_servers"
+        ],
+        "title": "WebRTCConfigResponse",
+        "type": "object"
+      },
+      "WebRTCSessionAnswerRequest": {
+        "properties": {
+          "answer_sdp": {
+            "description": "SDP answer from the responding peer",
+            "title": "Answer Sdp",
+            "type": "string"
+          },
+          "responder_id": {
+            "maxLength": 255,
+            "title": "Responder Id",
+            "type": "string"
+          },
+          "responder_metadata": {
+            "additionalProperties": true,
+            "title": "Responder Metadata",
+            "type": "object"
+          }
+        },
+        "required": [
+          "responder_id",
+          "answer_sdp"
+        ],
+        "title": "WebRTCSessionAnswerRequest",
+        "type": "object"
+      },
+      "WebRTCSessionCandidateRequest": {
+        "properties": {
+          "candidate": {
+            "additionalProperties": true,
+            "title": "Candidate",
+            "type": "object"
+          }
+        },
+        "required": [
+          "candidate"
+        ],
+        "title": "WebRTCSessionCandidateRequest",
+        "type": "object"
+      },
+      "WebRTCSessionCreateRequest": {
+        "properties": {
+          "client_id": {
+            "maxLength": 255,
+            "title": "Client Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "offer_sdp": {
+            "description": "SDP offer from the initiating peer",
+            "title": "Offer Sdp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_id",
+          "offer_sdp"
+        ],
+        "title": "WebRTCSessionCreateRequest",
+        "type": "object"
+      },
+      "WebRTCSessionResponse": {
+        "properties": {
+          "answer_sdp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer Sdp"
+          },
+          "client_id": {
+            "title": "Client Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "ice_candidates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Ice Candidates",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "offer_sdp": {
+            "title": "Offer Sdp",
+            "type": "string"
+          },
+          "responder_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responder Id"
+          },
+          "responder_metadata": {
+            "additionalProperties": true,
+            "title": "Responder Metadata",
+            "type": "object"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "client_id",
+          "responder_id",
+          "status",
+          "offer_sdp",
+          "answer_sdp",
+          "metadata",
+          "responder_metadata",
+          "ice_candidates",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "WebRTCSessionResponse",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2PasswordBearer": {
+        "flows": {
+          "password": {
+            "scopes": {},
+            "tokenUrl": "/auth/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "title": "R\u00e9alisons API",
+    "version": "0.3.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/": {
+      "get": {
+        "description": "Simple probe that confirms the API process is running.",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Root  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Lightweight heartbeat endpoint",
+        "tags": [
+          "Monitoring"
+        ]
+      }
+    },
+    "/auth/introspect": {
+      "post": {
+        "operationId": "introspect_token_auth_introspect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntrospectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenIntrospection"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Introspect Token",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "refresh_token_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Token",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/token": {
+      "post": {
+        "operationId": "obtain_token_auth_token_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Obtain Token",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/chat": {
+      "post": {
+        "description": "Echo the received message to validate the chat pipeline.",
+        "operationId": "chat_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send a prompt to the demo assistant",
+        "tags": [
+          "Chat"
+        ]
+      }
+    },
+    "/config/webrtc": {
+      "get": {
+        "description": "Expose ICE server configuration consumed by the front-end.",
+        "operationId": "get_webrtc_public_config_config_webrtc_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Retrieve public WebRTC configuration",
+        "tags": [
+          "WebRTC"
+        ]
+      }
+    },
+    "/healthz": {
+      "get": {
+        "description": "Report missing environment variables and insecure defaults.",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Healthz Healthz Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Comprehensive service diagnostics",
+        "tags": [
+          "Monitoring"
+        ]
+      }
+    },
+    "/metrics": {
+      "get": {
+        "description": "Expose service metrics in the Prometheus text format.",
+        "operationId": "metrics_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Prometheus scrape target",
+        "tags": [
+          "Monitoring"
+        ]
+      }
+    },
+    "/procedures": {
+      "get": {
+        "description": "Return all available procedure definitions.",
+        "operationId": "list_procedures_procedures_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProcedureResponse"
+                  },
+                  "title": "Response List Procedures Procedures Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Procedures",
+        "tags": [
+          "procedures"
+        ]
+      },
+      "post": {
+        "description": "Create or update a procedure definition.",
+        "operationId": "create_procedure_procedures_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcedureCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcedureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Create Procedure",
+        "tags": [
+          "procedures"
+        ]
+      }
+    },
+    "/procedures/{procedure_id}": {
+      "get": {
+        "description": "Return the procedure identified by ``procedure_id``.",
+        "operationId": "get_procedure_procedures__procedure_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "procedure_id",
+            "required": true,
+            "schema": {
+              "title": "Procedure Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcedureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Procedure",
+        "tags": [
+          "procedures"
+        ]
+      }
+    },
+    "/runs": {
+      "post": {
+        "description": "Start a new run for the given procedure.",
+        "operationId": "start_run_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcedureRunCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcedureRunModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Start Run",
+        "tags": [
+          "procedure runs"
+        ]
+      }
+    },
+    "/runs/{run_id}": {
+      "get": {
+        "description": "Return the state of a specific procedure run.",
+        "operationId": "get_run_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcedureRunModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get Run",
+        "tags": [
+          "procedure runs"
+        ]
+      }
+    },
+    "/runs/{run_id}/commit-step": {
+      "post": {
+        "description": "Commit a step payload and advance the run state when appropriate.",
+        "operationId": "commit_step_runs__run_id__commit_step_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcedureRunCommitStepRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcedureRunModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Commit Step",
+        "tags": [
+          "procedure runs"
+        ]
+      }
+    },
+    "/webrtc/config": {
+      "get": {
+        "description": "Expose sanitized ICE server configuration for clients.",
+        "operationId": "get_webrtc_config_webrtc_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebRTCConfigResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Webrtc Config",
+        "tags": [
+          "webrtc"
+        ]
+      }
+    },
+    "/webrtc/sessions": {
+      "post": {
+        "operationId": "create_session_webrtc_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebRTCSessionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebRTCSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Session",
+        "tags": [
+          "webrtc"
+        ]
+      }
+    },
+    "/webrtc/sessions/{session_id}": {
+      "get": {
+        "operationId": "get_session_webrtc_sessions__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebRTCSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Session",
+        "tags": [
+          "webrtc"
+        ]
+      }
+    },
+    "/webrtc/sessions/{session_id}/answer": {
+      "post": {
+        "operationId": "submit_answer_webrtc_sessions__session_id__answer_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebRTCSessionAnswerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebRTCSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Answer",
+        "tags": [
+          "webrtc"
+        ]
+      }
+    },
+    "/webrtc/sessions/{session_id}/candidates": {
+      "post": {
+        "operationId": "submit_candidate_webrtc_sessions__session_id__candidates_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebRTCSessionCandidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebRTCSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Candidate",
+        "tags": [
+          "webrtc"
+        ]
+      }
+    },
+    "/webrtc/sessions/{session_id}/close": {
+      "post": {
+        "operationId": "close_session_webrtc_sessions__session_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebRTCSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close Session",
+        "tags": [
+          "webrtc"
+        ]
+      }
+    }
+  }
+}
