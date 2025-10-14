@@ -13,7 +13,17 @@ import structlog
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
-from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
+from opentelemetry import trace
+from opentelemetry._logs import set_logger_provider
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, REGISTRY, generate_latest
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -25,6 +35,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
+from .api.procedures import router as procedures_router
 from .api.webrtc import router as webrtc_router
 from .cache import get_redis_client
 from .config import Settings, get_settings
@@ -154,6 +165,12 @@ def configure_tracing(app: FastAPI) -> None:
     if _tracing_configured:
         return
 
+    if not (
+        os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+        or os.getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
+    ):
+        return
+
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318")
     exporter = OTLPSpanExporter(
         endpoint=f"{endpoint.rstrip('/')}/v1/traces",
@@ -257,24 +274,41 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(CorrelationIdMiddleware)
+app.include_router(procedures_router)
 app.include_router(webrtc_router)
 
 
-REQUEST_DURATION = Histogram(
+def _get_or_create_metric(factory, *args, **kwargs):
+    name = args[0] if args else kwargs.get("name")
+    try:
+        return factory(*args, **kwargs)
+    except ValueError as exc:  # pragma: no cover - defensive for reloads
+        if "Duplicated timeseries" in str(exc) and name:
+            existing = REGISTRY._names_to_collectors.get(name)
+            if existing is not None:
+                return existing
+        raise
+
+
+REQUEST_DURATION = _get_or_create_metric(
+    Histogram,
     "backend_request_duration_seconds",
     "Time spent processing requests",
     labelnames=("method", "path", "status_code"),
 )
-REQUEST_COUNT = Counter(
+REQUEST_COUNT = _get_or_create_metric(
+    Counter,
     "backend_request_total",
     "Total number of processed requests",
     labelnames=("method", "path", "status_code"),
 )
-DATABASE_HEALTH = Gauge(
+DATABASE_HEALTH = _get_or_create_metric(
+    Gauge,
     "backend_database_up",
     "Database connectivity status (1=up, 0=down)",
 )
-CACHE_HEALTH = Gauge(
+CACHE_HEALTH = _get_or_create_metric(
+    Gauge,
     "backend_cache_up",
     "Cache connectivity status (1=up, 0=down)",
 )
