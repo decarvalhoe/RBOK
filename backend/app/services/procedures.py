@@ -12,6 +12,13 @@ from . import audit
 ProcedurePayload = Dict[str, Any]
 
 
+class DuplicateProcedureComponentError(ValueError):
+    """Raised when procedure components use duplicate identifiers."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
 class ProcedureService:
     """Provide CRUD-style helpers for :class:`~backend.app.models.Procedure`."""
 
@@ -74,6 +81,8 @@ class ProcedureService:
         procedure_id = data.get("id")
         metadata = _ensure_dict(data.get("metadata"))
         steps_payload = list(data.get("steps") or [])
+
+        _ensure_unique_components(steps_payload)
 
         if procedure_id:
             procedure = self.get_procedure(procedure_id)
@@ -167,6 +176,47 @@ def _ensure_list_of_dicts(value: Optional[Iterable[Any]]) -> List[Dict[str, Any]
         else:
             raise TypeError("Expected items encoded as dictionaries")
     return result
+
+
+def _ensure_unique_components(steps_payload: Iterable[Dict[str, Any]]) -> None:
+    step_keys = [step.get("key") for step in steps_payload if step.get("key")]
+    duplicate_steps = _find_duplicates(step_keys)
+    if duplicate_steps:
+        raise DuplicateProcedureComponentError(
+            f"Duplicate step key(s): {', '.join(sorted(duplicate_steps))}"
+        )
+
+    for step in steps_payload:
+        step_key = step.get("key", "<unknown>")
+
+        slots = _ensure_list_of_dicts(step.get("slots"))
+        duplicate_slots = _find_duplicates(slot.get("name") for slot in slots if slot.get("name"))
+        if duplicate_slots:
+            raise DuplicateProcedureComponentError(
+                "Duplicate slot name(s) in step "
+                f"'{step_key}': {', '.join(sorted(duplicate_slots))}"
+            )
+
+        checklists = _ensure_list_of_dicts(step.get("checklists"))
+        duplicate_checklists = _find_duplicates(
+            item.get("key") for item in checklists if item.get("key")
+        )
+        if duplicate_checklists:
+            raise DuplicateProcedureComponentError(
+                "Duplicate checklist key(s) in step "
+                f"'{step_key}': {', '.join(sorted(duplicate_checklists))}"
+            )
+
+
+def _find_duplicates(values: Iterable[Optional[str]]) -> List[str]:
+    seen = set()
+    duplicates = []
+    for value in values:
+        if value in seen and value not in duplicates:
+            duplicates.append(value)
+        else:
+            seen.add(value)
+    return duplicates
 
 
 def _build_step(payload: Dict[str, Any], default_position: int) -> models.ProcedureStep:
@@ -264,4 +314,4 @@ def _serialise_step(step: models.ProcedureStep) -> Dict[str, Any]:
     }
 
 
-__all__ = ["ProcedureService"]
+__all__ = ["DuplicateProcedureComponentError", "ProcedureService"]
