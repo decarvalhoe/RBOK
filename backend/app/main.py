@@ -13,6 +13,16 @@ import structlog
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
+from opentelemetry import trace
+from opentelemetry._logs import set_logger_provider
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, REGISTRY, generate_latest
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -170,6 +180,10 @@ def configure_tracing(app: FastAPI) -> None:
     current = trace.get_tracer_provider()
     if isinstance(current, TracerProvider) and getattr(current, "_rbok_service", None) == "rbok-backend":
         _tracing_configured = True
+    if not (
+        os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+        or os.getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
+    ):
         return
 
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318")
@@ -276,6 +290,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(CorrelationIdMiddleware)
+app.include_router(procedures_router)
 app.include_router(webrtc_router)
 app.include_router(procedures_router)
 app.include_router(runs_router)
@@ -292,6 +307,20 @@ def _register_metric(name: str, factory: Callable[[], Any]):
 
 
 REQUEST_DURATION = _register_metric(
+def _get_or_create_metric(factory, *args, **kwargs):
+    name = args[0] if args else kwargs.get("name")
+    try:
+        return factory(*args, **kwargs)
+    except ValueError as exc:  # pragma: no cover - defensive for reloads
+        if "Duplicated timeseries" in str(exc) and name:
+            existing = REGISTRY._names_to_collectors.get(name)
+            if existing is not None:
+                return existing
+        raise
+
+
+REQUEST_DURATION = _get_or_create_metric(
+    Histogram,
     "backend_request_duration_seconds",
     lambda: Histogram(
         "backend_request_duration_seconds",
@@ -300,6 +329,8 @@ REQUEST_DURATION = _register_metric(
     ),
 )
 REQUEST_COUNT = _register_metric(
+REQUEST_COUNT = _get_or_create_metric(
+    Counter,
     "backend_request_total",
     lambda: Counter(
         "backend_request_total",
@@ -308,6 +339,8 @@ REQUEST_COUNT = _register_metric(
     ),
 )
 DATABASE_HEALTH = _register_metric(
+DATABASE_HEALTH = _get_or_create_metric(
+    Gauge,
     "backend_database_up",
     lambda: Gauge(
         "backend_database_up",
@@ -315,6 +348,8 @@ DATABASE_HEALTH = _register_metric(
     ),
 )
 CACHE_HEALTH = _register_metric(
+CACHE_HEALTH = _get_or_create_metric(
+    Gauge,
     "backend_cache_up",
     lambda: Gauge(
         "backend_cache_up",

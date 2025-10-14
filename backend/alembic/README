@@ -13,8 +13,22 @@ Alembic configuration for the Réalisons backend.
 3. Apply the migrations to your target database:
 
    ```bash
-   alembic upgrade head
+   RBOK_SKIP_MAIN_IMPORT=1 alembic upgrade head
    ```
 
 The Alembic environment is wired to the SQLAlchemy models under
 `backend/app/models.py`, enabling autogeneration of migration scripts.
+
+## Validation sur bases vierges
+
+Pour vérifier les migrations sur des bases neuves :
+
+```bash
+# SQLite (fichier éphémère)
+RBOK_SKIP_MAIN_IMPORT=1 DATABASE_URL=sqlite+pysqlite:///tmp/rbok_migrations.db alembic upgrade head
+
+# PostgreSQL local (par ex. via pg_ctlcluster ou docker-compose)
+RBOK_SKIP_MAIN_IMPORT=1 DATABASE_URL=postgresql+psycopg2://postgres@localhost:5432/rbok_migrations alembic upgrade head
+```
+
+Veillez à initialiser la base PostgreSQL mentionnée avant d'exécuter la migration.
