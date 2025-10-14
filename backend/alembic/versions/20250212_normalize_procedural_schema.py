@@ -21,150 +21,103 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Apply the normalized procedural schema."""
+    """Apply the normalized procedural schema aligned with SQLAlchemy models."""
 
     op.create_table(
-        "procedure_step_slots",
+        "procedure_slots",
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("step_id", sa.String(), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
-        sa.Column("data_type", sa.String(length=50), nullable=False),
-        sa.Column("is_required", sa.Boolean(), nullable=False, server_default=sa.false()),
-        sa.Column("config", sa.JSON(), nullable=False),
+        sa.Column("label", sa.String(length=255), nullable=True),
+        sa.Column("type", sa.String(length=50), nullable=False),
+        sa.Column("required", sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column("position", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column("configuration", sa.JSON(), nullable=False),
         sa.ForeignKeyConstraint(["step_id"], ["procedure_steps.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("step_id", "name", name="uq_procedure_step_slot_name"),
+        sa.UniqueConstraint("step_id", "name", name="uq_procedure_slot_name"),
     )
     op.create_index(
-        "ix_procedure_step_slots_step",
-        "procedure_step_slots",
+        "ix_procedure_slots_step_id",
+        "procedure_slots",
         ["step_id"],
     )
 
     op.create_table(
-        "procedure_slot_options",
-        sa.Column("id", sa.String(), nullable=False),
-        sa.Column("slot_id", sa.String(), nullable=False),
-        sa.Column("value", sa.String(length=255), nullable=False),
-        sa.Column("position", sa.Integer(), nullable=False, server_default=sa.text("0")),
-        sa.ForeignKeyConstraint(["slot_id"], ["procedure_step_slots.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("slot_id", "value", name="uq_procedure_slot_option"),
-    )
-    op.create_index(
-        "ix_procedure_slot_options_slot",
-        "procedure_slot_options",
-        ["slot_id"],
-    )
-
-    op.create_table(
-        "procedure_step_checklists",
+        "procedure_step_checklist_items",
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("step_id", sa.String(), nullable=False),
-        sa.Column("title", sa.String(length=255), nullable=False),
+        sa.Column("key", sa.String(length=255), nullable=False),
+        sa.Column("label", sa.String(length=255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("required", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.Column("position", sa.Integer(), nullable=False, server_default=sa.text("0")),
         sa.ForeignKeyConstraint(["step_id"], ["procedure_steps.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("step_id", "title", name="uq_procedure_step_checklist_title"),
+        sa.UniqueConstraint("step_id", "key", name="uq_procedure_step_checklist_key"),
     )
     op.create_index(
-        "ix_procedure_step_checklists_step",
-        "procedure_step_checklists",
+        "ix_procedure_step_checklist_items_step_id",
+        "procedure_step_checklist_items",
         ["step_id"],
     )
 
     op.create_table(
-        "procedure_step_checklist_items",
-        sa.Column("id", sa.String(), nullable=False),
-        sa.Column("checklist_id", sa.String(), nullable=False),
-        sa.Column("label", sa.String(length=255), nullable=False),
-        sa.Column("is_required", sa.Boolean(), nullable=False, server_default=sa.false()),
-        sa.Column("position", sa.Integer(), nullable=False, server_default=sa.text("0")),
-        sa.ForeignKeyConstraint(["checklist_id"], ["procedure_step_checklists.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("checklist_id", "label", name="uq_procedure_checklist_item_label"),
-    )
-    op.create_index(
-        "ix_procedure_step_checklist_items_checklist",
-        "procedure_step_checklist_items",
-        ["checklist_id"],
-    )
-
-    op.create_table(
-        "procedure_run_steps",
+        "procedure_run_slot_values",
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("run_id", sa.String(), nullable=False),
-        sa.Column("step_id", sa.String(), nullable=False),
-        sa.Column("status", sa.String(length=50), nullable=False, server_default=sa.text("'pending'")),
-        sa.Column("started_at", sa.DateTime(), nullable=True),
-        sa.Column("completed_at", sa.DateTime(), nullable=True),
-        sa.Column("result_payload", sa.JSON(), nullable=False),
+        sa.Column("slot_id", sa.String(), nullable=False),
+        sa.Column("value", sa.JSON(), nullable=True),
+        sa.Column(
+            "captured_at",
+            sa.DateTime(),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+        ),
         sa.ForeignKeyConstraint(["run_id"], ["procedure_runs.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["step_id"], ["procedure_steps.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["slot_id"], ["procedure_slots.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("run_id", "step_id", name="uq_procedure_run_step"),
+        sa.UniqueConstraint("run_id", "slot_id", name="uq_procedure_run_slot_value"),
     )
     op.create_index(
-        "ix_procedure_run_steps_run",
-        "procedure_run_steps",
+        "ix_procedure_run_slot_values_run_id",
+        "procedure_run_slot_values",
         ["run_id"],
     )
     op.create_index(
-        "ix_procedure_run_steps_step",
-        "procedure_run_steps",
-        ["step_id"],
-    )
-    op.create_index(
-        "ix_procedure_run_steps_status",
-        "procedure_run_steps",
-        ["status"],
-    )
-
-    op.create_table(
-        "procedure_run_slot_values",
-        sa.Column("id", sa.String(), nullable=False),
-        sa.Column("run_step_id", sa.String(), nullable=False),
-        sa.Column("slot_id", sa.String(), nullable=False),
-        sa.Column("value", sa.JSON(), nullable=False),
-        sa.Column("captured_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
-        sa.ForeignKeyConstraint(["run_step_id"], ["procedure_run_steps.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["slot_id"], ["procedure_step_slots.id"], ondelete="RESTRICT"),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("run_step_id", "slot_id", name="uq_procedure_run_slot_value"),
-    )
-    op.create_index(
-        "ix_procedure_run_slot_values_step",
-        "procedure_run_slot_values",
-        ["run_step_id"],
-    )
-    op.create_index(
-        "ix_procedure_run_slot_values_slot",
+        "ix_procedure_run_slot_values_slot_id",
         "procedure_run_slot_values",
         ["slot_id"],
     )
 
     op.create_table(
-        "procedure_run_checklist_items",
+        "procedure_run_checklist_item_states",
         sa.Column("id", sa.String(), nullable=False),
-        sa.Column("run_step_id", sa.String(), nullable=False),
+        sa.Column("run_id", sa.String(), nullable=False),
         sa.Column("checklist_item_id", sa.String(), nullable=False),
-        sa.Column("is_checked", sa.Boolean(), nullable=False, server_default=sa.false()),
-        sa.Column("checked_at", sa.DateTime(), nullable=True),
-        sa.Column("notes", sa.Text(), nullable=True),
-        sa.ForeignKeyConstraint(["run_step_id"], ["procedure_run_steps.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["checklist_item_id"], ["procedure_step_checklist_items.id"], ondelete="RESTRICT"),
+        sa.Column("is_completed", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column("completed_at", sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(["run_id"], ["procedure_runs.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["checklist_item_id"],
+            ["procedure_step_checklist_items.id"],
+            ondelete="CASCADE",
+        ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("run_step_id", "checklist_item_id", name="uq_procedure_run_checklist_item"),
+        sa.UniqueConstraint(
+            "run_id",
+            "checklist_item_id",
+            name="uq_procedure_run_checklist_item_state",
+        ),
     )
     op.create_index(
-        "ix_procedure_run_checklist_items_step",
-        "procedure_run_checklist_items",
-        ["run_step_id"],
+        "ix_procedure_run_checklist_item_states_run_id",
+        "procedure_run_checklist_item_states",
+        ["run_id"],
     )
     op.create_index(
-        "ix_procedure_run_checklist_items_item",
-        "procedure_run_checklist_items",
+        "ix_procedure_run_checklist_item_states_item_id",
+        "procedure_run_checklist_item_states",
         ["checklist_item_id"],
     )
 
@@ -173,44 +126,33 @@ def downgrade() -> None:
     """Rollback the normalized procedural schema."""
 
     op.drop_index(
-        "ix_procedure_run_checklist_items_item",
-        table_name="procedure_run_checklist_items",
+        "ix_procedure_run_checklist_item_states_item_id",
+        table_name="procedure_run_checklist_item_states",
     )
     op.drop_index(
-        "ix_procedure_run_checklist_items_step",
-        table_name="procedure_run_checklist_items",
+        "ix_procedure_run_checklist_item_states_run_id",
+        table_name="procedure_run_checklist_item_states",
     )
-    op.drop_table("procedure_run_checklist_items")
+    op.drop_table("procedure_run_checklist_item_states")
 
     op.drop_index(
-        "ix_procedure_run_slot_values_slot",
+        "ix_procedure_run_slot_values_slot_id",
         table_name="procedure_run_slot_values",
     )
     op.drop_index(
-        "ix_procedure_run_slot_values_step",
+        "ix_procedure_run_slot_values_run_id",
         table_name="procedure_run_slot_values",
     )
     op.drop_table("procedure_run_slot_values")
 
-    op.drop_index("ix_procedure_run_steps_status", table_name="procedure_run_steps")
-    op.drop_index("ix_procedure_run_steps_step", table_name="procedure_run_steps")
-    op.drop_index("ix_procedure_run_steps_run", table_name="procedure_run_steps")
-    op.drop_table("procedure_run_steps")
-
     op.drop_index(
-        "ix_procedure_step_checklist_items_checklist",
+        "ix_procedure_step_checklist_items_step_id",
         table_name="procedure_step_checklist_items",
     )
     op.drop_table("procedure_step_checklist_items")
 
     op.drop_index(
-        "ix_procedure_step_checklists_step",
-        table_name="procedure_step_checklists",
+        "ix_procedure_slots_step_id",
+        table_name="procedure_slots",
     )
-    op.drop_table("procedure_step_checklists")
-
-    op.drop_index("ix_procedure_slot_options_slot", table_name="procedure_slot_options")
-    op.drop_table("procedure_slot_options")
-
-    op.drop_index("ix_procedure_step_slots_step", table_name="procedure_step_slots")
-    op.drop_table("procedure_step_slots")
+    op.drop_table("procedure_slots")

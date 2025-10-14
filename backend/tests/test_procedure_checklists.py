@@ -93,6 +93,7 @@ def test_commit_step_validates_and_updates_checklist(
     assert body["state"] == "completed"
     checklist = {item["key"]: item for item in body["checklist_states"]}
     assert all(entry["completed"] for entry in checklist.values())
+    assert body["checklist_progress"] == {"total": 2, "completed": 2, "percentage": 100.0}
 
     run_response = client.get(f"/runs/{run.id}")
     assert run_response.status_code == 200

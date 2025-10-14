@@ -3,7 +3,10 @@ from __future__ import annotations
 from typing import Any, Dict
 
 import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import select
 
+from app import models
 from app.auth import User, get_current_user, get_current_user_optional
 from app.main import app
 from fastapi.testclient import TestClient
@@ -11,7 +14,13 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture()
 def admin_user() -> User:
-    return User(subject="admin", username="admin", email="admin@example.com", roles=["app-admin"], role="admin")
+    return User(
+        subject="admin",
+        username="admin",
+        email="admin@example.com",
+        roles=["app-admin"],
+        role="admin",
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -23,8 +32,9 @@ def override_auth_dependencies(admin_user: User) -> None:
     app.dependency_overrides.pop(get_current_user_optional, None)
 
 
-def test_create_and_list_procedures(client) -> None:
-    payload: Dict[str, object] = {
+def _build_procedure_payload() -> Dict[str, Any]:
+    return {
+        "id": "demo-procedure",
         "name": "Identity verification",
         "description": "Two-step KYC flow",
         "steps": [
@@ -33,7 +43,12 @@ def test_create_and_list_procedures(client) -> None:
                 "title": "Collect email",
                 "prompt": "Please provide your contact email",
                 "slots": [
-                    {"name": "email", "type": "email", "required": True},
+                    {
+                        "name": "email",
+                        "type": "string",
+                        "required": True,
+                        "label": "Email",
+                    },
                 ],
                 "checklists": [
                     {"key": "privacy_ack", "label": "Privacy acknowledgement", "required": True},
@@ -44,26 +59,37 @@ def test_create_and_list_procedures(client) -> None:
                 "title": "Verify document",
                 "prompt": "Upload your passport",
                 "slots": [
-                    {"name": "document", "type": "string", "required": True},
+                    {
+                        "name": "document",
+                        "type": "string",
+                        "required": True,
+                        "label": "Document",
+                    },
                 ],
                 "checklists": [],
             },
         ],
     }
 
+
+def test_create_and_list_procedures(client: TestClient) -> None:
+    payload = _build_procedure_payload()
+
     response = client.post("/procedures", json=payload)
     assert response.status_code == 201, response.text
     created = response.json()
+    assert created["id"] == payload["id"]
     assert created["name"] == payload["name"]
-    assert len(created["steps"]) == 2
     assert created["steps"][0]["key"] == "collect_email"
     assert created["steps"][0]["position"] == 0
+    assert created["steps"][0]["checklists"][0]["key"] == "privacy_ack"
 
     list_response = client.get("/procedures")
     assert list_response.status_code == 200
     procedures = list_response.json()
     assert len(procedures) == 1
     assert procedures[0]["name"] == payload["name"]
+    assert procedures[0]["steps"][1]["key"] == "verify_document"
 
     detail_response = client.get(f"/procedures/{created['id']}")
     assert detail_response.status_code == 200
@@ -128,22 +154,13 @@ def _build_procedure_payload() -> Dict[str, Any]:
     }
 
 
-def test_procedure_lifecycle_generates_audit_trail(client: TestClient) -> None:
-    create_response = client.post('/procedures', json=_build_procedure_payload())
+def test_procedure_lifecycle_generates_audit_trail(
+    client: TestClient, test_session
+) -> None:
+    create_response = client.post("/procedures", json=_build_procedure_payload())
     assert create_response.status_code == 201
-    created_procedure = create_response.json()
-    assert created_procedure['id'] == 'demo-procedure'
-    assert len(created_procedure['steps']) == 2
 
-    list_response = client.get('/procedures')
-    assert list_response.status_code == 200
-    procedures = list_response.json()
-    assert any(procedure['id'] == 'demo-procedure' for procedure in procedures)
-
-    detail_response = client.get('/procedures/demo-procedure')
-    assert detail_response.status_code == 200
-    detail_payload = detail_response.json()
-    assert detail_payload['steps'][0]['key'] == 'introduction'
+    procedure_id = create_response.json()["id"]
 
     run_response = client.post('/runs', json={'procedure_id': 'demo-procedure', 'user_id': 'operator'})
     assert run_response.status_code == 201
