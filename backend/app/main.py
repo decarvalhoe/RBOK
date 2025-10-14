@@ -7,24 +7,37 @@ import os
 import time
 import uuid
 from contextvars import ContextVar
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import structlog
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
-from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, REGISTRY, generate_latest
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from starlette.middleware.base import BaseHTTPMiddleware
 from structlog.contextvars import bind_contextvars, unbind_contextvars
 from structlog.stdlib import ProcessorFormatter
 
+from opentelemetry import trace
+from opentelemetry._logs import set_logger_provider
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk._logs import LoggingHandler, LoggerProvider
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
+from .api.procedures import router as procedures_router
+from .api.runs import router as runs_router
 from .api.webrtc import router as webrtc_router
 from .cache import get_redis_client
 from .config import Settings, get_settings
@@ -154,6 +167,11 @@ def configure_tracing(app: FastAPI) -> None:
     if _tracing_configured:
         return
 
+    current = trace.get_tracer_provider()
+    if isinstance(current, TracerProvider) and getattr(current, "_rbok_service", None) == "rbok-backend":
+        _tracing_configured = True
+        return
+
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318")
     exporter = OTLPSpanExporter(
         endpoint=f"{endpoint.rstrip('/')}/v1/traces",
@@ -162,6 +180,7 @@ def configure_tracing(app: FastAPI) -> None:
     provider = TracerProvider(
         resource=Resource.create({"service.name": "rbok-backend"}),
     )
+    setattr(provider, "_rbok_service", "rbok-backend")
     provider.add_span_processor(BatchSpanProcessor(exporter))
     trace.set_tracer_provider(provider)
     FastAPIInstrumentor().instrument_app(app, tracer_provider=provider)
@@ -258,25 +277,49 @@ app.add_middleware(
 )
 app.add_middleware(CorrelationIdMiddleware)
 app.include_router(webrtc_router)
+app.include_router(procedures_router)
+app.include_router(runs_router)
 
 
-REQUEST_DURATION = Histogram(
+def _register_metric(name: str, factory: Callable[[], Any]):
+    try:
+        return factory()
+    except ValueError:
+        existing = REGISTRY._names_to_collectors.get(name)
+        if existing is None:  # pragma: no cover - defensive path
+            raise
+        return existing
+
+
+REQUEST_DURATION = _register_metric(
     "backend_request_duration_seconds",
-    "Time spent processing requests",
-    labelnames=("method", "path", "status_code"),
+    lambda: Histogram(
+        "backend_request_duration_seconds",
+        "Time spent processing requests",
+        labelnames=("method", "path", "status_code"),
+    ),
 )
-REQUEST_COUNT = Counter(
+REQUEST_COUNT = _register_metric(
     "backend_request_total",
-    "Total number of processed requests",
-    labelnames=("method", "path", "status_code"),
+    lambda: Counter(
+        "backend_request_total",
+        "Total number of processed requests",
+        labelnames=("method", "path", "status_code"),
+    ),
 )
-DATABASE_HEALTH = Gauge(
+DATABASE_HEALTH = _register_metric(
     "backend_database_up",
-    "Database connectivity status (1=up, 0=down)",
+    lambda: Gauge(
+        "backend_database_up",
+        "Database connectivity status (1=up, 0=down)",
+    ),
 )
-CACHE_HEALTH = Gauge(
+CACHE_HEALTH = _register_metric(
     "backend_cache_up",
-    "Cache connectivity status (1=up, 0=down)",
+    lambda: Gauge(
+        "backend_cache_up",
+        "Cache connectivity status (1=up, 0=down)",
+    ),
 )
 
 

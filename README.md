@@ -250,7 +250,7 @@ uest. Les fusions sont bloquées tant que l'une de ces étapes échoue.
   Les tests unitaires classiques peuvent être exécutés via `pytest backend/tests` (ils utilisent des dépendances FastAPI surchargées pour éviter l'appel aux services externes).
    #### Cache Redis
 
-   L'API s'appuie sur Redis pour mettre en cache les listes de procédures, les détails et les exécutions. En développement, un conteneur Docker suffit ; en production, configurez les variables suivantes selon votre plateforme d'hébergement :
+  L'API s'appuie sur Redis pour mettre en cache les listes de procédures et les détails des exécutions (`GET /procedures`, `GET /runs/{id}`). En développement, un conteneur Docker suffit ; en production, configurez les variables suivantes selon votre plateforme d'hébergement :
 
    | Variable | Description | Valeur par défaut |
    |----------|-------------|-------------------|
@@ -261,7 +261,7 @@ uest. Les fusions sont bloquées tant que l'une de ces étapes échoue.
    | `REDIS_PASSWORD` | Mot de passe si nécessaire. | *(vide)* |
    | `REDIS_TLS` | `true`/`false` pour activer TLS (`rediss://`). | `false` |
 
-   L'invalidation du cache est automatique lors des créations/updates/suppressions de procédures. Assurez-vous simplement que l'instance Redis est accessible depuis l'API dans vos environnements de déploiement (VPC, service managé, etc.).
+  L'invalidation du cache est automatique lors des créations/mises à jour/suppressions de procédures et des commits d'étapes (`POST /runs/{id}/steps/{step_key}/commit`). Assurez-vous simplement que l'instance Redis est accessible depuis l'API dans vos environnements de déploiement (VPC, service managé, etc.). Voir `docs/procedure_cache.md` pour la stratégie complète.
 
    #### Authentification JWT de développement
 
