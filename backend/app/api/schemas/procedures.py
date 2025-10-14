@@ -29,6 +29,7 @@ class ProcedureSlot(BaseModel):
     validate: Optional[str] = None
     mask: Optional[str] = None
     options: Optional[List[str]] = None
+    position: Optional[int] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="allow")
@@ -42,6 +43,7 @@ class ProcedureChecklistItem(BaseModel):
     description: Optional[str] = None
     required: bool = False
     default_state: Optional[bool] = None
+    position: Optional[int] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="allow")

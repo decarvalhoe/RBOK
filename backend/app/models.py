@@ -9,25 +9,30 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
-    String,
-    Text,
-    JSON,
     JSON,
     String,
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.mutable import MutableDict, MutableList
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
 
 
 def _generate_uuid() -> str:
+    """Generate a random UUID stored as string.
+
+    Using a helper keeps the declarative models concise while ensuring
+    consistency across tables relying on UUID primary keys.
+    """
+
     return str(uuid.uuid4())
 
 
 class Procedure(Base):
+    """Top-level definition of an executable procedure."""
+
     __tablename__ = "procedures"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
@@ -38,6 +43,7 @@ class Procedure(Base):
         MutableDict.as_mutable(JSON),
         nullable=False,
         default=dict,
+        doc="Informations additionnelles (version, domaine métier, etc.).",
     )
 
     steps: Mapped[List["ProcedureStep"]] = relationship(
@@ -49,8 +55,12 @@ class Procedure(Base):
 
 
 class ProcedureStep(Base):
+    """Ordered step composing a procedure."""
+
     __tablename__ = "procedure_steps"
-    __table_args__ = (UniqueConstraint("procedure_id", "key", name="uq_procedure_step_key"),)
+    __table_args__ = (
+        UniqueConstraint("procedure_id", "key", name="uq_procedure_step_key"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
     procedure_id: Mapped[str] = mapped_column(
@@ -59,21 +69,14 @@ class ProcedureStep(Base):
     key: Mapped[str] = mapped_column(String(255), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
-    slots: Mapped[List[dict]] = mapped_column(JSON, nullable=False, default=list)
-    checklist: Mapped[List[dict]] = mapped_column(JSON, nullable=False, default=list)
-    slots: Mapped[List[dict]] = mapped_column(
-        MutableList.as_mutable(JSON), nullable=False, default=list
-    )
+    position: Mapped[int] = mapped_column(default=0, nullable=False)
     metadata_payload: Mapped[Dict[str, Any]] = mapped_column(
         "metadata",
         MutableDict.as_mutable(JSON),
         nullable=False,
         default=dict,
+        doc="Données complémentaires (conditions, pièces jointes, etc.).",
     )
-    checklists: Mapped[List[Dict[str, Any]]] = mapped_column(
-        MutableList.as_mutable(JSON), nullable=False, default=list
-    )
-    position: Mapped[int] = mapped_column(default=0, nullable=False)
 
     procedure: Mapped[Procedure] = relationship("Procedure", back_populates="steps")
     slots: Mapped[List["ProcedureSlot"]] = relationship(
@@ -90,10 +93,6 @@ class ProcedureStep(Base):
     )
 
 
-class ProcedureStepChecklistItem(Base):
-    __tablename__ = "procedure_step_checklist_items"
-    __table_args__ = (
-        UniqueConstraint("step_id", "key", name="uq_step_checklist_key"),
 class ProcedureSlot(Base):
     """Definition of a dynamic input required to complete a procedure step."""
 
@@ -106,7 +105,16 @@ class ProcedureSlot(Base):
     step_id: Mapped[str] = mapped_column(
         String, ForeignKey("procedure_steps.id", ondelete="CASCADE"), nullable=False
     )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        doc="Identifiant technique du slot utilisé dans les payloads API.",
+    )
+    label: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        doc="Libellé lisible exposé dans l'interface utilisateur.",
+    )
     slot_type: Mapped[str] = mapped_column(
         "type",
         String(50),
@@ -117,21 +125,18 @@ class ProcedureSlot(Base):
         Boolean,
         nullable=False,
         default=True,
-        doc="Indique si le slot doit impérativement être renseigné pour valider l'étape.",
+        doc="Impose que le slot soit renseigné pour finaliser l'étape.",
     )
     position: Mapped[int] = mapped_column(
         nullable=False,
         default=0,
-        doc="Ordre d'affichage/collecte du slot dans le formulaire de l'étape.",
+        doc="Ordre d'affichage/collecte du slot dans l'étape.",
     )
-    configuration: Mapped[Dict[str, object]] = mapped_column(
+    configuration: Mapped[Dict[str, Any]] = mapped_column(
         MutableDict.as_mutable(JSON),
         nullable=False,
         default=dict,
-        doc=(
-            "Paramètres complémentaires (validation, masque, options d'énumération, etc.) "
-            "à exposer côté API."
-        ),
+        doc="Paramètres complémentaires (validation, masque, options, etc.).",
     )
 
     step: Mapped[ProcedureStep] = relationship("ProcedureStep", back_populates="slots")
@@ -154,18 +159,10 @@ class ProcedureStepChecklistItem(Base):
     step_id: Mapped[str] = mapped_column(
         String, ForeignKey("procedure_steps.id", ondelete="CASCADE"), nullable=False
     )
-    key: Mapped[str] = mapped_column(String(255), nullable=False)
-    label: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    position: Mapped[int] = mapped_column(default=0, nullable=False)
-
-    step: Mapped[ProcedureStep] = relationship("ProcedureStep", back_populates="checklist_items")
-    run_statuses: Mapped[List["ProcedureRunChecklistStatus"]] = relationship(
-        "ProcedureRunChecklistStatus",
     key: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
-        doc="Identifiant unique de l'item de checklist dans le contexte de l'étape.",
+        doc="Identifiant unique de l'item de checklist pour l'étape.",
     )
     label: Mapped[str] = mapped_column(
         String(255),
@@ -175,7 +172,7 @@ class ProcedureStepChecklistItem(Base):
     description: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,
-        doc="Informations supplémentaires pour guider l'opérateur lors de la validation.",
+        doc="Informations supplémentaires pour guider l'opérateur.",
     )
     required: Mapped[bool] = mapped_column(
         Boolean,
@@ -186,11 +183,12 @@ class ProcedureStepChecklistItem(Base):
     position: Mapped[int] = mapped_column(
         nullable=False,
         default=0,
-        doc="Ordre d'affichage de l'item dans la checklist.",
+        doc="Ordre d'affichage dans la checklist.",
     )
 
     step: Mapped[ProcedureStep] = relationship(
-        "ProcedureStep", back_populates="checklist_items"
+        "ProcedureStep",
+        back_populates="checklist_items",
     )
     run_states: Mapped[List["ProcedureRunChecklistItemState"]] = relationship(
         "ProcedureRunChecklistItemState",
@@ -200,6 +198,8 @@ class ProcedureStepChecklistItem(Base):
 
 
 class ProcedureRun(Base):
+    """Execution instance of a procedure for a specific user."""
+
     __tablename__ = "procedure_runs"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
@@ -208,7 +208,9 @@ class ProcedureRun(Base):
     )
     user_id: Mapped[str] = mapped_column(String(255), nullable=False)
     state: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
     closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     procedure: Mapped[Procedure] = relationship("Procedure")
@@ -218,18 +220,13 @@ class ProcedureRun(Base):
         cascade="all, delete-orphan",
         order_by="ProcedureRunStepState.committed_at",
     )
-    checklist_statuses: Mapped[List["ProcedureRunChecklistStatus"]] = relationship(
-        "ProcedureRunChecklistStatus",
+    checklist_states: Mapped[List["ProcedureRunChecklistItemState"]] = relationship(
+        "ProcedureRunChecklistItemState",
         back_populates="run",
         cascade="all, delete-orphan",
     )
     slot_values: Mapped[List["ProcedureRunSlotValue"]] = relationship(
         "ProcedureRunSlotValue",
-        back_populates="run",
-        cascade="all, delete-orphan",
-    )
-    checklist_states: Mapped[List["ProcedureRunChecklistItemState"]] = relationship(
-        "ProcedureRunChecklistItemState",
         back_populates="run",
         cascade="all, delete-orphan",
     )
@@ -250,10 +247,10 @@ class ProcedureRunSlotValue(Base):
     slot_id: Mapped[str] = mapped_column(
         String, ForeignKey("procedure_slots.id", ondelete="CASCADE"), nullable=False
     )
-    value: Mapped[object] = mapped_column(
+    value: Mapped[Any] = mapped_column(
         JSON,
         nullable=True,
-        doc="Valeur brute saisie par l'utilisateur (avant validation métier avancée).",
+        doc="Valeur saisie par l'utilisateur (avant validation métier avancée).",
     )
     captured_at: Mapped[datetime] = mapped_column(
         DateTime,
@@ -291,57 +288,45 @@ class ProcedureRunChecklistItemState(Base):
         Boolean,
         nullable=False,
         default=False,
-        doc="État booléen simple exposé côté API pour suivre la progression.",
+        doc="État booléen exposé côté API pour suivre la progression.",
     )
     completed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime,
         nullable=True,
-        doc="Horodatage optionnel permettant d'auditer le moment de complétion.",
+        doc="Horodatage optionnel de complétion de l'item.",
     )
 
-    run: Mapped[ProcedureRun] = relationship("ProcedureRun", back_populates="checklist_states")
+    run: Mapped[ProcedureRun] = relationship(
+        "ProcedureRun", back_populates="checklist_states"
+    )
     checklist_item: Mapped[ProcedureStepChecklistItem] = relationship(
         "ProcedureStepChecklistItem", back_populates="run_states"
     )
 
 
 class ProcedureRunStepState(Base):
+    """Snapshot of a step payload committed during a run."""
+
     __tablename__ = "procedure_run_step_states"
-    __table_args__ = (UniqueConstraint("run_id", "step_key", name="uq_run_step"),)
-
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
-    run_id: Mapped[str] = mapped_column(String, ForeignKey("procedure_runs.id", ondelete="CASCADE"), nullable=False)
-    step_key: Mapped[str] = mapped_column(String(255), nullable=False)
-    payload: Mapped[Dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
-    committed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-
-    run: Mapped[ProcedureRun] = relationship("ProcedureRun", back_populates="step_states")
-    run: Mapped[ProcedureRun] = relationship(
-        "ProcedureRun", back_populates="step_states"
-    run: Mapped[ProcedureRun] = relationship("ProcedureRun", back_populates="step_states")
-
-
-class ProcedureRunChecklistStatus(Base):
-    __tablename__ = "procedure_run_checklist_statuses"
     __table_args__ = (
-        UniqueConstraint("run_id", "checklist_item_id", name="uq_run_checklist_item"),
+        UniqueConstraint("run_id", "step_key", name="uq_run_step"),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
     run_id: Mapped[str] = mapped_column(
         String, ForeignKey("procedure_runs.id", ondelete="CASCADE"), nullable=False
     )
-    checklist_item_id: Mapped[str] = mapped_column(
-        String, ForeignKey("procedure_step_checklist_items.id", ondelete="CASCADE"), nullable=False
+    step_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    payload: Mapped[Dict[str, Any]] = mapped_column(
+        MutableDict.as_mutable(JSON),
+        nullable=False,
+        default=dict,
     )
-    completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    committed_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
 
-    run: Mapped[ProcedureRun] = relationship("ProcedureRun", back_populates="checklist_statuses")
-    checklist_item: Mapped[ProcedureStepChecklistItem] = relationship(
-        "ProcedureStepChecklistItem",
-        back_populates="run_statuses",
-    )
+    run: Mapped[ProcedureRun] = relationship("ProcedureRun", back_populates="step_states")
 
 
 class AuditEvent(Base):
@@ -354,11 +339,17 @@ class AuditEvent(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
     actor: Mapped[str] = mapped_column(String(255), nullable=False)
-    occurred_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
     action: Mapped[str] = mapped_column(String(255), nullable=False)
     entity_type: Mapped[str] = mapped_column(String(255), nullable=False)
     entity_id: Mapped[str] = mapped_column(String(255), nullable=False)
-    payload_diff: Mapped[Dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
+    payload_diff: Mapped[Dict[str, Any]] = mapped_column(
+        MutableDict.as_mutable(JSON),
+        nullable=False,
+        default=dict,
+    )
 
 
 class WebRTCSession(Base):
@@ -372,16 +363,19 @@ class WebRTCSession(Base):
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="awaiting_answer")
     offer_sdp: Mapped[str] = mapped_column(Text, nullable=False)
     answer_sdp: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    session_metadata: Mapped[Dict[str, object]] = mapped_column(
+    session_metadata: Mapped[Dict[str, Any]] = mapped_column(
         "metadata", MutableDict.as_mutable(JSON), nullable=False, default=dict
     )
-    responder_metadata: Mapped[Dict[str, object]] = mapped_column(
+    responder_metadata: Mapped[Dict[str, Any]] = mapped_column(
         MutableDict.as_mutable(JSON), nullable=False, default=dict
     )
-    ice_candidates: Mapped[List[Dict[str, object]]] = mapped_column(
+    ice_candidates: Mapped[List[Dict[str, Any]]] = mapped_column(
         MutableList.as_mutable(JSON), nullable=False, default=list
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
+

@@ -1,4 +1,4 @@
-"""Domain service handling procedure run lifecycle transitions."""
+"""Business services orchestrating procedure run lifecycle."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -52,6 +52,14 @@ class ChecklistValidationError(ValueError):
         self.issues = issues
 
 
+@dataclass
+class RunSnapshot:
+    """In-memory snapshot of a run state and its committed steps."""
+
+    run: models.ProcedureRun
+    step_states: Dict[str, models.ProcedureRunStepState]
+
+
 _SLOT_TYPE_MAPPING: Dict[str, Any] = {
     "string": str,
     "integer": int,
@@ -62,14 +70,8 @@ _SLOT_TYPE_MAPPING: Dict[str, Any] = {
 }
 
 
-@dataclass
-class RunSnapshot:
-    run: models.ProcedureRun
-    step_states: Dict[str, models.ProcedureRunStepState]
-
-
 class ProcedureRunService:
-    """High-level orchestration of procedure run lifecycle."""
+    """High-level orchestration of the procedure run lifecycle."""
 
     def __init__(self, db: Session) -> None:
         self._db = db
@@ -77,7 +79,9 @@ class ProcedureRunService:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def start_run(self, *, procedure_id: str, user_id: str, actor: Optional[str] = None) -> models.ProcedureRun:
+    def start_run(
+        self, *, procedure_id: str, user_id: str, actor: Optional[str] = None
+    ) -> models.ProcedureRun:
         """Create a new run for the given procedure."""
 
         procedure = self._get_procedure(procedure_id)
@@ -122,27 +126,39 @@ class ProcedureRunService:
         snapshot = self.get_snapshot(run_id)
         run = snapshot.run
 
-        step = self._find_step(snapshot.run, step_key)
+        step = self._find_step(run, step_key)
         if step is None:
-            raise InvalidTransitionError(run_id=run.id, message=f"Step '{step_key}' does not exist on procedure")
+            raise InvalidTransitionError(
+                run_id=run.id,
+                message=f"Step '{step_key}' does not exist on procedure",
+            )
 
         if step_key in snapshot.step_states:
-            raise InvalidTransitionError(run_id=run.id, message=f"Step '{step_key}' already committed")
+            raise InvalidTransitionError(
+                run_id=run.id,
+                message=f"Step '{step_key}' already committed",
+            )
 
         self._ensure_previous_steps_committed(run, snapshot.step_states, step_key)
 
         self._validate_slots(step, slots)
         raw_checklist = list(checklist)
-        self._validate_checklist(raw_checklist)
-        serialised_checklist = self._normalise_checklist(raw_checklist)
+        self._validate_checklist(step, raw_checklist)
+        checklist_states = self._build_checklist_states(step, raw_checklist)
 
-        payload = {"slots": slots, "checklist": serialised_checklist}
+        payload = {
+            "slots": self._serialise_slots(step, slots),
+            "checklist": self._serialise_checklist(checklist_states),
+        }
         step_state = models.ProcedureRunStepState(
             run_id=run.id,
             step_key=step.key,
             payload=payload,
         )
         self._db.add(step_state)
+
+        self._persist_slot_values(run, step, slots)
+        self._persist_checklist_states(run, checklist_states)
 
         previous_state = run.state
         previous_closed_at = run.closed_at
@@ -178,7 +194,9 @@ class ProcedureRunService:
                 run_id=run.id,
                 before={
                     "state": previous_state,
-                    "closed_at": previous_closed_at.isoformat() if previous_closed_at else None,
+                    "closed_at": previous_closed_at.isoformat()
+                    if previous_closed_at
+                    else None,
                 },
                 after={
                     "state": run.state,
@@ -196,16 +214,26 @@ class ProcedureRunService:
     # ------------------------------------------------------------------
     def _get_procedure(self, procedure_id: str) -> Optional[models.Procedure]:
         stmt = select(models.Procedure).where(models.Procedure.id == procedure_id)
-        result = self._db.execute(stmt).scalars().first()
-        return result
+        return self._db.execute(stmt).scalars().first()
 
     def _load_run(self, run_id: str) -> models.ProcedureRun:
         stmt = (
             select(models.ProcedureRun)
             .where(models.ProcedureRun.id == run_id)
             .options(
-                selectinload(models.ProcedureRun.procedure).selectinload(models.Procedure.steps),
+                selectinload(models.ProcedureRun.procedure).selectinload(
+                    models.Procedure.steps
+                ).selectinload(models.ProcedureStep.slots),
+                selectinload(models.ProcedureRun.procedure).selectinload(
+                    models.Procedure.steps
+                ).selectinload(models.ProcedureStep.checklist_items),
                 selectinload(models.ProcedureRun.step_states),
+                selectinload(models.ProcedureRun.checklist_states).selectinload(
+                    models.ProcedureRunChecklistItemState.checklist_item
+                ),
+                selectinload(models.ProcedureRun.slot_values).selectinload(
+                    models.ProcedureRunSlotValue.slot
+                ),
             )
         )
         run = self._db.execute(stmt).scalars().first()
@@ -213,7 +241,9 @@ class ProcedureRunService:
             raise ProcedureRunNotFoundError(run_id)
         return run
 
-    def _find_step(self, run: models.ProcedureRun, step_key: str) -> Optional[models.ProcedureStep]:
+    def _find_step(
+        self, run: models.ProcedureRun, step_key: str
+    ) -> Optional[models.ProcedureStep]:
         for step in sorted(run.procedure.steps, key=lambda item: item.position):
             if step.key == step_key:
                 return step
@@ -237,14 +267,11 @@ class ProcedureRunService:
 
     def _validate_slots(self, step: models.ProcedureStep, slots: Dict[str, Any]) -> None:
         issues: List[Dict[str, Any]] = []
-        definitions: Dict[str, Dict[str, Any]] = {}
-        for raw in step.slots or []:
-            if isinstance(raw, dict) and raw.get("name"):
-                definitions[raw["name"]] = raw
+        definitions = {slot.name: slot for slot in step.slots}
 
-        for name, definition in definitions.items():
-            if definition.get("required", True) and name not in slots:
-                issues.append({"slot": name, "reason": "missing_required_value"})
+        for slot_name, definition in definitions.items():
+            if definition.required and slot_name not in slots:
+                issues.append({"slot": slot_name, "reason": "missing_required_value"})
 
         for provided in slots.keys():
             if provided not in definitions:
@@ -252,9 +279,9 @@ class ProcedureRunService:
 
         for name, value in slots.items():
             definition = definitions.get(name)
-            if not definition:
+            if definition is None:
                 continue
-            expected_type = definition.get("type")
+            expected_type = definition.slot_type
             if expected_type and expected_type in _SLOT_TYPE_MAPPING:
                 python_type = _SLOT_TYPE_MAPPING[expected_type]
                 if not isinstance(value, python_type):
@@ -269,49 +296,138 @@ class ProcedureRunService:
         if issues:
             raise SlotValidationError(issues)
 
-    def _normalise_checklist(self, checklist: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        serialised: List[Dict[str, Any]] = []
-        for item in checklist:
-            entry = {
-                "key": item.get("key"),
-                "label": item.get("label"),
-                "completed": item.get("completed", False),
-            }
-            completed_at = item.get("completed_at")
-            if entry["completed"]:
-                if isinstance(completed_at, datetime):
-                    entry["completed_at"] = completed_at.isoformat()
-                elif isinstance(completed_at, str) and completed_at:
-                    entry["completed_at"] = completed_at
-                else:
-                    entry["completed_at"] = datetime.utcnow().isoformat()
-            else:
-                entry["completed_at"] = None
-            serialised.append(entry)
-        return serialised
-
-    def _validate_checklist(self, checklist: List[Dict[str, Any]]) -> None:
+    def _validate_checklist(
+        self, step: models.ProcedureStep, checklist: List[Dict[str, Any]]
+    ) -> None:
         issues: List[Dict[str, Any]] = []
+        definitions = {item.key: item for item in step.checklist_items}
         seen_keys: set[str] = set()
+
         for index, item in enumerate(checklist):
             if not isinstance(item, dict):
                 issues.append({"index": index, "reason": "invalid_item"})
                 continue
+
             key = item.get("key")
             if not key or not isinstance(key, str):
                 issues.append({"index": index, "reason": "missing_key"})
                 continue
+
             if key in seen_keys:
                 issues.append({"index": index, "reason": "duplicate_key", "key": key})
             seen_keys.add(key)
+
+            definition = definitions.get(key)
+            if definition is None:
+                issues.append({"index": index, "reason": "unknown_checklist_item", "key": key})
+                continue
+
             completed = item.get("completed")
             if not isinstance(completed, bool):
                 issues.append({"index": index, "reason": "invalid_completed_flag", "key": key})
+                continue
+
+            if definition.required and not completed:
+                issues.append({"index": index, "reason": "required_not_completed", "key": key})
+
+        for required_key, definition in definitions.items():
+            if definition.required and required_key not in seen_keys:
+                issues.append({"reason": "missing_required_item", "key": required_key})
 
         if issues:
             raise ChecklistValidationError(issues)
 
-    def _serialise_run(self, run: models.ProcedureRun) -> Dict[str, Any]:
+    def _build_checklist_states(
+        self, step: models.ProcedureStep, checklist: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        submissions = {item["key"]: item for item in checklist if "key" in item}
+        states: List[Dict[str, Any]] = []
+        for item in step.checklist_items:
+            submitted = submissions.get(item.key, {})
+            completed = bool(submitted.get("completed", False))
+            completed_at = self._normalise_completed_at(submitted.get("completed_at"))
+            if not completed:
+                completed_at = None
+            states.append(
+                {
+                    "item": item,
+                    "completed": completed,
+                    "completed_at": completed_at,
+                }
+            )
+        return states
+
+    def _serialise_slots(
+        self, step: models.ProcedureStep, slots: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        serialised: Dict[str, Any] = {}
+        for slot in step.slots:
+            if slot.name in slots:
+                serialised[slot.name] = slots[slot.name]
+        return serialised
+
+    def _serialise_checklist(
+        self, states: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        serialised: List[Dict[str, Any]] = []
+        for state in states:
+            item: models.ProcedureStepChecklistItem = state["item"]
+            serialised.append(
+                {
+                    "key": item.key,
+                    "label": item.label,
+                    "completed": state["completed"],
+                    "completed_at": state["completed_at"].isoformat()
+                    if state["completed_at"]
+                    else None,
+                }
+            )
+        return serialised
+
+    def _persist_slot_values(
+        self,
+        run: models.ProcedureRun,
+        step: models.ProcedureStep,
+        slots: Dict[str, Any],
+    ) -> None:
+        for slot in step.slots:
+            if slot.name not in slots:
+                continue
+            slot_value = models.ProcedureRunSlotValue(
+                run_id=run.id,
+                slot_id=slot.id,
+                value=slots[slot.name],
+            )
+            self._db.add(slot_value)
+
+    def _persist_checklist_states(
+        self,
+        run: models.ProcedureRun,
+        states: List[Dict[str, Any]],
+    ) -> None:
+        for state in states:
+            item: models.ProcedureStepChecklistItem = state["item"]
+            checklist_state = models.ProcedureRunChecklistItemState(
+                run_id=run.id,
+                checklist_item_id=item.id,
+                is_completed=state["completed"],
+                completed_at=state["completed_at"],
+            )
+            self._db.add(checklist_state)
+
+    @staticmethod
+    def _normalise_completed_at(value: Any) -> Optional[datetime]:
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str) and value:
+            try:
+                return datetime.fromisoformat(value)
+            except ValueError:
+                return None
+        return None
+
+    @staticmethod
+    def _serialise_run(run: models.ProcedureRun) -> Dict[str, Any]:
         return {
             "id": run.id,
             "procedure_id": run.procedure_id,
