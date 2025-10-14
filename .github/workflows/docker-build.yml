@@ -14,15 +14,19 @@ jobs:
           - service: backend
             dockerfile: backend/Dockerfile
             target: ''
+            context: backend
           - service: ai_gateway
             dockerfile: ai_gateway/Dockerfile
             target: ''
+            context: ai_gateway
           - service: webapp-dev
             dockerfile: webapp/Dockerfile
             target: dev
+            context: .
           - service: webapp
             dockerfile: webapp/Dockerfile
             target: production
+            context: .
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,7 +37,7 @@ jobs:
       - name: Build ${{ matrix.service }} image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           target: ${{ matrix.target || '' }}
           push: false
