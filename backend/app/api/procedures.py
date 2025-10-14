@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from ..auth import User, require_role
 from ..database import get_db
 from ..models import Procedure, ProcedureStep
-from ..services.procedures import ProcedureService
+from ..services.procedure_definitions import ProcedureService
 from .schemas.procedures import (
     ProcedureChecklistItem,
     ProcedureCreateRequest,

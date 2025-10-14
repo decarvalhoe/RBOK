@@ -328,9 +328,10 @@ app.include_router(runs_router)
 app.include_router(webrtc_router)
 
 
-def _get_or_create_metric(name: str, factory: Callable[[], Any]):
+def _get_or_create_metric(factory, *args, **kwargs):
+    name = args[0] if args else kwargs.get("name")
     try:
-        return factory()
+        return factory(*args, **kwargs)
     except ValueError as exc:  # pragma: no cover - defensive for reloads
         if "Duplicated timeseries" in str(exc):
             existing = REGISTRY._names_to_collectors.get(name)
@@ -340,34 +341,26 @@ def _get_or_create_metric(name: str, factory: Callable[[], Any]):
 
 
 REQUEST_DURATION = _get_or_create_metric(
-    "backend_request_duration_seconds",
-    lambda: Histogram(
-        "backend_request_duration_seconds",
-        "Time spent processing requests",
-        labelnames=("method", "path", "status_code"),
-    ),
+    Histogram,
+    name="backend_request_duration_seconds",
+    documentation="Time spent processing requests",
+    labelnames=("method", "path", "status_code"),
 )
 REQUEST_COUNT = _get_or_create_metric(
-    "backend_request_total",
-    lambda: Counter(
-        "backend_request_total",
-        "Total number of processed requests",
-        labelnames=("method", "path", "status_code"),
-    ),
+    Counter,
+    name="backend_request_total",
+    documentation="Total number of processed requests",
+    labelnames=("method", "path", "status_code"),
 )
 DATABASE_HEALTH = _get_or_create_metric(
-    "backend_database_up",
-    lambda: Gauge(
-        "backend_database_up",
-        "Database connectivity status (1=up, 0=down)",
-    ),
+    Gauge,
+    name="backend_database_up",
+    documentation="Database connectivity status (1=up, 0=down)",
 )
 CACHE_HEALTH = _get_or_create_metric(
-    "backend_cache_up",
-    lambda: Gauge(
-        "backend_cache_up",
-        "Cache connectivity status (1=up, 0=down)",
-    ),
+    Gauge,
+    name="backend_cache_up",
+    documentation="Cache connectivity status (1=up, 0=down)",
 )
 
 
