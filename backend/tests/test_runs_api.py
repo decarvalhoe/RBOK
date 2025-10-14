@@ -73,6 +73,8 @@ def test_run_lifecycle_success(client, admin_user: User, standard_user: User, pa
     assert run_response.status_code == 201, run_response.text
     run_payload = run_response.json()
     assert run_payload["state"] == "pending"
+    assert "checklist_statuses" in run_payload
+    assert "checklist_progress" in run_payload
 
     commit_first = client.post(
         f"/runs/{run_payload['id']}/steps/profile/commit",
@@ -97,7 +99,12 @@ def test_run_lifecycle_success(client, admin_user: User, standard_user: User, pa
 
     final_state = client.get(f"/runs/{run_payload['id']}")
     assert final_state.status_code == 200
-    assert final_state.json()["state"] == "completed"
+    payload = final_state.json()
+    assert payload["state"] == "completed"
+    assert payload["checklist_progress"]["percentage"] >= 0.0
+    if payload["checklist_statuses"]:
+        first_status = payload["checklist_statuses"][0]
+        assert {"id", "label", "completed", "completed_le"} <= set(first_status.keys())
 
 
 def test_run_creation_denied_by_policy(client, admin_user: User, standard_user: User, patch_opa: DummyOPA) -> None:
