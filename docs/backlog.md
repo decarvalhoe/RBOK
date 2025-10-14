@@ -2,8 +2,8 @@
 
 ## Épics
 1. **Core procédural** : machine d’état (FSM), gestion des slots et check‑lists.
-   - Voir la déclinaison complète en sous-issues détaillées dans `docs/epic1_core_procedural_subissues.md`.
-   - Plan de tâches opérationnel pour les issues #46 → #60 : `docs/tasks_core_procedural.md`.
+   - Voir la déclinaison complète en sous-issues détaillées dans [`docs/epic1_core_procedural_subissues.md`](docs/epic1_core_procedural_subissues.md).
+   - Plan de tâches opérationnel pour les issues #46 → #60 : [`docs/tasks_core_procedural.md`](docs/tasks_core_procedural.md).
 2. **Voix / Realtime** : intégration WebRTC, ASR, TTS et streaming.
 3. **Sécurité & auth** : OIDC, RBAC, OPA, Vault.
 4. **Données & persistance** : modèles DB, migrations, audit trail.
