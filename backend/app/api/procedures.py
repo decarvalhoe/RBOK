@@ -10,6 +10,7 @@ from ..auth import User, require_role
 from ..database import get_db
 from ..models import Procedure, ProcedureStep
 from ..services.procedures import ProcedureService
+from ..services.procedures.exceptions import DuplicateProcedureComponentError
 from .schemas.procedures import (
     ProcedureChecklistItem,
     ProcedureCreateRequest,
@@ -103,10 +104,13 @@ async def create_procedure(
 ) -> ProcedureResponse:
     """Create or update a procedure definition."""
 
-    procedure, created = service.save_procedure(
-        payload.model_dump(exclude_none=True),
-        actor=_actor_from_user(current_user),
-    )
+    try:
+        procedure, created = service.save_procedure(
+            payload.model_dump(exclude_none=True),
+            actor=_actor_from_user(current_user),
+        )
+    except DuplicateProcedureComponentError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     if not created:
         response.status_code = status.HTTP_200_OK
     return _to_response(procedure)

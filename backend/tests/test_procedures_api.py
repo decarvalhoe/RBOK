@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Dict
+from typing import Any, Dict
 
 import pytest
+from fastapi.testclient import TestClient
 
 from app.auth import User, get_current_user, get_current_user_optional
 from app.main import app
@@ -34,8 +35,8 @@ def test_create_and_list_procedures(client) -> None:
                 "slots": [
                     {"name": "email", "type": "email", "required": True},
                 ],
-                "checklist": [
-                    {"name": "privacy_ack", "required": True},
+                "checklists": [
+                    {"key": "privacy_ack", "required": True},
                 ],
             },
             {
@@ -45,7 +46,7 @@ def test_create_and_list_procedures(client) -> None:
                 "slots": [
                     {"name": "document", "type": "string", "required": True},
                 ],
-                "checklist": [],
+                "checklists": [],
             },
         ],
     }
@@ -81,30 +82,73 @@ def test_duplicate_step_keys_return_error(client) -> None:
                 "title": "One",
                 "prompt": "Do A",
                 "slots": [],
-                "checklist": [],
+                "checklists": [],
             },
             {
                 "key": "step",
                 "title": "Two",
                 "prompt": "Do B",
                 "slots": [],
-                "checklist": [],
+                "checklists": [],
             },
         ],
     }
 
     response = client.post("/procedures", json=payload)
     assert response.status_code == 400
-    assert "Duplicate" in response.json()["detail"]
+    assert response.json()["detail"] == "Duplicate step key(s): step"
+
+
+def test_duplicate_slot_names_return_error(client) -> None:
+    payload = {
+        "name": "Invalid procedure",
+        "description": "Slots share a name",
+        "steps": [
+            {
+                "key": "collect",
+                "title": "Collect",
+                "prompt": "Collect data",
+                "slots": [
+                    {"name": "email", "type": "string"},
+                    {"name": "email", "type": "string"},
+                ],
+                "checklists": [],
+            }
+        ],
+    }
+
+    response = client.post("/procedures", json=payload)
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Duplicate slot name(s) in step 'collect': email"
+
+
+def test_duplicate_checklist_keys_return_error(client) -> None:
+    payload = {
+        "name": "Invalid procedure",
+        "description": "Checklist items share a key",
+        "steps": [
+            {
+                "key": "verify",
+                "title": "Verify",
+                "prompt": "Verify data",
+                "slots": [],
+                "checklists": [
+                    {"key": "ack", "label": "Acknowledge"},
+                    {"key": "ack", "label": "Duplicate"},
+                ],
+            }
+        ],
+    }
+
+    response = client.post("/procedures", json=payload)
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Duplicate checklist key(s) in step 'verify': ack"
 
 
 def test_get_unknown_procedure_returns_404(client) -> None:
     response = client.get("/procedures/unknown")
     assert response.status_code == 404
     assert response.json()["detail"] == "Procedure not found"
-from typing import Any, Dict
-
-from fastapi.testclient import TestClient
 
 
 def _build_procedure_payload() -> Dict[str, Any]:

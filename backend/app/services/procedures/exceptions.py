@@ -28,3 +28,7 @@ class SlotValidationError(ValidationError):
 
 class ChecklistValidationError(ValidationError):
     """Raised when checklist submissions are invalid."""
+
+
+class DuplicateProcedureComponentError(ValidationError):
+    """Raised when procedure components reuse the same identifier."""
