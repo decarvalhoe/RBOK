@@ -18,50 +18,60 @@ from app.services.procedures.fsm import RUN_COMPLETED, RUN_IN_PROGRESS, Procedur
 @pytest.fixture()
 def procedure(test_session: Session) -> models.Procedure:
     procedure = models.Procedure(name="Onboarding", description="User onboarding workflow")
-    procedure.steps = [
-        models.ProcedureStep(
-            key="collect_profile",
-            title="Collect profile",
-            prompt="Request the basic profile information",
-            slots=[
-                models.ProcedureSlot(
-                    name="email",
-                    slot_type="email",
-                    required=True,
-                    configuration={"mask": "email"},
-                )
-            ],
-            checklist_items=[
-                models.ProcedureStepChecklistItem(
-                    key="consent",
-                    label="Consent given",
-                    required=True,
-                )
-            ],
-            position=0,
-        ),
-        models.ProcedureStep(
-            key="verify_identity",
-            title="Verify identity",
-            prompt="Validate the submitted identity document",
-            slots=[
-                models.ProcedureSlot(
-                    name="document",
-                    slot_type="string",
-                    required=True,
-                )
-            ],
-            checklist_items=[
-                models.ProcedureStepChecklistItem(
-                    key="signature",
-                    label="Signature verified",
-                    required=False,
-                )
-            ],
-            position=1,
-        ),
-    ]
-    test_session.add(procedure)
+    profile_slot = models.ProcedureSlot(
+        name="email",
+        slot_type="email",
+        required=True,
+        configuration={"mask": "email"},
+    )
+    profile_checklist = models.ProcedureStepChecklistItem(
+        key="consent",
+        label="Consent given",
+        required=True,
+    )
+
+    verify_slot = models.ProcedureSlot(
+        name="document",
+        slot_type="string",
+        required=True,
+    )
+    verify_checklist = models.ProcedureStepChecklistItem(
+        key="signature",
+        label="Signature verified",
+        required=False,
+    )
+
+    collect_profile = models.ProcedureStep(
+        key="collect_profile",
+        title="Collect profile",
+        prompt="Request the basic profile information",
+        position=0,
+    )
+    collect_profile.slots.append(profile_slot)
+    collect_profile.checklist_items.append(profile_checklist)
+
+    verify_identity = models.ProcedureStep(
+        key="verify_identity",
+        title="Verify identity",
+        prompt="Validate the submitted identity document",
+        position=1,
+    )
+    verify_identity.slots.append(verify_slot)
+    verify_identity.checklist_items.append(verify_checklist)
+
+    procedure.steps = [collect_profile, verify_identity]
+
+    test_session.add_all(
+        [
+            procedure,
+            collect_profile,
+            verify_identity,
+            profile_slot,
+            verify_slot,
+            profile_checklist,
+            verify_checklist,
+        ]
+    )
     test_session.commit()
     test_session.refresh(procedure)
     return procedure

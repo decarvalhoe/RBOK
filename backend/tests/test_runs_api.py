@@ -53,14 +53,16 @@ def test_run_lifecycle_success(client, admin_user: User, standard_user: User, pa
                 "title": "Profile",
                 "prompt": "Collect contact info",
                 "slots": [{"name": "email", "type": "email", "required": True}],
-                "checklist": [{"name": "consent", "required": True}],
+                "checklists": [
+                    {"key": "consent", "label": "Consent", "required": True}
+                ],
             },
             {
                 "key": "verification",
                 "title": "Verification",
                 "prompt": "Upload ID",
                 "slots": [{"name": "document", "type": "string", "required": True}],
-                "checklist": [],
+                "checklists": [],
             },
         ],
     }
@@ -75,25 +77,27 @@ def test_run_lifecycle_success(client, admin_user: User, standard_user: User, pa
     assert run_payload["state"] == "pending"
 
     commit_first = client.post(
-        f"/runs/{run_payload['id']}/steps/profile/commit",
+        f"/runs/{run_payload['id']}/commit-step",
         json={
+            "step_key": "profile",
             "slots": {"email": "user@example.com"},
-            "checklist": [{"name": "consent", "completed": True}],
+            "checklist": [{"key": "consent", "completed": True}],
         },
     )
     assert commit_first.status_code == 200, commit_first.text
     first_state = commit_first.json()
-    assert first_state["run_state"] == "in_progress"
+    assert first_state["state"] == "in_progress"
 
     commit_second = client.post(
-        f"/runs/{run_payload['id']}/steps/verification/commit",
+        f"/runs/{run_payload['id']}/commit-step",
         json={
+            "step_key": "verification",
             "slots": {"document": "passport"},
             "checklist": [],
         },
     )
     assert commit_second.status_code == 200, commit_second.text
-    assert commit_second.json()["run_state"] == "completed"
+    assert commit_second.json()["state"] == "completed"
 
     final_state = client.get(f"/runs/{run_payload['id']}")
     assert final_state.status_code == 200
@@ -111,7 +115,7 @@ def test_run_creation_denied_by_policy(client, admin_user: User, standard_user: 
                 "title": "Only",
                 "prompt": "Do it",
                 "slots": [],
-                "checklist": [],
+                "checklists": [],
             }
         ],
     }
@@ -138,7 +142,7 @@ def test_commit_step_missing_slot_returns_422(client, admin_user: User, standard
                     "title": "Step",
                     "prompt": "Provide email",
                     "slots": [{"name": "email", "type": "email", "required": True}],
-                    "checklist": [],
+                    "checklists": [],
                 }
             ],
         },
@@ -150,8 +154,10 @@ def test_commit_step_missing_slot_returns_422(client, admin_user: User, standard
     run_id = client.post("/runs", json={"procedure_id": procedure_id, "user_id": "user-3"}).json()["id"]
 
     response = client.post(
-        f"/runs/{run_id}/steps/step/commit",
-        json={"slots": {}, "checklist": []},
+        f"/runs/{run_id}/commit-step",
+        json={"step_key": "step", "slots": {}, "checklist": []},
     )
     assert response.status_code == 422
-    assert "Slot 'email' is required" in response.json()["detail"]
+    detail = response.json()["detail"]
+    assert detail["message"] == "Slot validation failed"
+    assert any(issue["slot"] == "email" for issue in detail["issues"])

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import Dict
+from typing import Any, Dict
 
 import pytest
 
 from app.auth import User, get_current_user, get_current_user_optional
 from app.main import app
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture()
@@ -34,8 +35,8 @@ def test_create_and_list_procedures(client) -> None:
                 "slots": [
                     {"name": "email", "type": "email", "required": True},
                 ],
-                "checklist": [
-                    {"name": "privacy_ack", "required": True},
+                "checklists": [
+                    {"key": "privacy_ack", "label": "Privacy acknowledgement", "required": True},
                 ],
             },
             {
@@ -45,7 +46,7 @@ def test_create_and_list_procedures(client) -> None:
                 "slots": [
                     {"name": "document", "type": "string", "required": True},
                 ],
-                "checklist": [],
+                "checklists": [],
             },
         ],
     }
@@ -81,14 +82,14 @@ def test_duplicate_step_keys_return_error(client) -> None:
                 "title": "One",
                 "prompt": "Do A",
                 "slots": [],
-                "checklist": [],
+                "checklists": [],
             },
             {
                 "key": "step",
                 "title": "Two",
                 "prompt": "Do B",
                 "slots": [],
-                "checklist": [],
+                "checklists": [],
             },
         ],
     }
@@ -102,11 +103,6 @@ def test_get_unknown_procedure_returns_404(client) -> None:
     response = client.get("/procedures/unknown")
     assert response.status_code == 404
     assert response.json()["detail"] == "Procedure not found"
-from typing import Any, Dict
-
-from fastapi.testclient import TestClient
-
-
 def _build_procedure_payload() -> Dict[str, Any]:
     return {
         'actor': 'demo-admin',
@@ -119,12 +115,14 @@ def _build_procedure_payload() -> Dict[str, Any]:
                 'title': 'Introduction',
                 'prompt': 'Say hello',
                 'slots': [{'name': 'greeting', 'type': 'string'}],
+                'checklists': [],
             },
             {
                 'key': 'summary',
                 'title': 'Summary',
                 'prompt': 'Wrap up the conversation',
-                'slots': [],
+                'slots': [{'name': 'summary', 'type': 'string'}],
+                'checklists': [],
             },
         ],
     }
@@ -147,25 +145,25 @@ def test_procedure_lifecycle_generates_audit_trail(client: TestClient) -> None:
     detail_payload = detail_response.json()
     assert detail_payload['steps'][0]['key'] == 'introduction'
 
-    run_response = client.post('/runs', json={'actor': 'operator', 'procedure_id': 'demo-procedure'})
+    run_response = client.post('/runs', json={'procedure_id': 'demo-procedure', 'user_id': 'operator'})
     assert run_response.status_code == 201
     run_payload = run_response.json()
     run_id = run_payload['id']
-    assert run_payload['state'] == 'in_progress'
+    assert run_payload['state'] == 'pending'
 
     first_commit = client.post(
-        f'/runs/{run_id}/steps/introduction/commit',
-        json={'actor': 'operator', 'payload': {'greeting': 'Bonjour'}},
+        f'/runs/{run_id}/commit-step',
+        json={'step_key': 'introduction', 'slots': {'greeting': 'Bonjour'}, 'checklist': []},
     )
     assert first_commit.status_code == 200
-    assert first_commit.json()['run']['state'] == 'in_progress'
+    assert first_commit.json()['state'] == 'in_progress'
 
     second_commit = client.post(
-        f'/runs/{run_id}/steps/summary/commit',
-        json={'actor': 'operator', 'payload': {'summary': 'All done'}},
+        f'/runs/{run_id}/commit-step',
+        json={'step_key': 'summary', 'slots': {'summary': 'All done'}, 'checklist': []},
     )
     assert second_commit.status_code == 200
-    assert second_commit.json()['run']['state'] == 'completed'
+    assert second_commit.json()['state'] == 'completed'
 
     procedure_events = client.get(
         '/audit-events',
