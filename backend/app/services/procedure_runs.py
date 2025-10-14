@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Mapping, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -61,6 +61,88 @@ class RunSnapshot:
 
     run: models.ProcedureRun
     step_states: Dict[str, models.ProcedureRunStepState]
+
+
+class _RunFSM:
+    """Encapsulate run state transitions and timestamp bookkeeping."""
+
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    TERMINAL_STATES = {COMPLETED, FAILED}
+
+    def __init__(self, run: models.ProcedureRun, *, now: Callable[[], datetime]) -> None:
+        self._run = run
+        self._now = now
+
+    def ensure_active(self) -> None:
+        if self._run.state in self.TERMINAL_STATES:
+            raise InvalidTransitionError(
+                run_id=self._run.id,
+                message=f"Run already terminal with state '{self._run.state}'",
+            )
+
+    def transition_to_in_progress(self) -> bool:
+        if self._run.state == self.PENDING:
+            self._run.state = self.IN_PROGRESS
+            self._run.closed_at = None
+            return True
+        if self._run.state == self.IN_PROGRESS:
+            return False
+        if self._run.state in self.TERMINAL_STATES:
+            raise InvalidTransitionError(
+                run_id=self._run.id,
+                message=f"Cannot resume run in state '{self._run.state}'",
+            )
+        raise InvalidTransitionError(
+            run_id=self._run.id,
+            message=f"Unknown state transition from '{self._run.state}'",
+        )
+
+    def transition_to_completed(self) -> bool:
+        if self._run.state == self.COMPLETED:
+            return False
+        if self._run.state == self.FAILED:
+            raise InvalidTransitionError(
+                run_id=self._run.id,
+                message="Cannot complete a failed run",
+            )
+        if self._run.state not in {self.PENDING, self.IN_PROGRESS}:
+            raise InvalidTransitionError(
+                run_id=self._run.id,
+                message=f"Cannot complete run from state '{self._run.state}'",
+            )
+        self._run.state = self.COMPLETED
+        self._run.closed_at = self._now()
+        return True
+
+    def transition_to_failed(self) -> bool:
+        if self._run.state == self.FAILED:
+            return False
+        if self._run.state == self.COMPLETED:
+            raise InvalidTransitionError(
+                run_id=self._run.id,
+                message="Cannot fail a completed run",
+            )
+        if self._run.state not in {self.PENDING, self.IN_PROGRESS}:
+            raise InvalidTransitionError(
+                run_id=self._run.id,
+                message=f"Cannot fail run from state '{self._run.state}'",
+            )
+        self._run.state = self.FAILED
+        self._run.closed_at = self._now()
+        return True
+
+
+_SLOT_TYPE_MAPPING: Dict[str, Any] = {
+    "string": str,
+    "integer": int,
+    "number": (int, float),
+    "boolean": bool,
+    "array": list,
+    "object": dict,
+}
 
 
 class ProcedureRunService:
@@ -132,6 +214,9 @@ class ProcedureRunService:
                 message=f"Step '{step_key}' already committed",
             )
 
+        fsm = _RunFSM(run, now=self._now)
+        fsm.ensure_active()
+
         self._ensure_previous_steps_committed(run, snapshot.step_states, step_key)
 
         cleaned_slots = self._validate_slots(step, slots)
@@ -158,14 +243,12 @@ class ProcedureRunService:
         previous_state = run.state
         previous_closed_at = run.closed_at
 
-        if run.state == "pending":
-            run.state = "in_progress"
+        fsm.transition_to_in_progress()
 
         expected_total = len(run.procedure.steps)
         committed_total = len(snapshot.step_states) + 1
         if committed_total >= expected_total:
-            run.state = "completed"
-            run.closed_at = datetime.utcnow()
+            fsm.transition_to_completed()
 
         self._db.flush()
 
@@ -203,6 +286,50 @@ class ProcedureRunService:
         self._db.refresh(step_state)
         snapshot.step_states[step_key] = step_state
         return RunSnapshot(run=run, step_states=snapshot.step_states)
+
+    def fail_run(
+        self,
+        *,
+        run_id: str,
+        actor: Optional[str] = None,
+    ) -> RunSnapshot:
+        """Mark the run as failed and record the transition."""
+
+        run = self._load_run(run_id)
+        fsm = _RunFSM(run, now=self._now)
+        fsm.ensure_active()
+
+        previous_state = run.state
+        previous_closed_at = run.closed_at
+
+        fsm.transition_to_failed()
+
+        self._db.flush()
+
+        resolved_actor = actor or run.user_id
+        audit.run_updated(
+            self._db,
+            actor=resolved_actor,
+            run_id=run.id,
+            before={
+                "state": previous_state,
+                "closed_at": previous_closed_at.isoformat() if previous_closed_at else None,
+            },
+            after={
+                "state": run.state,
+                "closed_at": run.closed_at.isoformat() if run.closed_at else None,
+            },
+        )
+
+        self._db.refresh(run)
+        return RunSnapshot(
+            run=run,
+            step_states={state.step_key: state for state in run.step_states},
+        )
+
+    @staticmethod
+    def _now() -> datetime:
+        return datetime.utcnow()
 
     # ------------------------------------------------------------------
     # Internal helpers
