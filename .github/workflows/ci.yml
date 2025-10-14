@@ -172,14 +172,14 @@ jobs:
         include:
           - service: backend
             context: backend
-            dockerfile: backend/Dockerfile
+            dockerfile: Dockerfile
             tag: rbok-backend
           - service: ai-gateway
             context: ai_gateway
-            dockerfile: ai_gateway/Dockerfile
+            dockerfile: Dockerfile
             tag: rbok-ai-gateway
           - service: webapp
-            context: webapp
+            context: .
             dockerfile: webapp/Dockerfile
             tag: rbok-webapp
     steps:

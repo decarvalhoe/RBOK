@@ -325,54 +325,15 @@ app.add_middleware(CorrelationIdMiddleware)
 app.include_router(auth_router)
 app.include_router(procedures_router)
 app.include_router(runs_router)
-app.include_router(procedures_router)
 app.include_router(webrtc_router)
-app.include_router(runs_router)
-app.include_router(procedures_router)
-app.include_router(runs_router)
 
 
-if "REQUEST_DURATION" not in globals():
-    REQUEST_DURATION = Histogram(
-        "backend_request_duration_seconds",
-        "Time spent processing requests",
-        labelnames=("method", "path", "status_code"),
-    )
-if "REQUEST_COUNT" not in globals():
-    REQUEST_COUNT = Counter(
-        "backend_request_total",
-        "Total number of processed requests",
-        labelnames=("method", "path", "status_code"),
-    )
-if "DATABASE_HEALTH" not in globals():
-    DATABASE_HEALTH = Gauge(
-        "backend_database_up",
-        "Database connectivity status (1=up, 0=down)",
-    )
-if "CACHE_HEALTH" not in globals():
-    CACHE_HEALTH = Gauge(
-        "backend_cache_up",
-        "Cache connectivity status (1=up, 0=down)",
-    )
-
-
-def _register_metric(name: str, factory: Callable[[], Any]):
-    try:
-        return factory()
-    except ValueError:
-        existing = REGISTRY._names_to_collectors.get(name)
-        if existing is None:  # pragma: no cover - defensive path
-            raise
-        return existing
-
-
-REQUEST_DURATION = _register_metric(
 def _get_or_create_metric(factory, *args, **kwargs):
     name = args[0] if args else kwargs.get("name")
     try:
         return factory(*args, **kwargs)
     except ValueError as exc:  # pragma: no cover - defensive for reloads
-        if "Duplicated timeseries" in str(exc) and name:
+        if "Duplicated timeseries" in str(exc):
             existing = REGISTRY._names_to_collectors.get(name)
             if existing is not None:
                 return existing
@@ -381,40 +342,25 @@ def _get_or_create_metric(factory, *args, **kwargs):
 
 REQUEST_DURATION = _get_or_create_metric(
     Histogram,
-    "backend_request_duration_seconds",
-    lambda: Histogram(
-        "backend_request_duration_seconds",
-        "Time spent processing requests",
-        labelnames=("method", "path", "status_code"),
-    ),
+    name="backend_request_duration_seconds",
+    documentation="Time spent processing requests",
+    labelnames=("method", "path", "status_code"),
 )
-REQUEST_COUNT = _register_metric(
 REQUEST_COUNT = _get_or_create_metric(
     Counter,
-    "backend_request_total",
-    lambda: Counter(
-        "backend_request_total",
-        "Total number of processed requests",
-        labelnames=("method", "path", "status_code"),
-    ),
+    name="backend_request_total",
+    documentation="Total number of processed requests",
+    labelnames=("method", "path", "status_code"),
 )
-DATABASE_HEALTH = _register_metric(
 DATABASE_HEALTH = _get_or_create_metric(
     Gauge,
-    "backend_database_up",
-    lambda: Gauge(
-        "backend_database_up",
-        "Database connectivity status (1=up, 0=down)",
-    ),
+    name="backend_database_up",
+    documentation="Database connectivity status (1=up, 0=down)",
 )
-CACHE_HEALTH = _register_metric(
 CACHE_HEALTH = _get_or_create_metric(
     Gauge,
-    "backend_cache_up",
-    lambda: Gauge(
-        "backend_cache_up",
-        "Cache connectivity status (1=up, 0=down)",
-    ),
+    name="backend_cache_up",
+    documentation="Cache connectivity status (1=up, 0=down)",
 )
 
 
@@ -449,17 +395,38 @@ class ChatResponse(BaseModel):
     content: str
 
 
-@app.get("/")
+@app.get(
+    "/",
+    tags=["Monitoring"],
+    summary="Lightweight heartbeat endpoint",
+    response_model=Dict[str, str],
+    description="""Simple probe that confirms the API process is running.""",
+)
 async def root() -> Dict[str, str]:
+    """Return a minimal payload to indicate service availability."""
+
     return {"status": "ok"}
 
 
-@app.get("/health", include_in_schema=False)
+@app.get(
+    "/health",
+    include_in_schema=False,
+    tags=["Monitoring"],
+    summary="Legacy health endpoint",
+)
 async def health() -> Dict[str, Any]:
+    """Backward compatible alias for :func:`healthz`."""
+
     return await healthz()
 
 
-@app.get("/healthz")
+@app.get(
+    "/healthz",
+    tags=["Monitoring"],
+    summary="Comprehensive service diagnostics",
+    response_model=Dict[str, Any],
+    description="""Report missing environment variables and insecure defaults.""",
+)
 async def healthz() -> Dict[str, Any]:
     """Return missing or insecure configuration details."""
 
@@ -467,7 +434,13 @@ async def healthz() -> Dict[str, Any]:
     return {"status": "ok", "missing": analysis["missing"], "insecure": analysis["insecure"]}
 
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post(
+    "/chat",
+    response_model=ChatResponse,
+    tags=["Chat"],
+    summary="Send a prompt to the demo assistant",
+    description="""Echo the received message to validate the chat pipeline.""",
+)
 async def chat(payload: ChatRequest) -> ChatResponse:
     """Return a canned assistant response for demo purposes."""
 
@@ -476,7 +449,13 @@ async def chat(payload: ChatRequest) -> ChatResponse:
     return ChatResponse(content=reply)
 
 
-@app.get("/config/webrtc", response_class=JSONResponse)
+@app.get(
+    "/config/webrtc",
+    response_class=JSONResponse,
+    tags=["WebRTC"],
+    summary="Retrieve public WebRTC configuration",
+    description="""Expose ICE server configuration consumed by the front-end.""",
+)
 async def get_webrtc_public_config(settings: Settings = Depends(get_settings)) -> JSONResponse:
     """Expose ICE server configuration (alias for compatibility)."""
 
@@ -519,7 +498,12 @@ def _refresh_dependency_metrics() -> None:
     CACHE_HEALTH.set(cache_status)
 
 
-@app.get("/metrics")
+@app.get(
+    "/metrics",
+    tags=["Monitoring"],
+    summary="Prometheus scrape target",
+    description="""Expose service metrics in the Prometheus text format.""",
+)
 async def metrics() -> Response:
     _refresh_dependency_metrics()
     payload = generate_latest()
