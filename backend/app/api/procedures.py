@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 from ..auth import User, require_role
 from ..database import get_db
 from ..models import Procedure, ProcedureStep
-from ..services.procedure_definitions import ProcedureService
+from ..services.procedures import ProcedureService
+from ..services.procedures.cache import cached_procedure_list, invalidate_procedure_list
 from .schemas.procedures import (
     ProcedureChecklistItem,
     ProcedureCreateRequest,
@@ -78,7 +79,11 @@ def _to_step_response(step: ProcedureStep) -> ProcedureStepResponse:
 async def list_procedures(service: ProcedureService = Depends(_service)) -> List[ProcedureResponse]:
     """Return all available procedure definitions."""
 
-    return [_to_response(item) for item in service.list_procedures()]
+    def _fetch_procedures() -> List[dict]:
+        return [_to_response(item).model_dump(mode="json") for item in service.list_procedures()]
+
+    cached = cached_procedure_list(_fetch_procedures)
+    return [ProcedureResponse.model_validate(item) for item in cached]
 
 
 @router.get("/{procedure_id}", response_model=ProcedureResponse)
@@ -107,6 +112,7 @@ async def create_procedure(
         payload.model_dump(exclude_none=True),
         actor=_actor_from_user(current_user),
     )
+    invalidate_procedure_list()
     if not created:
         response.status_code = status.HTTP_200_OK
     return _to_response(procedure)
