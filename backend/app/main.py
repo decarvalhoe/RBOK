@@ -356,17 +356,6 @@ if "CACHE_HEALTH" not in globals():
     )
 
 
-def _register_metric(name: str, factory: Callable[[], Any]):
-    try:
-        return factory()
-    except ValueError:
-        existing = REGISTRY._names_to_collectors.get(name)
-        if existing is None:  # pragma: no cover - defensive path
-            raise
-        return existing
-
-
-REQUEST_DURATION = _register_metric(
 def _get_or_create_metric(factory, *args, **kwargs):
     name = args[0] if args else kwargs.get("name")
     try:
@@ -381,40 +370,25 @@ def _get_or_create_metric(factory, *args, **kwargs):
 
 REQUEST_DURATION = _get_or_create_metric(
     Histogram,
-    "backend_request_duration_seconds",
-    lambda: Histogram(
-        "backend_request_duration_seconds",
-        "Time spent processing requests",
-        labelnames=("method", "path", "status_code"),
-    ),
+    name="backend_request_duration_seconds",
+    documentation="Time spent processing requests",
+    labelnames=("method", "path", "status_code"),
 )
-REQUEST_COUNT = _register_metric(
 REQUEST_COUNT = _get_or_create_metric(
     Counter,
-    "backend_request_total",
-    lambda: Counter(
-        "backend_request_total",
-        "Total number of processed requests",
-        labelnames=("method", "path", "status_code"),
-    ),
+    name="backend_request_total",
+    documentation="Total number of processed requests",
+    labelnames=("method", "path", "status_code"),
 )
-DATABASE_HEALTH = _register_metric(
 DATABASE_HEALTH = _get_or_create_metric(
     Gauge,
-    "backend_database_up",
-    lambda: Gauge(
-        "backend_database_up",
-        "Database connectivity status (1=up, 0=down)",
-    ),
+    name="backend_database_up",
+    documentation="Database connectivity status (1=up, 0=down)",
 )
-CACHE_HEALTH = _register_metric(
 CACHE_HEALTH = _get_or_create_metric(
     Gauge,
-    "backend_cache_up",
-    lambda: Gauge(
-        "backend_cache_up",
-        "Cache connectivity status (1=up, 0=down)",
-    ),
+    name="backend_cache_up",
+    documentation="Cache connectivity status (1=up, 0=down)",
 )
 
 
