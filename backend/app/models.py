@@ -9,6 +9,9 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    String,
+    Text,
+    JSON,
     JSON,
     String,
     Text,
@@ -67,6 +70,10 @@ class ProcedureStep(Base):
     )
 
 
+class ProcedureStepChecklistItem(Base):
+    __tablename__ = "procedure_step_checklist_items"
+    __table_args__ = (
+        UniqueConstraint("step_id", "key", name="uq_step_checklist_key"),
 class ProcedureSlot(Base):
     """Definition of a dynamic input required to complete a procedure step."""
 
@@ -127,6 +134,14 @@ class ProcedureStepChecklistItem(Base):
     step_id: Mapped[str] = mapped_column(
         String, ForeignKey("procedure_steps.id", ondelete="CASCADE"), nullable=False
     )
+    key: Mapped[str] = mapped_column(String(255), nullable=False)
+    label: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    position: Mapped[int] = mapped_column(default=0, nullable=False)
+
+    step: Mapped[ProcedureStep] = relationship("ProcedureStep", back_populates="checklist_items")
+    run_statuses: Mapped[List["ProcedureRunChecklistStatus"]] = relationship(
+        "ProcedureRunChecklistStatus",
     key: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
@@ -177,6 +192,17 @@ class ProcedureRun(Base):
     closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     procedure: Mapped[Procedure] = relationship("Procedure")
+    step_states: Mapped[List["ProcedureRunStepState"]] = relationship(
+        "ProcedureRunStepState",
+        back_populates="run",
+        cascade="all, delete-orphan",
+        order_by="ProcedureRunStepState.committed_at",
+    )
+    checklist_statuses: Mapped[List["ProcedureRunChecklistStatus"]] = relationship(
+        "ProcedureRunChecklistStatus",
+        back_populates="run",
+        cascade="all, delete-orphan",
+    )
     slot_values: Mapped[List["ProcedureRunSlotValue"]] = relationship(
         "ProcedureRunSlotValue",
         back_populates="run",
@@ -269,7 +295,30 @@ class ProcedureRunStepState(Base):
     payload: Mapped[Dict[str, object]] = mapped_column(JSON, nullable=False, default=dict)
     committed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
-    run: Mapped[ProcedureRun] = relationship("ProcedureRun")
+    run: Mapped[ProcedureRun] = relationship("ProcedureRun", back_populates="step_states")
+
+
+class ProcedureRunChecklistStatus(Base):
+    __tablename__ = "procedure_run_checklist_statuses"
+    __table_args__ = (
+        UniqueConstraint("run_id", "checklist_item_id", name="uq_run_checklist_item"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
+    run_id: Mapped[str] = mapped_column(
+        String, ForeignKey("procedure_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    checklist_item_id: Mapped[str] = mapped_column(
+        String, ForeignKey("procedure_step_checklist_items.id", ondelete="CASCADE"), nullable=False
+    )
+    completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    run: Mapped[ProcedureRun] = relationship("ProcedureRun", back_populates="checklist_statuses")
+    checklist_item: Mapped[ProcedureStepChecklistItem] = relationship(
+        "ProcedureStepChecklistItem",
+        back_populates="run_statuses",
+    )
 
 
 class AuditEvent(Base):
