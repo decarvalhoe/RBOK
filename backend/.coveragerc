@@ -1,0 +1,14 @@
+[run]
+omit =
+    */app/services/procedures.py
+    */app/services/procedures/cache.py
+    */app/services/procedures/runs.py
+    */app/services/procedures/service.py
+    */app/services/procedures/run.py
+    */app/services/audit.py
+    */app/services/webrtc.py
+    */app/services/__init__.py
+
+[report]
+include =
+    backend/app/services/*.py

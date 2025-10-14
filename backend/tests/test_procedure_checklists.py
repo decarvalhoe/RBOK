@@ -80,11 +80,13 @@ def test_commit_step_validates_and_updates_checklist(
     assert response.status_code == 200
     body = response.json()
     assert body["state"] == "completed"
-    checklist = {item["checklist_item_id"]: item for item in body["checklist_statuses"]}
+    checklist = {item["id"]: item for item in body["checklist_statuses"]}
     assert all(entry["completed"] for entry in checklist.values())
+    assert body["checklist_progress"] == {"total": 2, "completed": 2, "percentage": 100.0}
 
     run_response = client.get(f"/runs/{run.id}")
     assert run_response.status_code == 200
     run_payload = run_response.json()
     assert run_payload["state"] == "completed"
     assert all(item["completed"] for item in run_payload["checklist_statuses"])
+    assert run_payload["checklist_progress"]["percentage"] == 100.0

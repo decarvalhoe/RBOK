@@ -11,9 +11,11 @@ from .exceptions import (
 )
 from .fsm import ProcedureFSM
 from .validators import ChecklistValidator, SlotValidator
+from ..procedure_definitions import ProcedureService
 
 __all__ = [
     "ProcedureFSM",
+    "ProcedureService",
     "ChecklistValidationError",
     "InvalidTransitionError",
     "SlotValidationError",
