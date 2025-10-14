@@ -25,6 +25,19 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
+from opentelemetry import trace
+from opentelemetry._logs import set_logger_provider
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk._logs import LoggingHandler, LoggerProvider
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+from .api.procedures import router as procedures_router
+from .api.runs import router as runs_router
 from .api.webrtc import router as webrtc_router
 from .cache import get_redis_client
 from .config import Settings, get_settings
@@ -154,7 +167,18 @@ def configure_tracing(app: FastAPI) -> None:
     if _tracing_configured:
         return
 
-    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318")
+    current_provider = trace.get_tracer_provider()
+    if isinstance(current_provider, TracerProvider) and getattr(
+        current_provider, "_rbok_service", None
+    ) == "rbok-backend":
+        _tracing_configured = True
+        return
+
+    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    if not endpoint:
+        _tracing_configured = True
+        return
+
     exporter = OTLPSpanExporter(
         endpoint=f"{endpoint.rstrip('/')}/v1/traces",
         headers=_parse_otlp_headers(os.getenv("OTEL_EXPORTER_OTLP_HEADERS")) or None,
@@ -162,6 +186,7 @@ def configure_tracing(app: FastAPI) -> None:
     provider = TracerProvider(
         resource=Resource.create({"service.name": "rbok-backend"}),
     )
+    setattr(provider, "_rbok_service", "rbok-backend")
     provider.add_span_processor(BatchSpanProcessor(exporter))
     trace.set_tracer_provider(provider)
     FastAPIInstrumentor().instrument_app(app, tracer_provider=provider)
@@ -258,26 +283,32 @@ app.add_middleware(
 )
 app.add_middleware(CorrelationIdMiddleware)
 app.include_router(webrtc_router)
+app.include_router(procedures_router)
+app.include_router(runs_router)
 
 
-REQUEST_DURATION = Histogram(
-    "backend_request_duration_seconds",
-    "Time spent processing requests",
-    labelnames=("method", "path", "status_code"),
-)
-REQUEST_COUNT = Counter(
-    "backend_request_total",
-    "Total number of processed requests",
-    labelnames=("method", "path", "status_code"),
-)
-DATABASE_HEALTH = Gauge(
-    "backend_database_up",
-    "Database connectivity status (1=up, 0=down)",
-)
-CACHE_HEALTH = Gauge(
-    "backend_cache_up",
-    "Cache connectivity status (1=up, 0=down)",
-)
+if "REQUEST_DURATION" not in globals():
+    REQUEST_DURATION = Histogram(
+        "backend_request_duration_seconds",
+        "Time spent processing requests",
+        labelnames=("method", "path", "status_code"),
+    )
+if "REQUEST_COUNT" not in globals():
+    REQUEST_COUNT = Counter(
+        "backend_request_total",
+        "Total number of processed requests",
+        labelnames=("method", "path", "status_code"),
+    )
+if "DATABASE_HEALTH" not in globals():
+    DATABASE_HEALTH = Gauge(
+        "backend_database_up",
+        "Database connectivity status (1=up, 0=down)",
+    )
+if "CACHE_HEALTH" not in globals():
+    CACHE_HEALTH = Gauge(
+        "backend_cache_up",
+        "Cache connectivity status (1=up, 0=down)",
+    )
 
 
 @app.middleware("http")
