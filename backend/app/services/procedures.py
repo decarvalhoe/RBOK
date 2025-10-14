@@ -1,4 +1,4 @@
-"""Domain services for managing procedure definitions."""
+"""Domain services to manage procedure definitions."""
 from __future__ import annotations
 
 from copy import deepcopy
@@ -18,15 +18,22 @@ class ProcedureService:
     def __init__(self, db: Session):
         self._db = db
 
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # Query helpers
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     def list_procedures(self) -> List[models.Procedure]:
         """Return all procedures ordered by their configured position."""
 
         return (
             self._db.query(models.Procedure)
-            .options(selectinload(models.Procedure.steps))
+            .options(
+                selectinload(models.Procedure.steps).selectinload(
+                    models.ProcedureStep.slots
+                ),
+                selectinload(models.Procedure.steps).selectinload(
+                    models.ProcedureStep.checklist_items
+                ),
+            )
             .order_by(models.Procedure.name.asc())
             .all()
         )
@@ -36,14 +43,21 @@ class ProcedureService:
 
         return (
             self._db.query(models.Procedure)
-            .options(selectinload(models.Procedure.steps))
+            .options(
+                selectinload(models.Procedure.steps).selectinload(
+                    models.ProcedureStep.slots
+                ),
+                selectinload(models.Procedure.steps).selectinload(
+                    models.ProcedureStep.checklist_items
+                ),
+            )
             .filter(models.Procedure.id == procedure_id)
             .one_or_none()
         )
 
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # Mutation helpers
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     def save_procedure(
         self,
         data: ProcedurePayload,
@@ -73,8 +87,7 @@ class ProcedureService:
                 description=data.get("description") or "",
                 metadata_payload=metadata,
             )
-            for index, step_payload in enumerate(steps_payload):
-                procedure.steps.append(_build_step(step_payload, index))
+            self._apply_steps(procedure, steps_payload)
 
             self._db.add(procedure)
             self._db.commit()
@@ -93,9 +106,7 @@ class ProcedureService:
         procedure.description = data.get("description") or ""
         procedure.metadata_payload = metadata
 
-        procedure.steps.clear()
-        for index, step_payload in enumerate(steps_payload):
-            procedure.steps.append(_build_step(step_payload, index))
+        self._apply_steps(procedure, steps_payload)
 
         self._db.commit()
         self._db.refresh(procedure)
@@ -121,19 +132,17 @@ class ProcedureService:
             "description": procedure.description,
             "metadata": deepcopy(procedure.metadata_payload or {}),
             "steps": [
-                {
-                    "id": step.id,
-                    "key": step.key,
-                    "title": step.title,
-                    "prompt": step.prompt,
-                    "position": step.position,
-                    "metadata": deepcopy(step.metadata_payload or {}),
-                    "slots": deepcopy(_extract_slots(step.slots)),
-                    "checklists": deepcopy(list(step.checklists or [])),
-                }
+                _serialise_step(step)
                 for step in sorted(procedure.steps, key=lambda item: item.position)
             ],
         }
+
+    def _apply_steps(
+        self, procedure: models.Procedure, steps_payload: Iterable[Dict[str, Any]]
+    ) -> None:
+        procedure.steps.clear()
+        for index, step_payload in enumerate(steps_payload):
+            procedure.steps.append(_build_step(step_payload, index))
 
 
 # -------------------------------------------------------------------------
@@ -160,14 +169,6 @@ def _ensure_list_of_dicts(value: Optional[Iterable[Any]]) -> List[Dict[str, Any]
     return result
 
 
-def _extract_slots(raw: Any) -> List[Dict[str, Any]]:
-    if isinstance(raw, list):
-        return _ensure_list_of_dicts(raw)
-    if isinstance(raw, dict):
-        return _ensure_list_of_dicts(raw.get("slots"))
-    return []
-
-
 def _build_step(payload: Dict[str, Any], default_position: int) -> models.ProcedureStep:
     slots = _ensure_list_of_dicts(payload.get("slots"))
     checklists = _ensure_list_of_dicts(payload.get("checklists"))
@@ -177,15 +178,90 @@ def _build_step(payload: Dict[str, Any], default_position: int) -> models.Proced
     if not isinstance(position, int):
         position = default_position
 
-    return models.ProcedureStep(
+    step = models.ProcedureStep(
         key=payload["key"],
         title=payload["title"],
         prompt=payload.get("prompt") or "",
-        slots=slots,
         metadata_payload=metadata,
-        checklists=checklists,
         position=position,
     )
+
+    for slot_index, slot_payload in enumerate(slots):
+        step.slots.append(_build_slot(slot_payload, slot_index))
+
+    for checklist_index, checklist_payload in enumerate(checklists):
+        step.checklist_items.append(
+            _build_checklist_item(checklist_payload, checklist_index)
+        )
+
+    return step
+
+
+def _build_slot(payload: Dict[str, Any], default_position: int) -> models.ProcedureSlot:
+    configuration = _ensure_dict(payload.get("metadata"))
+
+    position = payload.get("position")
+    if not isinstance(position, int):
+        position = default_position
+
+    return models.ProcedureSlot(
+        name=payload["name"],
+        label=payload.get("label"),
+        slot_type=payload.get("type", "string"),
+        required=payload.get("required", True),
+        position=position,
+        configuration=configuration,
+    )
+
+
+def _build_checklist_item(
+    payload: Dict[str, Any], default_position: int
+) -> models.ProcedureStepChecklistItem:
+    position = payload.get("position")
+    if not isinstance(position, int):
+        position = default_position
+
+    return models.ProcedureStepChecklistItem(
+        key=payload["key"],
+        label=payload.get("label", payload["key"]),
+        description=payload.get("description"),
+        required=payload.get("required", False),
+        position=position,
+    )
+
+
+def _serialise_step(step: models.ProcedureStep) -> Dict[str, Any]:
+    return {
+        "id": step.id,
+        "key": step.key,
+        "title": step.title,
+        "prompt": step.prompt,
+        "position": step.position,
+        "metadata": deepcopy(step.metadata_payload or {}),
+        "slots": [
+            {
+                "id": slot.id,
+                "name": slot.name,
+                "label": slot.label,
+                "type": slot.slot_type,
+                "required": slot.required,
+                "position": slot.position,
+                "metadata": deepcopy(slot.configuration or {}),
+            }
+            for slot in sorted(step.slots, key=lambda item: item.position)
+        ],
+        "checklists": [
+            {
+                "id": item.id,
+                "key": item.key,
+                "label": item.label,
+                "description": item.description,
+                "required": item.required,
+                "position": item.position,
+            }
+            for item in sorted(step.checklist_items, key=lambda entry: entry.position)
+        ],
+    }
 
 
 __all__ = ["ProcedureService"]

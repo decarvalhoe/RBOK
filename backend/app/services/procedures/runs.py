@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 from ...models import (
     Procedure,
     ProcedureRun,
-    ProcedureRunChecklistStatus,
+    ProcedureRunChecklistItemState,
     ProcedureRunStepState,
     ProcedureStep,
 )
@@ -62,8 +62,8 @@ class ProcedureRunService:
                 .selectinload(Procedure.steps)
                 .selectinload(ProcedureStep.checklist_items),
                 selectinload(ProcedureRun.step_states),
-                selectinload(ProcedureRun.checklist_statuses).selectinload(
-                    ProcedureRunChecklistStatus.checklist_item
+                selectinload(ProcedureRun.checklist_states).selectinload(
+                    ProcedureRunChecklistItemState.checklist_item
                 ),
             )
         )
@@ -121,16 +121,18 @@ class ProcedureRunService:
             raise InvalidChecklistItemError(sorted(invalid_ids))
         missing_item_ids: List[str] = []
         existing_statuses = {
-            status.checklist_item_id: status for status in run.checklist_statuses
+            status.checklist_item_id: status for status in run.checklist_states
         }
         for item in step.checklist_items:
             status = existing_statuses.get(item.id)
             if status is None:
-                status = ProcedureRunChecklistStatus(run_id=run.id, checklist_item_id=item.id)
+                status = ProcedureRunChecklistItemState(
+                    run_id=run.id, checklist_item_id=item.id
+                )
                 self._session.add(status)
-                run.checklist_statuses.append(status)
+                run.checklist_states.append(status)
             completed = item.id in completed_item_ids
-            status.completed = completed
+            status.is_completed = completed
             status.completed_at = datetime.utcnow() if completed else None
             if not completed:
                 missing_item_ids.append(item.id)
@@ -154,11 +156,11 @@ class ProcedureRunService:
         if step_keys - state_keys:
             return False
         statuses_by_item = {
-            status.checklist_item_id: status for status in run.checklist_statuses
+            status.checklist_item_id: status for status in run.checklist_states
         }
         for step in run.procedure.steps:
             for item in step.checklist_items:
                 status = statuses_by_item.get(item.id)
-                if status is None or not status.completed:
+                if status is None or not status.is_completed:
                     return False
         return True
