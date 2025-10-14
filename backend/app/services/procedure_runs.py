@@ -1,6 +1,7 @@
 """Business services orchestrating procedure run lifecycle."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Dict, Iterable, List, Optional
@@ -10,6 +11,8 @@ from sqlalchemy.orm import Session, selectinload
 
 from .. import models
 from . import audit
+from .procedures.exceptions import ChecklistValidationError as ProcedureChecklistValidationError
+from .procedures.validators import ChecklistValidator, SlotDefinition, validate_payload
 
 
 class ProcedureNotFoundError(RuntimeError):
@@ -216,13 +219,15 @@ class ProcedureRunService:
 
         self._ensure_previous_steps_committed(run, snapshot.step_states, step_key)
 
-        self._validate_slots(step, slots)
+        cleaned_slots = self._validate_slots(step, slots)
         raw_checklist = list(checklist)
-        self._validate_checklist(step, raw_checklist)
-        checklist_states = self._build_checklist_states(step, raw_checklist)
+        cleaned_checklist = self._validate_checklist(step, raw_checklist)
+        checklist_states = self._build_checklist_states(
+            step, raw_checklist, cleaned_checklist
+        )
 
         payload = {
-            "slots": self._serialise_slots(step, slots),
+            "slots": self._serialise_slots(step, cleaned_slots),
             "checklist": self._serialise_checklist(checklist_states),
         }
         step_state = models.ProcedureRunStepState(
@@ -232,7 +237,7 @@ class ProcedureRunService:
         )
         self._db.add(step_state)
 
-        self._persist_slot_values(run, step, slots)
+        self._persist_slot_values(run, step, cleaned_slots)
         self._persist_checklist_states(run, checklist_states)
 
         previous_state = run.state
@@ -382,86 +387,90 @@ class ProcedureRunService:
                     message=f"Step '{step.key}' must be committed before '{step_key}'",
                 )
 
-    def _validate_slots(self, step: models.ProcedureStep, slots: Dict[str, Any]) -> None:
-        issues: List[Dict[str, Any]] = []
-        definitions = {slot.name: slot for slot in step.slots}
+    def _slot_definition(self, slot: Any) -> SlotDefinition:
+        metadata: Dict[str, Any]
+        if isinstance(slot, Mapping):
+            name = str(slot.get("name") or slot.get("key") or "")
+            slot_type = str(slot.get("type") or slot.get("slot_type") or "string")
+            required = bool(slot.get("required", False))
+            metadata = dict(slot.get("metadata") or slot.get("configuration") or {})
+            options = slot.get("options")
+            mask = slot.get("mask") or metadata.get("mask")
+            validate = slot.get("validate") or metadata.get("validate")
+        else:
+            name = str(getattr(slot, "name", getattr(slot, "key", "")))
+            slot_type = str(getattr(slot, "slot_type", getattr(slot, "type", "string")))
+            required = bool(getattr(slot, "required", False))
+            metadata = dict(getattr(slot, "configuration", {}) or {})
+            options = metadata.get("options") or metadata.get("choices")
+            mask = metadata.get("mask")
+            validate = metadata.get("validate") or metadata.get("pattern")
 
-        for slot_name, definition in definitions.items():
-            if definition.required and slot_name not in slots:
-                issues.append({"slot": slot_name, "reason": "missing_required_value"})
+        definition: SlotDefinition = {
+            "name": name,
+            "type": slot_type,
+            "required": required,
+            "metadata": metadata,
+        }
+        if options is not None:
+            definition["options"] = options
+        if mask:
+            definition["mask"] = mask
+        if validate:
+            definition["validate"] = validate
+        return definition
 
-        for provided in slots.keys():
-            if provided not in definitions:
-                issues.append({"slot": provided, "reason": "unknown_slot"})
+    def _validate_slots(self, step: models.ProcedureStep, slots: Dict[str, Any]) -> Dict[str, Any]:
+        definitions = [self._slot_definition(slot) for slot in step.slots]
+        cleaned, errors = validate_payload(definitions, slots)
+        if errors:
+            raise SlotValidationError(errors)
+        return cleaned
 
-        for name, value in slots.items():
-            definition = definitions.get(name)
-            if definition is None:
-                continue
-            expected_type = definition.slot_type
-            if expected_type and expected_type in _SLOT_TYPE_MAPPING:
-                python_type = _SLOT_TYPE_MAPPING[expected_type]
-                if not isinstance(value, python_type):
-                    issues.append(
-                        {
-                            "slot": name,
-                            "reason": "invalid_type",
-                            "expected": expected_type,
-                        }
-                    )
-
-        if issues:
-            raise SlotValidationError(issues)
+    def _checklist_definitions(self, step: models.ProcedureStep) -> List[Dict[str, Any]]:
+        definitions: List[Dict[str, Any]] = []
+        for item in step.checklist_items:
+            metadata = {"label": item.label}
+            if item.description:
+                metadata["description"] = item.description
+            definitions.append(
+                {
+                    "name": item.key,
+                    "required": item.required,
+                    "metadata": metadata,
+                }
+            )
+        return definitions
 
     def _validate_checklist(
         self, step: models.ProcedureStep, checklist: List[Dict[str, Any]]
-    ) -> None:
-        issues: List[Dict[str, Any]] = []
-        definitions = {item.key: item for item in step.checklist_items}
-        seen_keys: set[str] = set()
-
-        for index, item in enumerate(checklist):
-            if not isinstance(item, dict):
-                issues.append({"index": index, "reason": "invalid_item"})
-                continue
-
-            key = item.get("key")
-            if not key or not isinstance(key, str):
-                issues.append({"index": index, "reason": "missing_key"})
-                continue
-
-            if key in seen_keys:
-                issues.append({"index": index, "reason": "duplicate_key", "key": key})
-            seen_keys.add(key)
-
-            definition = definitions.get(key)
-            if definition is None:
-                issues.append({"index": index, "reason": "unknown_checklist_item", "key": key})
-                continue
-
-            completed = item.get("completed")
-            if not isinstance(completed, bool):
-                issues.append({"index": index, "reason": "invalid_completed_flag", "key": key})
-                continue
-
-            if definition.required and not completed:
-                issues.append({"index": index, "reason": "required_not_completed", "key": key})
-
-        for required_key, definition in definitions.items():
-            if definition.required and required_key not in seen_keys:
-                issues.append({"reason": "missing_required_item", "key": required_key})
-
-        if issues:
+    ) -> Dict[str, bool]:
+        validator = ChecklistValidator(self._checklist_definitions(step))
+        try:
+            return validator.validate(checklist)
+        except ProcedureChecklistValidationError as exc:
+            issues = getattr(exc, "issues", None)
+            if not issues:
+                issues = [
+                    {"field": "checklist", "code": "validation.invalid", "params": {"message": str(exc)}}
+                ]
             raise ChecklistValidationError(issues)
 
     def _build_checklist_states(
-        self, step: models.ProcedureStep, checklist: List[Dict[str, Any]]
+        self,
+        step: models.ProcedureStep,
+        checklist: List[Dict[str, Any]],
+        cleaned: Mapping[str, bool],
     ) -> List[Dict[str, Any]]:
-        submissions = {item["key"]: item for item in checklist if "key" in item}
+        submissions = {
+            item["key"]: item
+            for item in checklist
+            if isinstance(item, Mapping) and "key" in item
+        }
         states: List[Dict[str, Any]] = []
         for item in step.checklist_items:
             submitted = submissions.get(item.key, {})
-            completed = bool(submitted.get("completed", False))
+            completed = bool(cleaned.get(item.key, False))
             completed_at = self._normalise_completed_at(submitted.get("completed_at"))
             if not completed:
                 completed_at = None

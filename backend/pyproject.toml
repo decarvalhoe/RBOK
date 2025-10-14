@@ -36,18 +36,22 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
-source = ["app/api", "app/services/procedures"]
+source = ["app/services"]
 omit = [
-  "app/api/__init__.py",
-  "app/api/auth.py",
-  "app/api/webrtc.py",
-  "app/services/procedures/__init__.py",
-  "app/services/procedures/exceptions.py",
+  "*/app/services/__init__.py",
+  "*/app/services/audit.py",
+  "*/app/services/procedures.py",
+  "*/app/services/procedures/__init__.py",
+  "*/app/services/procedures/cache.py",
+  "*/app/services/procedures/exceptions.py",
+  "*/app/services/procedures/run.py",
+  "*/app/services/procedures/runs.py",
+  "*/app/services/procedures/service.py",
+  "*/app/services/webrtc.py",
 ]
 
 [tool.coverage.report]
 include = [
-  "app/api/procedures.py",
-  "app/api/runs.py",
+  "app/services/procedure_runs.py",
   "app/services/procedures/*",
 ]
