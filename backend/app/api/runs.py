@@ -62,13 +62,23 @@ class ProcedureRunCommitStepRequest(BaseModel):
     )
 
 
-class RunChecklistItemState(BaseModel):
-    key: str
+class ChecklistStatusModel(BaseModel):
+    """Public representation of a checklist item status."""
+
+    id: str
     label: Optional[str] = None
     completed: bool
-    completed_at: Optional[datetime] = None
+    completed_le: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ChecklistProgressModel(BaseModel):
+    """Aggregated progression metrics for checklist completion."""
+
+    total: int
+    completed: int
+    percentage: float
 
 
 class RunStepStateModel(BaseModel):
@@ -89,7 +99,8 @@ class ProcedureRunModel(BaseModel):
     created_at: datetime
     closed_at: Optional[datetime]
     step_states: List[RunStepStateModel]
-    checklist_states: List[RunChecklistItemState]
+    checklist_statuses: List[ChecklistStatusModel]
+    checklist_progress: ChecklistProgressModel
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -104,18 +115,26 @@ def _serialize_run(snapshot: RunSnapshot) -> ProcedureRunModel:
         )
         for state in sorted(snapshot.step_states.values(), key=lambda item: item.committed_at)
     ]
-    checklist_states = [
-        RunChecklistItemState(
-            key=status.checklist_item.key,
+    checklist_statuses = [
+        ChecklistStatusModel(
+            id=status.checklist_item_id,
             label=status.checklist_item.label,
             completed=status.is_completed,
-            completed_at=status.completed_at,
+            completed_le=status.completed_at,
         )
         for status in sorted(
             run.checklist_states,
             key=lambda entry: (entry.checklist_item.position, entry.checklist_item.key),
         )
     ]
+    total_items = len(checklist_statuses)
+    completed_items = sum(1 for status in checklist_statuses if status.completed)
+    percentage = (completed_items / total_items * 100.0) if total_items else 0.0
+    checklist_progress = ChecklistProgressModel(
+        total=total_items,
+        completed=completed_items,
+        percentage=percentage,
+    )
     return ProcedureRunModel(
         id=run.id,
         procedure_id=run.procedure_id,
@@ -124,7 +143,8 @@ def _serialize_run(snapshot: RunSnapshot) -> ProcedureRunModel:
         created_at=run.created_at,
         closed_at=run.closed_at,
         step_states=step_states,
-        checklist_states=checklist_states,
+        checklist_statuses=checklist_statuses,
+        checklist_progress=checklist_progress,
     )
 
 
