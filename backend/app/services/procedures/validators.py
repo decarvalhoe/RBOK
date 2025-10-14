@@ -12,6 +12,11 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _PHONE_RE = re.compile(r"^[+\d][\d\s().-]{3,}$")
 
 
+def _build_mask_regex(mask: str) -> re.Pattern[str]:
+    pattern = "^" + "".join(r"\d" if char == "X" else re.escape(char) for char in mask) + "$"
+    return re.compile(pattern)
+
+
 class SlotDefinition(TypedDict, total=False):
     """Legacy slot definition structure used by :mod:`app.services.procedures.run`."""
 
@@ -84,10 +89,17 @@ class SlotValidator:
         raw_value: Any,
         definition: Mapping[str, Any],
     ) -> Any:
+        mask = (definition.get("metadata") or {}).get("mask")
+
         if slot_type == "string":
             if not isinstance(raw_value, str):
                 raise SlotValidationError(f"Slot '{name}' must be a string")
-            return raw_value.strip()
+            value = raw_value.strip()
+            if mask and not _build_mask_regex(str(mask)).fullmatch(value):
+                raise SlotValidationError(
+                    f"Slot '{name}' must follow mask '{mask}'"
+                )
+            return value
 
         if slot_type == "number":
             try:
@@ -109,12 +121,22 @@ class SlotValidator:
         if slot_type == "email":
             if not isinstance(raw_value, str) or not _EMAIL_RE.match(raw_value):
                 raise SlotValidationError(f"Slot '{name}' must be a valid email address")
-            return raw_value
+            value = raw_value
+            if mask and not _build_mask_regex(str(mask)).fullmatch(value):
+                raise SlotValidationError(
+                    f"Slot '{name}' must follow mask '{mask}'"
+                )
+            return value
 
         if slot_type == "phone":
             if not isinstance(raw_value, str) or not _PHONE_RE.match(raw_value):
                 raise SlotValidationError(f"Slot '{name}' must be a valid phone number")
-            return raw_value
+            value = raw_value
+            if mask and not _build_mask_regex(str(mask)).fullmatch(value):
+                raise SlotValidationError(
+                    f"Slot '{name}' must follow mask '{mask}'"
+                )
+            return value
 
         if slot_type == "date":
             if isinstance(raw_value, date):
@@ -190,6 +212,9 @@ def validate_payload(
         options = definition.get("options")
         if options is not None:
             metadata["options"] = list(options)
+        mask = definition.get("mask")
+        if mask is not None:
+            metadata["mask"] = mask
         normalised.append(
             {
                 "name": definition["name"],

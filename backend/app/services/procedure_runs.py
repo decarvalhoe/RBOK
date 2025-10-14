@@ -1,6 +1,7 @@
 """Business services orchestrating procedure run lifecycle."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
@@ -68,6 +69,18 @@ _SLOT_TYPE_MAPPING: Dict[str, Any] = {
     "array": list,
     "object": dict,
 }
+
+
+def _mask_to_regex(mask: str) -> str:
+    """Convert a simple ``X`` mask into a regular expression pattern."""
+
+    escaped: List[str] = []
+    for character in mask:
+        if character == "X":
+            escaped.append(r"\d")
+        else:
+            escaped.append(re.escape(character))
+    return "^" + "".join(escaped) + "$"
 
 
 class ProcedureRunService:
@@ -292,6 +305,27 @@ class ProcedureRunService:
                             "expected": expected_type,
                         }
                     )
+                    continue
+
+            mask = (definition.configuration or {}).get("mask")
+            if mask and isinstance(value, str):
+                pattern = _mask_to_regex(mask)
+                if re.fullmatch(pattern, value) is None:
+                    issues.append(
+                        {
+                            "slot": name,
+                            "reason": "mask_mismatch",
+                            "mask": mask,
+                        }
+                    )
+            elif mask and not isinstance(value, str):
+                issues.append(
+                    {
+                        "slot": name,
+                        "reason": "mask_mismatch",
+                        "mask": mask,
+                    }
+                )
 
         if issues:
             raise SlotValidationError(issues)
