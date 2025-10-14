@@ -19,6 +19,7 @@ from ..services.procedure_runs import (
     RunSnapshot,
     SlotValidationError,
 )
+from ..services.procedures.cache import cached_run_detail, invalidate_run_cache
 
 router = APIRouter(prefix="/runs", tags=["procedure runs"])
 
@@ -161,14 +162,17 @@ async def get_run(
     """Return the state of a specific procedure run."""
 
     try:
-        snapshot = service.get_snapshot(run_id)
+        payload = cached_run_detail(
+            run_id,
+            lambda: _serialize_run(service.get_snapshot(run_id)).model_dump(mode="json"),
+        )
     except ProcedureRunNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"message": str(exc), "run_id": exc.run_id},
         ) from exc
 
-    return _serialize_run(snapshot)
+    return ProcedureRunModel.model_validate(payload)
 
 
 @router.post("/{run_id}/commit-step", response_model=ProcedureRunModel)
@@ -209,5 +213,6 @@ async def commit_step(
             detail={"message": str(exc), "issues": exc.issues},
         ) from exc
 
+    invalidate_run_cache(run_id)
     return _serialize_run(snapshot)
 
