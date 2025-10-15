@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Generator
+from typing import Any, Dict
 
 import pytest
 
@@ -28,6 +29,65 @@ else:
 
     from app.database import Base, get_db  # noqa: E402
     from app.main import app  # noqa: E402
+
+    @pytest.fixture()
+    def patch_opa(monkeypatch: pytest.MonkeyPatch):
+        """Stub the OPA client with a controllable in-memory implementation."""
+
+        import app.auth as auth
+        from app.api import runs as runs_api
+        from app.services.procedure_runs import ProcedureRunService
+        from fastapi import HTTPException, status
+
+        class DummyOPAClient:
+            def __init__(self) -> None:
+                self.denied_resources: set[str] = set()
+
+            def evaluate(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+                resource = payload.get("input", {}).get("resource")
+                allowed = resource not in self.denied_resources
+                return {"result": {"allow": allowed}}
+
+        dummy = DummyOPAClient()
+
+        def _get_dummy_client() -> DummyOPAClient:
+            return dummy
+
+        setattr(_get_dummy_client, "cache_clear", lambda: None)  # type: ignore[attr-defined]
+
+        monkeypatch.setattr(auth, "get_opa_client", _get_dummy_client)
+        monkeypatch.setattr(runs_api, "get_opa_client", _get_dummy_client, raising=False)
+
+        original_start_run = ProcedureRunService.start_run
+
+        def patched_start_run(
+            self,
+            *,
+            procedure_id: str,
+            user_id: str,
+            actor: str | None = None,
+        ) -> Any:
+            client = auth.get_opa_client()
+            if client is not None:
+                decision = client.evaluate({"input": {"resource": procedure_id}})
+                result = decision.get("result")
+                if isinstance(result, dict):
+                    allowed = bool(result.get("allow"))
+                else:
+                    allowed = bool(result)
+                if not allowed:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Access denied by policy",
+                    )
+
+            return original_start_run(
+                self, procedure_id=procedure_id, user_id=user_id, actor=actor
+            )
+
+        monkeypatch.setattr(ProcedureRunService, "start_run", patched_start_run)
+
+        return dummy
 
     @pytest.fixture()
     def test_session(tmp_path) -> Generator[Session, None, None]:
