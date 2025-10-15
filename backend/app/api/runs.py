@@ -69,13 +69,20 @@ class ProcedureRunCommitStepRequest(ProcedureRunStepCommitPayload):
 
 class RunChecklistItemState(BaseModel):
     key: str
+    label: Optional[str] = None
+    completed: bool
+    completed_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ChecklistStatusModel(BaseModel):
     """Public representation of a checklist item status."""
 
     id: str
     label: Optional[str] = None
     completed: bool
-    completed_le: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -139,7 +146,7 @@ def _serialize_run(snapshot: RunSnapshot) -> ProcedureRunModel:
             id=status.checklist_item_id,
             label=status.checklist_item.label,
             completed=status.is_completed,
-            completed_le=status.completed_at,
+            completed_at=status.completed_at,
         )
         for status in sorted(
             run.checklist_states,

@@ -151,7 +151,7 @@ def test_run_lifecycle_success(client, admin_user: User, standard_user: User) ->
     assert payload["checklist_progress"]["percentage"] >= 0.0
     if payload["checklist_statuses"]:
         first_status = payload["checklist_statuses"][0]
-        assert {"id", "label", "completed", "completed_le"} <= set(first_status.keys())
+        assert {"id", "label", "completed", "completed_at"} <= set(first_status.keys())
 
 
 def test_commit_step_missing_slot_returns_422(
