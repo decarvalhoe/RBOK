@@ -32,11 +32,18 @@ def override_auth_dependencies(admin_user: User) -> None:
     app.dependency_overrides.pop(get_current_user_optional, None)
 
 
-def _build_identity_procedure_payload() -> Dict[str, Any]:
-    return {
-        "id": "demo-procedure",
-        "name": "Identity verification",
-        "description": "Two-step KYC flow",
+def _build_procedure_payload(
+    *,
+    procedure_id: str = "demo-procedure",
+    name: str = "Identity verification",
+    description: str = "Two-step KYC flow",
+    actor: str | None = None,
+    steps: list[Dict[str, Any]] | None = None,
+) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "id": procedure_id,
+        "name": name,
+        "description": description,
         "steps": [
             {
                 "key": "collect_email",
@@ -71,9 +78,17 @@ def _build_identity_procedure_payload() -> Dict[str, Any]:
         ],
     }
 
+    if actor is not None:
+        payload["actor"] = actor
+
+    if steps is not None:
+        payload["steps"] = steps
+
+    return payload
+
 
 def test_create_and_list_procedures(client: TestClient) -> None:
-    payload = _build_identity_procedure_payload()
+    payload = _build_procedure_payload()
 
     response = client.post("/procedures", json=payload)
     assert response.status_code == 201, response.text
@@ -162,13 +177,14 @@ def test_get_unknown_procedure_returns_404(client) -> None:
     response = client.get("/procedures/unknown")
     assert response.status_code == 404
     assert response.json()["detail"] == "Procedure not found"
+
+
 def _build_audit_procedure_payload() -> Dict[str, Any]:
-    return {
-        'actor': 'demo-admin',
-        'id': 'demo-procedure',
-        'name': 'Demo procedure',
-        'description': 'A complete lifecycle for testing',
-        'steps': [
+    return _build_procedure_payload(
+        actor='demo-admin',
+        name='Demo procedure',
+        description='A complete lifecycle for testing',
+        steps=[
             {
                 'key': 'introduction',
                 'title': 'Introduction',
@@ -184,7 +200,7 @@ def _build_audit_procedure_payload() -> Dict[str, Any]:
                 'checklists': [],
             },
         ],
-    }
+    )
 
 
 def test_procedure_lifecycle_generates_audit_trail(
