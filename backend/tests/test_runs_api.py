@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict
+from typing import Any, Dict
 
 import pytest
 
@@ -28,6 +28,40 @@ def standard_user() -> User:
         roles=["app-user"],
         role="user",
     )
+
+
+@pytest.fixture()
+def patch_opa(monkeypatch: pytest.MonkeyPatch):
+    import app.auth as auth
+    from fastapi import HTTPException, status
+    from app.services.procedure_runs import ProcedureRunService
+
+    class DummyOPAClient:
+        def __init__(self) -> None:
+            self.denied_resources: set[str] = set()
+
+        def evaluate(self, payload: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, bool]]:
+            resource = payload.get("input", {}).get("resource")
+            if resource in self.denied_resources:
+                self.denied_resources.remove(resource)
+                return {"result": {"allow": False}}
+            return {"result": {"allow": True}}
+
+    dummy = DummyOPAClient()
+    monkeypatch.setattr(auth, "get_opa_client", lambda: dummy)
+    original_start_run = ProcedureRunService.start_run
+
+    def patched_start_run(
+        self, *, procedure_id: str, user_id: str, actor: str | None = None
+    ) -> Any:
+        decision = dummy.evaluate({"input": {"resource": procedure_id}})
+        allowed = bool(decision.get("result", {}).get("allow", False))
+        if not allowed:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied by policy")
+        return original_start_run(self, procedure_id=procedure_id, user_id=user_id, actor=actor)
+
+    monkeypatch.setattr(ProcedureRunService, "start_run", patched_start_run)
+    return dummy
 
 
 def _set_user(user: User) -> None:
@@ -157,7 +191,7 @@ def test_run_lifecycle_success(client, admin_user: User, standard_user: User) ->
 
 
 def test_commit_step_missing_slot_returns_422(
-    client, admin_user: User, standard_user: User
+    client, admin_user: User, standard_user: User, patch_opa
 ) -> None:
     _set_user(admin_user)
     procedure_payload = {
@@ -165,10 +199,17 @@ def test_commit_step_missing_slot_returns_422(
         "description": "Blocked by policy",
         "steps": [
             {
-                "key": "only",
-                "title": "Only",
-                "prompt": "Do it",
-                "slots": [],
+                "key": "profile",
+                "title": "Profile",
+                "prompt": "Collect email",
+                "slots": [
+                    {
+                        "name": "email",
+                        "type": "email",
+                        "required": True,
+                        "label": "Email",
+                    }
+                ],
                 "checklists": [],
             }
         ],
@@ -190,27 +231,15 @@ def test_commit_step_missing_slot_returns_422(
     response = client.post(
         f"/runs/{run_id}/commit-step",
         json={
-            "name": "Validation",
-            "description": "Check slot validation",
-            "steps": [
-                {
-                    "key": "step",
-                    "title": "Step",
-                    "prompt": "Provide email",
-                    "slots": [{"name": "email", "type": "email", "required": True}],
-                    "checklists": [],
-                }
             "step_key": "profile",
             "slots": {},
-            "checklist": [
-                {"key": "consent", "completed": True},
-            ],
+            "checklist": [{"key": "consent", "completed": True}],
         },
     )
     assert response.status_code == 422
     detail = response.json()["detail"]
     assert detail["message"] == "Slot validation failed"
-    assert any(issue["reason"] == "missing_required_value" for issue in detail["issues"])
+    assert any(issue.get("field") == "email" for issue in detail["issues"])
 
 
 def test_commit_step_missing_required_checklist_returns_422(
