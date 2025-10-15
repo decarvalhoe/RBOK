@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Dict, FrozenSet
+from typing import Callable, Dict, FrozenSet
 
 from app import models
 
@@ -72,7 +72,10 @@ def can_transition(
 
 
 def apply_transition(
-    run: models.ProcedureRun, target: ProcedureRunState | str
+    run: models.ProcedureRun,
+    target: ProcedureRunState | str,
+    *,
+    now: Callable[[], datetime] | None = None,
 ) -> models.ProcedureRun:
     """Transition ``run`` to ``target`` if the move is permitted."""
 
@@ -87,9 +90,10 @@ def apply_transition(
         return run
 
     run.state = target_state.value
+    timestamp_factory = now or datetime.utcnow
     if target_state in TERMINAL_STATES:
         if run.closed_at is None:
-            run.closed_at = datetime.utcnow()
+            run.closed_at = timestamp_factory()
     else:
         run.closed_at = None
     return run
