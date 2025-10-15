@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Dict, Generator
 
@@ -8,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 
 from app import models
 from app.database import Base
-from app.services.procedure_runs import ProcedureRunService
+from app.services.procedure_runs import InvalidTransitionError, ProcedureRunService
 
 
 @pytest.fixture
@@ -141,3 +143,37 @@ def test_fail_run_updates_state_and_closed_at(
     assert last_diff["state"] == {"from": "in_progress", "to": "failed"}
     assert last_diff["closed_at"]["from"] is None
     assert last_diff["closed_at"]["to"] == failure_time.isoformat()
+
+
+def test_fail_run_rejects_completed_run(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service = ProcedureRunService(db_session)
+    procedure = _create_procedure(db_session)
+    run = service.start_run(procedure_id=procedure.id, user_id="tech-1", actor="initiator")
+
+    _commit_step(service, run_id=run.id, step_key="step-1", actor="initiator")
+    monkeypatch.setattr(service, "_now", lambda: datetime(2024, 7, 1, 12, 0, 0))
+    _commit_step(service, run_id=run.id, step_key="step-2", actor="initiator")
+
+    with pytest.raises(InvalidTransitionError) as exc:
+        service.fail_run(run_id=run.id, actor="initiator")
+
+    assert str(exc.value) == "Run already terminal with state 'completed'"
+
+
+def test_commit_step_rejects_after_failure(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service = ProcedureRunService(db_session)
+    procedure = _create_procedure(db_session)
+    run = service.start_run(procedure_id=procedure.id, user_id="tech-1", actor="initiator")
+
+    _commit_step(service, run_id=run.id, step_key="step-1", actor="initiator")
+    monkeypatch.setattr(service, "_now", lambda: datetime(2024, 7, 2, 15, 0, 0))
+    service.fail_run(run_id=run.id, actor="initiator")
+
+    with pytest.raises(InvalidTransitionError) as exc:
+        _commit_step(service, run_id=run.id, step_key="step-2", actor="initiator")
+
+    assert str(exc.value) == "Run already terminal with state 'failed'"
