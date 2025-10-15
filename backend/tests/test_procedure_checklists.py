@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import List  # Required for checklist type annotations.
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
