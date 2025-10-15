@@ -99,6 +99,7 @@ class ProcedureSlot(Base):
     __tablename__ = "procedure_slots"
     __table_args__ = (
         UniqueConstraint("step_id", "name", name="uq_procedure_slot_name"),
+        Index("ix_procedure_slots_step_id", "step_id"),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
@@ -153,6 +154,7 @@ class ProcedureStepChecklistItem(Base):
     __tablename__ = "procedure_step_checklist_items"
     __table_args__ = (
         UniqueConstraint("step_id", "key", name="uq_procedure_step_checklist_key"),
+        Index("ix_procedure_step_checklist_items_step_id", "step_id"),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
@@ -238,6 +240,8 @@ class ProcedureRunSlotValue(Base):
     __tablename__ = "procedure_run_slot_values"
     __table_args__ = (
         UniqueConstraint("run_id", "slot_id", name="uq_procedure_run_slot_value"),
+        Index("ix_procedure_run_slot_values_run_id", "run_id"),
+        Index("ix_procedure_run_slot_values_slot_id", "slot_id"),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
@@ -272,6 +276,14 @@ class ProcedureRunChecklistItemState(Base):
             "run_id",
             "checklist_item_id",
             name="uq_procedure_run_checklist_item_state",
+        ),
+        Index(
+            "ix_procedure_run_checklist_item_states_run_id",
+            "run_id",
+        ),
+        Index(
+            "ix_procedure_run_checklist_item_states_item_id",
+            "checklist_item_id",
         ),
     )
 
@@ -356,6 +368,10 @@ class WebRTCSession(Base):
     """Persisted WebRTC signaling session state."""
 
     __tablename__ = "webrtc_sessions"
+    __table_args__ = (
+        Index("ix_webrtc_sessions_client", "client_id"),
+        Index("ix_webrtc_sessions_status", "status"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
     client_id: Mapped[str] = mapped_column(String(255), nullable=False)
