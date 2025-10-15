@@ -32,7 +32,7 @@ def override_auth_dependencies(admin_user: User) -> None:
     app.dependency_overrides.pop(get_current_user_optional, None)
 
 
-def _build_procedure_payload() -> Dict[str, Any]:
+def _build_identity_procedure_payload() -> Dict[str, Any]:
     return {
         "id": "demo-procedure",
         "name": "Identity verification",
@@ -73,7 +73,7 @@ def _build_procedure_payload() -> Dict[str, Any]:
 
 
 def test_create_and_list_procedures(client: TestClient) -> None:
-    payload = _build_procedure_payload()
+    payload = _build_identity_procedure_payload()
 
     response = client.post("/procedures", json=payload)
     assert response.status_code == 201, response.text
@@ -122,14 +122,47 @@ def test_duplicate_step_keys_return_error(client) -> None:
 
     response = client.post("/procedures", json=payload)
     assert response.status_code == 400
-    assert "Duplicate" in response.json()["detail"]
+
+    detail = response.json()["detail"]
+    assert detail["message"] == "Duplicate keys detected in procedure definition."
+    assert any(issue["field"] == "steps[1].key" for issue in detail["issues"])
+
+
+def test_duplicate_slots_and_checklists_return_error(client) -> None:
+    payload = {
+        "name": "Invalid procedure",
+        "description": "Slots or checklist keys duplicated",
+        "steps": [
+            {
+                "key": "collect",
+                "title": "Collect data",
+                "prompt": "Gather details",
+                "slots": [
+                    {"name": "serial", "type": "string"},
+                    {"name": "serial", "type": "string"},
+                ],
+                "checklists": [
+                    {"key": "ppe", "label": "PPE ready"},
+                    {"key": "ppe", "label": "PPE confirmed"},
+                ],
+            }
+        ],
+    }
+
+    response = client.post("/procedures", json=payload)
+    assert response.status_code == 400
+
+    detail = response.json()["detail"]
+    fields = {issue["field"] for issue in detail["issues"]}
+    assert any(field.startswith("steps[0].slots") for field in fields)
+    assert any(field.startswith("steps[0].checklists") for field in fields)
 
 
 def test_get_unknown_procedure_returns_404(client) -> None:
     response = client.get("/procedures/unknown")
     assert response.status_code == 404
     assert response.json()["detail"] == "Procedure not found"
-def _build_procedure_payload() -> Dict[str, Any]:
+def _build_audit_procedure_payload() -> Dict[str, Any]:
     return {
         'actor': 'demo-admin',
         'id': 'demo-procedure',
@@ -157,7 +190,7 @@ def _build_procedure_payload() -> Dict[str, Any]:
 def test_procedure_lifecycle_generates_audit_trail(
     client: TestClient, test_session
 ) -> None:
-    create_response = client.post("/procedures", json=_build_procedure_payload())
+    create_response = client.post("/procedures", json=_build_audit_procedure_payload())
     assert create_response.status_code == 201
 
     procedure_id = create_response.json()["id"]
