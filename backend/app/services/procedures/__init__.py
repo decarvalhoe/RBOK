@@ -19,7 +19,7 @@ from .fsm import (
     is_terminal_state,
 )
 from .validators import ChecklistValidator, SlotValidator
-from ..procedure_definitions import ProcedureService
+from ..procedure_definitions import ProcedureDefinitionError, ProcedureService
 
 if TYPE_CHECKING:  # pragma: no cover - import-time type checking only
     from ..procedure_runs import (
@@ -52,6 +52,7 @@ __all__ = [
     "is_terminal_state",
     "ProcedureFSM",
     "ProcedureService",
+    "ProcedureDefinitionError",
     "ProcedureRunService",
     "ChecklistValidationError",
     "InvalidTransitionError",

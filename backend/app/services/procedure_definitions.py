@@ -12,6 +12,14 @@ from . import audit
 ProcedurePayload = Dict[str, Any]
 
 
+class ProcedureDefinitionError(Exception):
+    """Raised when a procedure definition payload is invalid."""
+
+    def __init__(self, message: str, *, issues: Optional[List[Dict[str, str]]] = None) -> None:
+        super().__init__(message)
+        self.issues = issues or []
+
+
 class ProcedureService:
     """Provide CRUD-style helpers for :class:`~backend.app.models.Procedure`."""
 
@@ -74,6 +82,8 @@ class ProcedureService:
         procedure_id = data.get("id")
         metadata = _ensure_dict(data.get("metadata"))
         steps_payload = list(data.get("steps") or [])
+
+        _ensure_unique_components(steps_payload)
 
         if procedure_id:
             procedure = self.get_procedure(procedure_id)
@@ -167,6 +177,59 @@ def _ensure_list_of_dicts(value: Optional[Iterable[Any]]) -> List[Dict[str, Any]
         else:
             raise TypeError("Expected items encoded as dictionaries")
     return result
+
+
+def _ensure_unique_components(steps: Iterable[Dict[str, Any]]) -> None:
+    issues: List[Dict[str, str]] = []
+    seen_steps: Dict[str, int] = {}
+
+    for step_index, step in enumerate(steps):
+        key = step.get("key")
+        if isinstance(key, str):
+            if key in seen_steps:
+                issues.append(
+                    {
+                        "field": f"steps[{step_index}].key",
+                        "message": f"Duplicate step key '{key}' detected.",
+                    }
+                )
+            else:
+                seen_steps[key] = step_index
+
+        slot_names: Dict[str, int] = {}
+        for slot_index, slot in enumerate(step.get("slots") or []):
+            name = slot.get("name")
+            if not isinstance(name, str):
+                continue
+            if name in slot_names:
+                issues.append(
+                    {
+                        "field": f"steps[{step_index}].slots[{slot_index}].name",
+                        "message": f"Duplicate slot name '{name}' detected in step '{key}'.",
+                    }
+                )
+            else:
+                slot_names[name] = slot_index
+
+        checklist_keys: Dict[str, int] = {}
+        for item_index, item in enumerate(step.get("checklists") or []):
+            checklist_key = item.get("key")
+            if not isinstance(checklist_key, str):
+                continue
+            if checklist_key in checklist_keys:
+                issues.append(
+                    {
+                        "field": f"steps[{step_index}].checklists[{item_index}].key",
+                        "message": f"Duplicate checklist key '{checklist_key}' detected in step '{key}'.",
+                    }
+                )
+            else:
+                checklist_keys[checklist_key] = item_index
+
+    if issues:
+        raise ProcedureDefinitionError(
+            "Duplicate keys detected in procedure definition.", issues=issues
+        )
 
 
 def _build_step(payload: Dict[str, Any], default_position: int) -> models.ProcedureStep:
@@ -264,4 +327,4 @@ def _serialise_step(step: models.ProcedureStep) -> Dict[str, Any]:
     }
 
 
-__all__ = ["ProcedureService"]
+__all__ = ["ProcedureService", "ProcedureDefinitionError"]

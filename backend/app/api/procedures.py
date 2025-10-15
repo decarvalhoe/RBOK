@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from ..auth import User, require_role
 from ..database import get_db
 from ..models import Procedure, ProcedureStep
-from ..services.procedures import ProcedureService
+from ..services.procedures import ProcedureDefinitionError, ProcedureService
 from ..services.procedures.cache import cached_procedure_list, invalidate_procedure_list
 from .schemas.procedures import (
     ProcedureChecklistItem,
@@ -108,10 +108,16 @@ async def create_procedure(
 ) -> ProcedureResponse:
     """Create or update a procedure definition."""
 
-    procedure, created = service.save_procedure(
-        payload.model_dump(exclude_none=True),
-        actor=_actor_from_user(current_user),
-    )
+    try:
+        procedure, created = service.save_procedure(
+            payload.model_dump(exclude_none=True),
+            actor=_actor_from_user(current_user),
+        )
+    except ProcedureDefinitionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": str(exc), "issues": exc.issues},
+        ) from exc
     invalidate_procedure_list()
     if not created:
         response.status_code = status.HTTP_200_OK
