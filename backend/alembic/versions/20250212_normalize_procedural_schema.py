@@ -55,6 +55,17 @@ def upgrade() -> None:
     ) as batch_op:
         batch_op.drop_column("slots")
         batch_op.drop_column("checklists")
+        batch_op.create_foreign_key(
+            "fk_procedure_steps_procedure_id",
+            "procedures",
+            ["procedure_id"],
+            ["id"],
+            ondelete="CASCADE",
+        )
+        batch_op.create_unique_constraint(
+            "uq_procedure_step_key",
+            ["procedure_id", "key"],
+        )
 
     op.create_table(
         "procedure_slots",
