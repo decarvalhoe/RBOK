@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi.testclient import TestClient
+from fastapi.testclient import TestClient  # FastAPI's official testing client
 
 from app.config import Settings
 from app.main import app, get_settings
