@@ -21,7 +21,7 @@ def _build_mask_regex(mask: str) -> re.Pattern[str]:
 
 
 class SlotDefinition(TypedDict, total=False):
-    """Legacy slot definition structure used by :mod:`app.services.procedures.run`."""
+    """Legacy slot definition structure used by :mod:`app.services.procedure_runs`."""
 
     name: str
     type: str
