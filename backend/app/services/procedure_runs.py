@@ -427,6 +427,12 @@ class ProcedureRunService:
             options = slot.get("options")
             mask = slot.get("mask") or metadata.get("mask")
             validate = slot.get("validate") or metadata.get("validate")
+            if options is not None and "options" not in metadata:
+                metadata["options"] = options
+            if mask and "mask" not in metadata:
+                metadata["mask"] = mask
+            if validate and "validate" not in metadata:
+                metadata["validate"] = validate
         else:
             name = str(getattr(slot, "name", getattr(slot, "key", "")))
             slot_type = str(getattr(slot, "slot_type", getattr(slot, "type", "string")))
@@ -435,6 +441,12 @@ class ProcedureRunService:
             options = metadata.get("options") or metadata.get("choices")
             mask = metadata.get("mask")
             validate = metadata.get("validate") or metadata.get("pattern")
+            if options is not None and "options" not in metadata:
+                metadata["options"] = options
+            if mask and "mask" not in metadata:
+                metadata["mask"] = mask
+            if validate and "validate" not in metadata:
+                metadata["validate"] = validate
 
         definition: SlotDefinition = {
             "name": name,
