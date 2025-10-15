@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .procedure_runs import ProcedureRunService
 from .procedures.fsm import (
     ProcedureRunState,
     TERMINAL_STATES,
@@ -9,7 +10,6 @@ from .procedures.fsm import (
     can_transition,
     is_terminal_state,
 )
-from .procedures.run import ProcedureRunService
 
 __all__ = [
     "ProcedureRunService",

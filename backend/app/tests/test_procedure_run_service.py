@@ -6,16 +6,16 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.database import Base
 from app import models
+from app.database import Base
 from app.services.procedures import (
+    InvalidProcedureRunTransition,
     ProcedureRunService,
     ProcedureRunState,
-    InvalidProcedureRunTransition,
 )
 
 
-@pytest.fixture
+@pytest.fixture()
 def db_session() -> Session:
     engine = create_engine("sqlite+pysqlite:///:memory:", future=True)
     Base.metadata.create_all(bind=engine)
@@ -26,97 +26,119 @@ def db_session() -> Session:
     Base.metadata.drop_all(bind=engine)
 
 
-@pytest.fixture
+@pytest.fixture()
 def procedure(db_session: Session) -> models.Procedure:
-    proc = models.Procedure(name="Test", description="Testing procedure")
-    proc.steps = [
-        models.ProcedureStep(
-            procedure=proc,
-            key="step-1",
-            title="Step 1",
-            prompt="Do something",
-            slots=[],
-            position=1,
-        ),
-        models.ProcedureStep(
-            procedure=proc,
-            key="step-2",
-            title="Step 2",
-            prompt="Do something else",
-            slots=[],
-            position=2,
-        ),
-    ]
-    db_session.add(proc)
-    db_session.commit()
-    db_session.refresh(proc)
-    return proc
-
-
-@pytest.fixture
-def run(db_session: Session, procedure: models.Procedure) -> models.ProcedureRun:
-    procedure_id = procedure.id
-    run = models.ProcedureRun(
-        procedure_id=procedure_id,
-        user_id="user-1",
-        state=ProcedureRunState.PENDING.value,
-        created_at=datetime.utcnow(),
+    procedure = models.Procedure(name="Safety inspection", description="Ensure site is safe")
+    first_step = models.ProcedureStep(
+        key="collect_contact",
+        title="Collect contact information",
+        prompt="Record how to reach the site manager",
+        position=0,
+        slots=[
+            models.ProcedureSlot(
+                name="phone",
+                slot_type="string",
+                required=True,
+                configuration={"mask": "+41 XX XXX XX XX"},
+            )
+        ],
+        checklist_items=[
+            models.ProcedureStepChecklistItem(
+                key="safety_briefing",
+                label="Safety briefing delivered",
+                required=True,
+            ),
+        ],
     )
-    db_session.add(run)
+    final_step = models.ProcedureStep(
+        key="finalise",
+        title="Finalise inspection",
+        prompt="Confirm all tasks are complete",
+        position=1,
+        slots=[
+            models.ProcedureSlot(
+                name="summary",
+                slot_type="string",
+                required=True,
+            )
+        ],
+        checklist_items=[
+            models.ProcedureStepChecklistItem(
+                key="sign_off",
+                label="Supervisor sign-off",
+                required=True,
+            )
+        ],
+    )
+    procedure.steps = [first_step, final_step]
+    db_session.add(procedure)
     db_session.commit()
-    db_session.refresh(run)
-    return run
+    db_session.refresh(procedure)
+    return procedure
 
 
-def test_valid_transition_persists_and_audits(db_session: Session, run: models.ProcedureRun) -> None:
-    service = ProcedureRunService(db_session)
-
-    service.transition_run(run, ProcedureRunState.IN_PROGRESS, actor="tester")
-
-    db_session.refresh(run)
-    assert run.state == ProcedureRunState.IN_PROGRESS.value
-
-    audit_events = db_session.execute(
-        select(models.AuditEvent).where(models.AuditEvent.action == "run.updated")
-    ).scalars().all()
-    assert len(audit_events) == 1
-    assert audit_events[0].actor == "tester"
+@pytest.fixture()
+def service(db_session: Session) -> ProcedureRunService:
+    return ProcedureRunService(db_session)
 
 
-def test_invalid_transition_raises(db_session: Session, run: models.ProcedureRun) -> None:
-    service = ProcedureRunService(db_session)
-    run.state = ProcedureRunState.COMPLETED.value
-    db_session.add(run)
-    db_session.commit()
+@pytest.fixture()
+def run(service: ProcedureRunService, procedure: models.Procedure) -> models.ProcedureRun:
+    return service.start_run(procedure_id=procedure.id, user_id="tech-42")
+
+
+def test_start_run_through_public_api(service: ProcedureRunService, procedure: models.Procedure) -> None:
+    run = service.start_run(procedure_id=procedure.id, user_id="operator")
+
+    assert run.state == ProcedureRunState.PENDING.value
+    assert run.procedure_id == procedure.id
+
+
+def test_commit_step_via_public_api(
+    db_session: Session, service: ProcedureRunService, run: models.ProcedureRun
+) -> None:
+    snapshot = service.commit_step(
+        run_id=run.id,
+        step_key="collect_contact",
+        slots={"phone": "+41 21 555 77 88"},
+        checklist=[{"key": "safety_briefing", "completed": True}],
+        actor="tech-42",
+    )
+
+    step_state = db_session.execute(
+        select(models.ProcedureRunStepState).where(
+            models.ProcedureRunStepState.run_id == run.id,
+            models.ProcedureRunStepState.step_key == "collect_contact",
+        )
+    ).scalar_one()
+
+    assert snapshot.run.state == ProcedureRunState.IN_PROGRESS.value
+    assert step_state.payload["slots"]["phone"] == "+41 21 555 77 88"
+
+
+def test_commit_step_via_public_api_protects_against_duplicates(
+    service: ProcedureRunService, run: models.ProcedureRun
+) -> None:
+    service.commit_step(
+        run_id=run.id,
+        step_key="collect_contact",
+        slots={"phone": "+41 21 555 77 88"},
+        checklist=[{"key": "safety_briefing", "completed": True}],
+    )
 
     with pytest.raises(InvalidProcedureRunTransition):
-        service.transition_run(run, ProcedureRunState.IN_PROGRESS, actor="tester")
+        service.commit_step(
+            run_id=run.id,
+            step_key="collect_contact",
+            slots={"phone": "+41 21 555 77 88"},
+            checklist=[{"key": "safety_briefing", "completed": True}],
+        )
 
 
-def test_commit_step_creates_state_and_audit_event(
-    db_session: Session, run: models.ProcedureRun
+def test_fail_run_marks_snapshot_failed(
+    service: ProcedureRunService, run: models.ProcedureRun
 ) -> None:
-    service = ProcedureRunService(db_session)
+    snapshot = service.fail_run(run_id=run.id, actor="operator")
 
-    service.commit_step(run, step_key="step-1", payload={"value": 1}, actor="tester")
-
-    states = db_session.execute(select(models.ProcedureRunStepState)).scalars().all()
-    assert len(states) == 1
-    assert states[0].payload == {"value": 1}
-
-    audit_events = db_session.execute(
-        select(models.AuditEvent).where(models.AuditEvent.action == "run.step_committed")
-    ).scalars().all()
-    assert len(audit_events) == 1
-    assert audit_events[0].actor == "tester"
-
-
-def test_get_step_progress_counts_committed_steps(
-    db_session: Session, run: models.ProcedureRun
-) -> None:
-    service = ProcedureRunService(db_session)
-    service.commit_step(run, step_key="step-1", payload={"value": 1}, actor="tester")
-
-    progress = service.get_step_progress(run)
-
-    assert progress == {"total": 2, "completed": 1, "remaining": 1}
+    assert snapshot.run.state == ProcedureRunState.FAILED.value
+    assert isinstance(snapshot.run.closed_at, datetime)

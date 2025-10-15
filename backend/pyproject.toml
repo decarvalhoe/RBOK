@@ -47,7 +47,6 @@ omit = [
   "*/app/services/procedures/__init__.py",
   "*/app/services/procedures/cache.py",
   "*/app/services/procedures/exceptions.py",
-  "*/app/services/procedures/run.py",
   "*/app/services/procedures/runs.py",
   "*/app/services/procedures/service.py",
   "*/app/services/webrtc.py",

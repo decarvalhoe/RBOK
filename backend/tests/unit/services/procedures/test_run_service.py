@@ -130,9 +130,9 @@ def test_commit_step_enforces_mask(
 
     assert exc.value.issues == [
         {
-            "slot": "phone",
-            "reason": "mask_mismatch",
-            "mask": "+41 XX XXX XX XX",
+            "field": "phone",
+            "code": "validation.mask",
+            "params": {"mask": "+41 XX XXX XX XX"},
         }
     ]
 
@@ -151,7 +151,10 @@ def test_commit_step_rejects_duplicate_checklist_entries(
             ],
         )
 
-    assert {issue["reason"] for issue in exc.value.issues} == {"duplicate_key"}
+    assert {issue["code"] for issue in exc.value.issues} == {"validation.duplicate"}
+    assert {issue["field"] for issue in exc.value.issues} == {
+        "checklist.safety_briefing"
+    }
 
 
 def test_commit_step_requires_previous_steps(
@@ -221,12 +224,12 @@ def test_validate_slots_reports_multiple_issues(
             {"unknown": "value", "phone": "+41-21-555-77-88", "badge": "A"},
         )
 
-    reasons = {(issue["slot"], issue["reason"]) for issue in exc.value.issues}
-    assert (
-        ("phone", "mask_mismatch") in reasons
-        and ("unknown", "unknown_slot") in reasons
-        and ("badge", "invalid_type") in reasons
-    )
+    details = {(issue["field"], issue["code"]) for issue in exc.value.issues}
+    assert details == {
+        ("phone", "validation.mask"),
+        ("badge", "validation.type"),
+        ("unknown", "validation.unexpected_slot"),
+    }
 
 
 def test_validate_checklist_detects_duplicates_and_missing(
@@ -244,10 +247,12 @@ def test_validate_checklist_detects_duplicates_and_missing(
             ],
         )
 
-    reasons = {issue["reason"] for issue in exc.value.issues}
-    assert {"duplicate_key", "required_not_completed", "unknown_checklist_item"}.issubset(
-        reasons
-    )
+    details = {(issue["field"], issue["code"]) for issue in exc.value.issues}
+    assert details == {
+        ("checklist.safety_briefing", "validation.duplicate"),
+        ("checklist.unknown", "validation.unexpected_item"),
+        ("checklist.safety_briefing", "validation.required"),
+    }
 
 
 def test_validate_checklist_accepts_valid_submission(
