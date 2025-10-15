@@ -101,14 +101,19 @@ def test_run_lifecycle_success(client, admin_user: User, standard_user: User) ->
                 "title": "Verification",
                 "prompt": "Upload ID",
                 "slots": [{"name": "document", "type": "string", "required": True}],
-                "checklists": [],
+                "checklists": [
+                    {
+                        "key": "documents_verified",
+                        "label": "Documents verified",
+                        "required": True,
+                    }
+                ],
             },
         ],
     }
     create_response = client.post("/procedures", json=procedure_payload)
     assert create_response.status_code == 201
     procedure_id = create_response.json()["id"]
-    procedure_id = _create_procedure(client, name="Customer onboarding")
 
     _set_user(standard_user)
     run_response = client.post(
@@ -120,6 +125,12 @@ def test_run_lifecycle_success(client, admin_user: User, standard_user: User) ->
     assert "checklist_statuses" in run_payload
     assert "checklist_progress" in run_payload
     assert run_payload["step_states"] == []
+    assert len(run_payload["checklist_statuses"]) == 2
+    assert run_payload["checklist_progress"] == {
+        "total": 2,
+        "completed": 0,
+        "percentage": 0.0,
+    }
 
     commit_first = client.post(
         f"/runs/{run_payload['id']}/commit-step",
@@ -132,26 +143,131 @@ def test_run_lifecycle_success(client, admin_user: User, standard_user: User) ->
     assert commit_first.status_code == 200, commit_first.text
     first_state = commit_first.json()
     assert first_state["state"] == "in_progress"
+    assert first_state["checklist_progress"] == {
+        "total": 2,
+        "completed": 1,
+        "percentage": 50.0,
+    }
+    assert [status["completed"] for status in first_state["checklist_statuses"]] == [
+        True,
+        False,
+    ]
 
     commit_second = client.post(
         f"/runs/{run_payload['id']}/commit-step",
         json={
             "step_key": "verification",
             "slots": {"document": "passport"},
-            "checklist": [],
+            "checklist": [
+                {"key": "documents_verified", "completed": True}
+            ],
         },
     )
     assert commit_second.status_code == 200, commit_second.text
     assert commit_second.json()["state"] == "completed"
+    assert commit_second.json()["checklist_progress"] == {
+        "total": 2,
+        "completed": 2,
+        "percentage": 100.0,
+    }
 
     final_state = client.get(f"/runs/{run_payload['id']}")
     assert final_state.status_code == 200
     payload = final_state.json()
     assert payload["state"] == "completed"
-    assert payload["checklist_progress"]["percentage"] >= 0.0
-    if payload["checklist_statuses"]:
-        first_status = payload["checklist_statuses"][0]
-        assert {"id", "label", "completed", "completed_at"} <= set(first_status.keys())
+    assert payload["checklist_progress"] == {
+        "total": 2,
+        "completed": 2,
+        "percentage": 100.0,
+    }
+    assert [status["completed"] for status in payload["checklist_statuses"]] == [
+        True,
+        True,
+    ]
+
+
+def test_commit_step_v2_exposes_pending_checklists(
+    client, admin_user: User, standard_user: User
+) -> None:
+    _set_user(admin_user)
+    response = client.post(
+        "/procedures",
+        json={
+            "name": "Step commit v2",
+            "description": "Verify pending checklist entries",
+            "steps": [
+                {
+                    "key": "profile",
+                    "title": "Profile",
+                    "prompt": "Collect contact info",
+                    "slots": [
+                        {"name": "email", "type": "email", "required": True}
+                    ],
+                    "checklists": [
+                        {"key": "consent", "label": "Consent", "required": True}
+                    ],
+                },
+                {
+                    "key": "verification",
+                    "title": "Verification",
+                    "prompt": "Upload ID",
+                    "slots": [
+                        {"name": "document", "type": "string", "required": True}
+                    ],
+                    "checklists": [
+                        {
+                            "key": "documents_verified",
+                            "label": "Documents verified",
+                            "required": True,
+                        }
+                    ],
+                },
+            ],
+        },
+    )
+    assert response.status_code == 201, response.text
+    procedure_id = response.json()["id"]
+
+    _set_user(standard_user)
+    run_id = client.post(
+        "/runs", json={"procedure_id": procedure_id, "user_id": "user-commit-v2"}
+    ).json()["id"]
+
+    first_commit = client.post(
+        f"/runs/{run_id}/steps/profile/commit",
+        json={
+            "slots": {"email": "user@example.com"},
+            "checklist": [{"key": "consent", "completed": True}],
+        },
+    )
+    assert first_commit.status_code == 200, first_commit.text
+    payload = first_commit.json()
+    assert payload["run_state"] == "in_progress"
+    assert [status["key"] for status in payload["checklist_statuses"]] == [
+        "consent",
+        "documents_verified",
+    ]
+    assert [status["completed"] for status in payload["checklist_statuses"]] == [
+        True,
+        False,
+    ]
+
+    second_commit = client.post(
+        f"/runs/{run_id}/steps/verification/commit",
+        json={
+            "slots": {"document": "passport"},
+            "checklist": [
+                {"key": "documents_verified", "completed": True}
+            ],
+        },
+    )
+    assert second_commit.status_code == 200, second_commit.text
+    second_payload = second_commit.json()
+    assert second_payload["run_state"] == "completed"
+    assert [status["completed"] for status in second_payload["checklist_statuses"]] == [
+        True,
+        True,
+    ]
 
 
 def test_commit_step_missing_slot_returns_422(
