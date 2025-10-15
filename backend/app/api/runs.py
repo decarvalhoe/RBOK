@@ -1,6 +1,7 @@
 """FastAPI router handling procedure run lifecycle endpoints."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -131,6 +132,72 @@ class ProcedureRunModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+@dataclass
+class _ChecklistSnapshot:
+    """Resolved state for a checklist item combining definitions and run data."""
+
+    item_id: str
+    key: str
+    label: Optional[str]
+    completed: bool
+    completed_at: Optional[datetime]
+
+
+def _build_checklist_snapshots(snapshot: RunSnapshot) -> List[_ChecklistSnapshot]:
+    """Return checklist states for all defined items in the procedure."""
+
+    run = snapshot.run
+    states_by_item_id = {
+        state.checklist_item_id: state for state in run.checklist_states
+    }
+    snapshots: List[_ChecklistSnapshot] = []
+
+    procedure = getattr(run, "procedure", None)
+    if procedure is not None:
+        ordered_steps = sorted(
+            procedure.steps,
+            key=lambda step: (step.position, step.key),
+        )
+        for step in ordered_steps:
+            ordered_items = sorted(
+                step.checklist_items,
+                key=lambda item: (item.position, item.key),
+            )
+            for item in ordered_items:
+                state = states_by_item_id.pop(item.id, None)
+                snapshots.append(
+                    _ChecklistSnapshot(
+                        item_id=item.id,
+                        key=item.key,
+                        label=item.label,
+                        completed=state.is_completed if state else False,
+                        completed_at=state.completed_at if state else None,
+                    )
+                )
+
+    if states_by_item_id:
+        leftover_states = sorted(
+            states_by_item_id.values(),
+            key=lambda entry: (
+                getattr(entry.checklist_item, "position", 0),
+                getattr(entry.checklist_item, "key", entry.checklist_item_id),
+            ),
+        )
+        for state in leftover_states:
+            item = getattr(state, "checklist_item", None)
+            snapshots.append(
+                _ChecklistSnapshot(
+                    item_id=getattr(item, "id", state.checklist_item_id),
+                    key=getattr(item, "key", state.checklist_item_id),
+                    label=getattr(item, "label", None),
+                    completed=state.is_completed,
+                    completed_at=state.completed_at,
+                )
+            )
+
+    return snapshots
+
+
 def _serialize_run(snapshot: RunSnapshot) -> ProcedureRunModel:
     run = snapshot.run
     step_states = [
@@ -141,17 +208,15 @@ def _serialize_run(snapshot: RunSnapshot) -> ProcedureRunModel:
         )
         for state in sorted(snapshot.step_states.values(), key=lambda item: item.committed_at)
     ]
+    checklist_snapshots = _build_checklist_snapshots(snapshot)
     checklist_statuses = [
         ChecklistStatusModel(
-            id=status.checklist_item_id,
-            label=status.checklist_item.label,
-            completed=status.is_completed,
-            completed_at=status.completed_at,
+            id=snapshot.item_id,
+            label=snapshot.label,
+            completed=snapshot.completed,
+            completed_at=snapshot.completed_at,
         )
-        for status in sorted(
-            run.checklist_states,
-            key=lambda entry: (entry.checklist_item.position, entry.checklist_item.key),
-        )
+        for snapshot in checklist_snapshots
     ]
     total_items = len(checklist_statuses)
     completed_items = sum(1 for status in checklist_statuses if status.completed)
@@ -177,15 +242,12 @@ def _serialize_run(snapshot: RunSnapshot) -> ProcedureRunModel:
 def _serialize_checklist_statuses(snapshot: RunSnapshot) -> List[RunChecklistItemState]:
     return [
         RunChecklistItemState(
-            key=status.checklist_item.key,
-            label=status.checklist_item.label,
-            completed=status.is_completed,
-            completed_at=status.completed_at,
+            key=entry.key,
+            label=entry.label,
+            completed=entry.completed,
+            completed_at=entry.completed_at,
         )
-        for status in sorted(
-            snapshot.run.checklist_states,
-            key=lambda entry: (entry.checklist_item.position, entry.checklist_item.key),
-        )
+        for entry in _build_checklist_snapshots(snapshot)
     ]
 
 
