@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any, Dict
-
 import pytest
 
 from app.auth import User, get_current_user, get_current_user_optional
@@ -28,40 +26,6 @@ def standard_user() -> User:
         roles=["app-user"],
         role="user",
     )
-
-
-@pytest.fixture()
-def patch_opa(monkeypatch: pytest.MonkeyPatch):
-    import app.auth as auth
-    from fastapi import HTTPException, status
-    from app.services.procedure_runs import ProcedureRunService
-
-    class DummyOPAClient:
-        def __init__(self) -> None:
-            self.denied_resources: set[str] = set()
-
-        def evaluate(self, payload: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, bool]]:
-            resource = payload.get("input", {}).get("resource")
-            if resource in self.denied_resources:
-                self.denied_resources.remove(resource)
-                return {"result": {"allow": False}}
-            return {"result": {"allow": True}}
-
-    dummy = DummyOPAClient()
-    monkeypatch.setattr(auth, "get_opa_client", lambda: dummy)
-    original_start_run = ProcedureRunService.start_run
-
-    def patched_start_run(
-        self, *, procedure_id: str, user_id: str, actor: str | None = None
-    ) -> Any:
-        decision = dummy.evaluate({"input": {"resource": procedure_id}})
-        allowed = bool(decision.get("result", {}).get("allow", False))
-        if not allowed:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied by policy")
-        return original_start_run(self, procedure_id=procedure_id, user_id=user_id, actor=actor)
-
-    monkeypatch.setattr(ProcedureRunService, "start_run", patched_start_run)
-    return dummy
 
 
 def _set_user(user: User) -> None:
@@ -223,10 +187,11 @@ def test_commit_step_missing_slot_returns_422(
     denied = client.post("/runs", json={"procedure_id": procedure_id, "user_id": "user-2"})
     assert denied.status_code == 403
 
+    patch_opa.denied_resources.discard(procedure_id)
     _set_user(standard_user)
-    run_id = client.post("/runs", json={"procedure_id": procedure_id, "user_id": "user-3"}).json()[
-        "id"
-    ]
+    allowed = client.post("/runs", json={"procedure_id": procedure_id, "user_id": "user-3"})
+    assert allowed.status_code == 201, allowed.text
+    run_id = allowed.json()["id"]
 
     response = client.post(
         f"/runs/{run_id}/commit-step",
