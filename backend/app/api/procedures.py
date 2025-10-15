@@ -42,17 +42,25 @@ def _to_response(model: Procedure) -> ProcedureResponse:
 
 
 def _to_step_response(step: ProcedureStep) -> ProcedureStepResponse:
-    slots = [
-        ProcedureSlot(
-            name=slot.name,
-            type=slot.slot_type,
-            required=slot.required,
-            label=slot.label,
-            position=slot.position,
-            metadata=dict(slot.configuration or {}),
+    slot_responses: List[ProcedureSlot] = []
+    for slot in sorted(step.slots, key=lambda item: item.position):
+        configuration = dict(slot.configuration or {})
+        slot_responses.append(
+            ProcedureSlot(
+                name=slot.name,
+                type=slot.slot_type,
+                required=slot.required,
+                label=slot.label,
+                description=configuration.get("description"),
+                validate=configuration.get("validate"),
+                mask=configuration.get("mask"),
+                options=configuration.get("options"),
+                position=slot.position,
+                metadata=configuration,
+            )
         )
-        for slot in sorted(step.slots, key=lambda item: item.position)
-    ]
+
+    slots = slot_responses
     checklists = [
         ProcedureChecklistItem(
             key=item.key,

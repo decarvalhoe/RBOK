@@ -113,6 +113,102 @@ def test_create_and_list_procedures(client: TestClient) -> None:
     assert detail["steps"][1]["key"] == "verify_document"
 
 
+def test_slot_constraints_survive_round_trip(client: TestClient) -> None:
+    procedure_id = "constraints-procedure"
+    payload = _build_procedure_payload(
+        procedure_id=procedure_id,
+        steps=[
+            {
+                "key": "collect_constraints",
+                "title": "Collect constrained data",
+                "prompt": "Provide values that satisfy each constraint",
+                "slots": [
+                    {
+                        "name": "language",
+                        "type": "enum",
+                        "label": "Language",
+                        "required": True,
+                        "options": ["fr", "en"],
+                        "metadata": {"ui": {"component": "select"}},
+                    },
+                    {
+                        "name": "code",
+                        "type": "string",
+                        "label": "Country code",
+                        "required": True,
+                        "validate": r"^[A-Z]{2}$",
+                        "metadata": {"hint": "Two capital letters"},
+                    },
+                    {
+                        "name": "phone",
+                        "type": "phone",
+                        "label": "Phone",
+                        "required": True,
+                        "mask": "+41 XX XXX XX XX",
+                    },
+                ],
+                "checklists": [],
+            }
+        ],
+    )
+
+    response = client.post("/procedures", json=payload)
+    assert response.status_code == 201, response.text
+    created = response.json()
+
+    slots = {slot["name"]: slot for slot in created["steps"][0]["slots"]}
+    assert slots["language"]["options"] == ["fr", "en"]
+    assert slots["language"]["metadata"]["options"] == ["fr", "en"]
+    assert slots["language"]["metadata"]["ui"] == {"component": "select"}
+
+    assert slots["code"]["validate"] == r"^[A-Z]{2}$"
+    assert slots["code"]["metadata"]["validate"] == r"^[A-Z]{2}$"
+    assert slots["code"]["metadata"]["hint"] == "Two capital letters"
+
+    assert slots["phone"]["mask"] == "+41 XX XXX XX XX"
+    assert slots["phone"]["metadata"]["mask"] == "+41 XX XXX XX XX"
+
+    detail_response = client.get(f"/procedures/{created['id']}")
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    detail_slots = {slot["name"]: slot for slot in detail["steps"][0]["slots"]}
+    assert detail_slots["language"]["options"] == ["fr", "en"]
+    assert detail_slots["code"]["validate"] == r"^[A-Z]{2}$"
+    assert detail_slots["phone"]["mask"] == "+41 XX XXX XX XX"
+
+    run_response = client.post(
+        "/runs",
+        json={"procedure_id": created["id"], "user_id": "operator"},
+    )
+    assert run_response.status_code == 201, run_response.text
+    run = run_response.json()
+
+    commit_response = client.post(
+        f"/runs/{run['id']}/commit-step",
+        json={
+            "step_key": "collect_constraints",
+            "slots": {
+                "language": "es",
+                "code": "A1",
+                "phone": "+41-12-345-6789",
+            },
+            "checklist": [],
+        },
+    )
+    assert commit_response.status_code == 422, commit_response.text
+    detail = commit_response.json()["detail"]
+    issues = {issue["field"]: issue for issue in detail["issues"]}
+
+    assert issues["language"]["code"] == "validation.enum"
+    assert issues["language"]["params"]["allowed"] == ["fr", "en"]
+
+    assert issues["code"]["code"] == "validation.pattern"
+    assert issues["code"]["params"]["pattern"] == r"^[A-Z]{2}$"
+
+    assert issues["phone"]["code"] == "validation.mask"
+    assert issues["phone"]["params"]["mask"] == "+41 XX XXX XX XX"
+
+
 def test_duplicate_step_keys_return_error(client) -> None:
     payload = {
         "name": "Invalid procedure",

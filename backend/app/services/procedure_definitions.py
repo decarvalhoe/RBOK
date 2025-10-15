@@ -261,7 +261,15 @@ def _build_step(payload: Dict[str, Any], default_position: int) -> models.Proced
 
 
 def _build_slot(payload: Dict[str, Any], default_position: int) -> models.ProcedureSlot:
-    configuration = _ensure_dict(payload.get("metadata"))
+    configuration = deepcopy(_ensure_dict(payload.get("metadata")))
+
+    reserved_keys = {"id", "name", "label", "type", "slot_type", "required", "position", "metadata"}
+    for key, value in payload.items():
+        if key in reserved_keys:
+            continue
+        if value is None:
+            continue
+        configuration[key] = deepcopy(value)
 
     position = payload.get("position")
     if not isinstance(position, int):
@@ -302,15 +310,7 @@ def _serialise_step(step: models.ProcedureStep) -> Dict[str, Any]:
         "position": step.position,
         "metadata": deepcopy(step.metadata_payload or {}),
         "slots": [
-            {
-                "id": slot.id,
-                "name": slot.name,
-                "label": slot.label,
-                "type": slot.slot_type,
-                "required": slot.required,
-                "position": slot.position,
-                "metadata": deepcopy(slot.configuration or {}),
-            }
+            _serialise_slot(slot)
             for slot in sorted(step.slots, key=lambda item: item.position)
         ],
         "checklists": [
@@ -325,6 +325,27 @@ def _serialise_step(step: models.ProcedureStep) -> Dict[str, Any]:
             for item in sorted(step.checklist_items, key=lambda entry: entry.position)
         ],
     }
+
+
+def _serialise_slot(slot: models.ProcedureSlot) -> Dict[str, Any]:
+    configuration = deepcopy(slot.configuration or {})
+
+    payload: Dict[str, Any] = {
+        "id": slot.id,
+        "name": slot.name,
+        "label": slot.label,
+        "type": slot.slot_type,
+        "required": slot.required,
+        "position": slot.position,
+        "metadata": configuration,
+    }
+
+    for key in ("description", "validate", "mask", "options"):
+        value = configuration.get(key)
+        if value is not None:
+            payload[key] = deepcopy(value)
+
+    return payload
 
 
 __all__ = ["ProcedureService", "ProcedureDefinitionError"]
