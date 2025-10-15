@@ -7,10 +7,46 @@ Create Date: 2025-02-12 00:00:00.000000
 
 from __future__ import annotations
 
-from typing import Sequence, Union
+import uuid
+from collections import defaultdict
+from datetime import datetime
+from typing import Any, Mapping, Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+
+
+def _generate_uuid() -> str:
+    """Return a string UUID compatible with existing tables."""
+
+    return str(uuid.uuid4())
+
+
+def _coerce_mapping(value: Any) -> Mapping[str, Any]:
+    if isinstance(value, Mapping):
+        return value
+    return {}
+
+
+def _coerce_sequence(value: Any) -> list[Mapping[str, Any]]:
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        result: list[Mapping[str, Any]] = []
+        for item in value:
+            if isinstance(item, Mapping):
+                result.append(item)
+        return result
+    return []
+
+
+def _coerce_datetime(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    return None
 
 
 _pre_normalized_procedure_steps = sa.Table(
@@ -39,6 +75,68 @@ _post_normalized_procedure_steps = sa.Table(
     sa.Column("position", sa.Integer(), nullable=False),
 )
 
+_procedure_slots_table = sa.Table(
+    "procedure_slots",
+    sa.MetaData(),
+    sa.Column("id", sa.String(), primary_key=True),
+    sa.Column("step_id", sa.String(), nullable=False),
+    sa.Column("name", sa.String(length=255), nullable=False),
+    sa.Column("label", sa.String(length=255), nullable=True),
+    sa.Column("type", sa.String(length=50), nullable=False),
+    sa.Column("required", sa.Boolean(), nullable=False),
+    sa.Column("position", sa.Integer(), nullable=False),
+    sa.Column("configuration", sa.JSON(), nullable=False),
+)
+
+_procedure_step_checklist_items_table = sa.Table(
+    "procedure_step_checklist_items",
+    sa.MetaData(),
+    sa.Column("id", sa.String(), primary_key=True),
+    sa.Column("step_id", sa.String(), nullable=False),
+    sa.Column("key", sa.String(length=255), nullable=False),
+    sa.Column("label", sa.String(length=255), nullable=False),
+    sa.Column("description", sa.Text(), nullable=True),
+    sa.Column("required", sa.Boolean(), nullable=False),
+    sa.Column("position", sa.Integer(), nullable=False),
+)
+
+_procedure_runs_table = sa.Table(
+    "procedure_runs",
+    sa.MetaData(),
+    sa.Column("id", sa.String(), primary_key=True),
+    sa.Column("procedure_id", sa.String(), nullable=False),
+)
+
+_procedure_run_step_states_table = sa.Table(
+    "procedure_run_step_states",
+    sa.MetaData(),
+    sa.Column("id", sa.String(), primary_key=True),
+    sa.Column("run_id", sa.String(), nullable=False),
+    sa.Column("step_key", sa.String(length=255), nullable=False),
+    sa.Column("payload", sa.JSON(), nullable=False),
+    sa.Column("committed_at", sa.DateTime(), nullable=False),
+)
+
+_procedure_run_slot_values_table = sa.Table(
+    "procedure_run_slot_values",
+    sa.MetaData(),
+    sa.Column("id", sa.String(), primary_key=True),
+    sa.Column("run_id", sa.String(), nullable=False),
+    sa.Column("slot_id", sa.String(), nullable=False),
+    sa.Column("value", sa.JSON(), nullable=True),
+    sa.Column("captured_at", sa.DateTime(), nullable=False),
+)
+
+_procedure_run_checklist_states_table = sa.Table(
+    "procedure_run_checklist_item_states",
+    sa.MetaData(),
+    sa.Column("id", sa.String(), primary_key=True),
+    sa.Column("run_id", sa.String(), nullable=False),
+    sa.Column("checklist_item_id", sa.String(), nullable=False),
+    sa.Column("is_completed", sa.Boolean(), nullable=False),
+    sa.Column("completed_at", sa.DateTime(), nullable=True),
+)
+
 
 # revision identifiers, used by Alembic.
 revision: str = "c6f7d8a9b0c1"
@@ -49,6 +147,103 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Apply the normalized procedural schema aligned with SQLAlchemy models."""
+
+    bind = op.get_bind()
+
+    step_rows = bind.execute(
+        sa.select(
+            _pre_normalized_procedure_steps.c.id,
+            _pre_normalized_procedure_steps.c.procedure_id,
+            _pre_normalized_procedure_steps.c.key,
+            _pre_normalized_procedure_steps.c.slots,
+            _pre_normalized_procedure_steps.c.checklists,
+        )
+    ).mappings()
+
+    step_key_map: dict[tuple[str, str], str] = {}
+    slot_lookup: dict[tuple[str, str], str] = {}
+    checklist_lookup: dict[tuple[str, str], str] = {}
+    slot_inserts: list[dict[str, Any]] = []
+    checklist_inserts: list[dict[str, Any]] = []
+
+    for row in step_rows:
+        step_id = row["id"]
+        procedure_id = row["procedure_id"]
+        step_key = row["key"]
+        step_key_map[(procedure_id, step_key)] = step_id
+
+        slots = _coerce_sequence(row.get("slots"))
+        for index, slot_payload in enumerate(slots):
+            name = slot_payload.get("name")
+            if not isinstance(name, str) or not name:
+                continue
+            slot_id = _generate_uuid()
+            required = slot_payload.get("required")
+            if not isinstance(required, bool):
+                required = bool(required) if required is not None else True
+            position = slot_payload.get("position")
+            if not isinstance(position, int):
+                position = index
+            configuration = _coerce_mapping(slot_payload.get("metadata"))
+
+            slot_inserts.append(
+                {
+                    "id": slot_id,
+                    "step_id": step_id,
+                    "name": name,
+                    "label": slot_payload.get("label"),
+                    "type": slot_payload.get("type", "string"),
+                    "required": required,
+                    "position": position,
+                    "configuration": dict(configuration),
+                }
+            )
+            slot_lookup[(step_id, name)] = slot_id
+
+        checklists = _coerce_sequence(row.get("checklists"))
+        for index, checklist_payload in enumerate(checklists):
+            key = checklist_payload.get("key")
+            if not isinstance(key, str) or not key:
+                continue
+            checklist_id = _generate_uuid()
+            required = checklist_payload.get("required")
+            if not isinstance(required, bool):
+                required = bool(required) if required is not None else False
+            position = checklist_payload.get("position")
+            if not isinstance(position, int):
+                position = index
+
+            checklist_inserts.append(
+                {
+                    "id": checklist_id,
+                    "step_id": step_id,
+                    "key": key,
+                    "label": checklist_payload.get("label", key),
+                    "description": checklist_payload.get("description"),
+                    "required": required,
+                    "position": position,
+                }
+            )
+            checklist_lookup[(step_id, key)] = checklist_id
+
+    run_procedures = bind.execute(
+        sa.select(
+            _procedure_runs_table.c.id,
+            _procedure_runs_table.c.procedure_id,
+        )
+    ).mappings()
+    run_procedure_map = {row["id"]: row["procedure_id"] for row in run_procedures}
+
+    step_state_rows = list(
+        bind.execute(
+            sa.select(
+                _procedure_run_step_states_table.c.run_id,
+                _procedure_run_step_states_table.c.step_key,
+                _procedure_run_step_states_table.c.payload,
+                _procedure_run_step_states_table.c.committed_at,
+            )
+        ).mappings()
+    )
 
     with op.batch_alter_table(
         "procedure_steps", schema=None, copy_from=_pre_normalized_procedure_steps
@@ -165,9 +360,166 @@ def upgrade() -> None:
         ["checklist_item_id"],
     )
 
+    if slot_inserts:
+        op.bulk_insert(_procedure_slots_table, slot_inserts)
+
+    if checklist_inserts:
+        op.bulk_insert(_procedure_step_checklist_items_table, checklist_inserts)
+
+    slot_value_inserts: list[dict[str, Any]] = []
+    checklist_state_inserts: list[dict[str, Any]] = []
+
+    for state in step_state_rows:
+        run_id = state["run_id"]
+        procedure_id = run_procedure_map.get(run_id)
+        if not procedure_id:
+            continue
+        step_id = step_key_map.get((procedure_id, state["step_key"]))
+        if not step_id:
+            continue
+
+        payload = _coerce_mapping(state.get("payload"))
+        committed_at = _coerce_datetime(state.get("committed_at"))
+        if committed_at is None:
+            committed_at = datetime.utcnow()
+
+        slot_payload = _coerce_mapping(payload.get("slots"))
+        for name, value in slot_payload.items():
+            slot_id = slot_lookup.get((step_id, name))
+            if not slot_id:
+                continue
+            slot_value_inserts.append(
+                {
+                    "id": _generate_uuid(),
+                    "run_id": run_id,
+                    "slot_id": slot_id,
+                    "value": value,
+                    "captured_at": committed_at,
+                }
+            )
+
+        checklist_payload = _coerce_sequence(payload.get("checklist"))
+        for item in checklist_payload:
+            key = item.get("key")
+            if not isinstance(key, str) or not key:
+                continue
+            checklist_id = checklist_lookup.get((step_id, key))
+            if not checklist_id:
+                continue
+            completed = item.get("completed")
+            if not isinstance(completed, bool):
+                completed = bool(completed)
+            completed_at = _coerce_datetime(item.get("completed_at"))
+            if not completed:
+                completed_at = None
+            checklist_state_inserts.append(
+                {
+                    "id": _generate_uuid(),
+                    "run_id": run_id,
+                    "checklist_item_id": checklist_id,
+                    "is_completed": completed,
+                    "completed_at": completed_at,
+                }
+            )
+
+    if slot_value_inserts:
+        op.bulk_insert(_procedure_run_slot_values_table, slot_value_inserts)
+
+    if checklist_state_inserts:
+        op.bulk_insert(_procedure_run_checklist_states_table, checklist_state_inserts)
+
 
 def downgrade() -> None:
     """Rollback the normalized procedural schema."""
+
+    bind = op.get_bind()
+
+    with op.batch_alter_table(
+        "procedure_steps", schema=None, copy_from=_post_normalized_procedure_steps
+    ) as batch_op:
+        batch_op.add_column(
+            sa.Column(
+                "checklists",
+                sa.JSON(),
+                nullable=False,
+                server_default=sa.text("'[]'"),
+            )
+        )
+        batch_op.add_column(
+            sa.Column(
+                "slots",
+                sa.JSON(),
+                nullable=False,
+                server_default=sa.text("'[]'"),
+            )
+        )
+
+    slot_rows = bind.execute(
+        sa.select(
+            _procedure_slots_table.c.step_id,
+            _procedure_slots_table.c.name,
+            _procedure_slots_table.c.label,
+            _procedure_slots_table.c.type,
+            _procedure_slots_table.c.required,
+            _procedure_slots_table.c.position,
+            _procedure_slots_table.c.configuration,
+        )
+    ).mappings()
+
+    slots_by_step: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in slot_rows:
+        configuration = _coerce_mapping(row.get("configuration"))
+        slots_by_step[row["step_id"]].append(
+            {
+                "name": row["name"],
+                "label": row["label"],
+                "type": row["type"],
+                "required": bool(row["required"]),
+                "position": row["position"],
+                "metadata": dict(configuration),
+            }
+        )
+
+    for values in slots_by_step.values():
+        values.sort(key=lambda item: item.get("position", 0))
+
+    checklist_rows = bind.execute(
+        sa.select(
+            _procedure_step_checklist_items_table.c.step_id,
+            _procedure_step_checklist_items_table.c.key,
+            _procedure_step_checklist_items_table.c.label,
+            _procedure_step_checklist_items_table.c.description,
+            _procedure_step_checklist_items_table.c.required,
+            _procedure_step_checklist_items_table.c.position,
+        )
+    ).mappings()
+
+    checklists_by_step: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in checklist_rows:
+        checklists_by_step[row["step_id"]].append(
+            {
+                "key": row["key"],
+                "label": row["label"],
+                "description": row["description"],
+                "required": bool(row["required"]),
+                "position": row["position"],
+            }
+        )
+
+    for values in checklists_by_step.values():
+        values.sort(key=lambda item: item.get("position", 0))
+
+    step_ids = bind.execute(sa.select(_pre_normalized_procedure_steps.c.id)).scalars()
+
+    for step_id in step_ids:
+        bind.execute(
+            sa.update(_pre_normalized_procedure_steps)
+            .where(_pre_normalized_procedure_steps.c.id == step_id)
+            .values(
+                slots=slots_by_step.get(step_id, []),
+                checklists=checklists_by_step.get(step_id, []),
+            )
+        )
 
     op.drop_index(
         "ix_procedure_run_checklist_item_states_item_id",
@@ -200,26 +552,6 @@ def downgrade() -> None:
         table_name="procedure_slots",
     )
     op.drop_table("procedure_slots")
-
-    with op.batch_alter_table(
-        "procedure_steps", schema=None, copy_from=_post_normalized_procedure_steps
-    ) as batch_op:
-        batch_op.add_column(
-            sa.Column(
-                "checklists",
-                sa.JSON(),
-                nullable=False,
-                server_default=sa.text("'[]'"),
-            )
-        )
-        batch_op.add_column(
-            sa.Column(
-                "slots",
-                sa.JSON(),
-                nullable=False,
-                server_default=sa.text("'[]'"),
-            )
-        )
 
     with op.batch_alter_table(
         "procedure_steps", schema=None, copy_from=_pre_normalized_procedure_steps
