@@ -123,13 +123,15 @@ def test_commit_step_via_public_api_protects_against_duplicates(
         checklist=[{"key": "safety_briefing", "completed": True}],
     )
 
-    with pytest.raises(InvalidTransitionError):
+    with pytest.raises(InvalidTransitionError) as exc:
         service.commit_step(
             run_id=run.id,
             step_key="collect_contact",
             slots={"phone": "+41 21 555 77 88"},
             checklist=[{"key": "safety_briefing", "completed": True}],
         )
+
+    assert exc.value.run_id == run.id
 
 
 def test_fail_run_marks_snapshot_failed(
