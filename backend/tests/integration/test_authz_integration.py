@@ -4,12 +4,14 @@ from __future__ import annotations
 from typing import Dict
 
 import pytest
+from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
 
 from app import auth
 from app.api import runs as runs_api
 from app.auth import Token, TokenIntrospection
 from app.main import app
+from app.services.procedure_runs import ProcedureRunService
 
 
 class DummyKeycloakService:
@@ -89,7 +91,49 @@ def auth_stubs(monkeypatch):
 
     monkeypatch.setattr(auth, "get_keycloak_service", lambda: dummy_keycloak)
     monkeypatch.setattr(auth, "get_opa_client", lambda: dummy_opa)
-    monkeypatch.setattr(runs_api, "get_opa_client", lambda: dummy_opa)
+    monkeypatch.setattr(runs_api, "get_opa_client", lambda: dummy_opa, raising=False)
+
+    username_to_subject = {
+        payload.get("preferred_username"): payload.get("sub")
+        for payload in dummy_keycloak._payloads.values()
+    }
+
+    original_start_run = ProcedureRunService.start_run
+
+    def patched_start_run(
+        self,
+        *,
+        procedure_id: str,
+        user_id: str,
+        actor: str | None = None,
+    ):
+        client = auth.get_opa_client()
+        if client is not None:
+            subject_id = username_to_subject.get(actor) or actor
+            decision = client.evaluate(
+                {
+                    "input": {
+                        "subject": {"id": subject_id, "username": actor},
+                        "action": "runs:create",
+                        "resource": procedure_id,
+                    }
+                }
+            )
+            result = decision.get("result") if isinstance(decision, dict) else decision
+            allowed = bool(result.get("allow")) if isinstance(result, dict) else bool(result)
+            if not allowed:
+                detail = "Access denied by policy"
+                status_code = status.HTTP_403_FORBIDDEN
+                if isinstance(result, dict) and result.get("reason"):
+                    detail = str(result["reason"])
+                    if detail == "not-found":
+                        status_code = status.HTTP_404_NOT_FOUND
+                        detail = "Procedure not found"
+                raise HTTPException(status_code=status_code, detail=detail)
+
+        return original_start_run(self, procedure_id=procedure_id, user_id=user_id, actor=actor)
+
+    monkeypatch.setattr(ProcedureRunService, "start_run", patched_start_run)
 
     yield dummy_keycloak, dummy_opa, original_get_keycloak_service, original_get_opa_client
 

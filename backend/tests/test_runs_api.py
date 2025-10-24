@@ -336,9 +336,13 @@ def test_commit_step_missing_required_checklist_returns_422(
 
     response = client.post(
         f"/runs/{run_id}/commit-step",
-        json={"step_key": "step", "slots": {}, "checklist": []},
+        json={
+            "step_key": "profile",
+            "slots": {"email": "user@example.com"},
+            "checklist": [],
+        },
     )
     assert response.status_code == 422
     detail = response.json()["detail"]
-    assert detail["message"] == "Slot validation failed"
-    assert any(issue["slot"] == "email" for issue in detail["issues"])
+    assert detail["message"] == "Checklist validation failed"
+    assert any(issue["field"] == "checklist.consent" for issue in detail["issues"])

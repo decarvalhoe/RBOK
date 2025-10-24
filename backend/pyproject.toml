@@ -28,7 +28,7 @@ indent-style = "space"
 line-ending = "auto"
 
 [tool.pytest.ini_options]
-addopts = "--cov=app.api.procedures --cov=app.api.runs --cov=app.services.procedures --cov-report=term-missing --cov-report=xml --cov-fail-under=75"
+addopts = "--cov=app.api.procedures --cov=app.api.runs --cov=app.services.procedures --cov=app.services.procedure_runs --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
 testpaths = ["tests"]
 filterwarnings = [
   "error::DeprecationWarning",
@@ -54,6 +54,6 @@ omit = [
 
 [tool.coverage.report]
 include = [
-  "app/services/procedure_runs.py",
-  "app/services/procedures/*",
+  "*/app/services/procedure_runs.py",
+  "*/app/services/procedures/*",
 ]
