@@ -1,0 +1,361 @@
+{
+    "id": "proc_demo_retablissement_reseau",
+    "name": "D\u00e9mo \u2013 R\u00e9tablissement d'un r\u00e9seau d'agence",
+    "description": "Parcours de bout en bout simulant la gestion d'un incident r\u00e9seau critique pour une agence bancaire.",
+    "metadata": {
+        "category": "incident_response",
+        "business_unit": "operations",
+        "audience": [
+            "soc",
+            "it_ops",
+            "audit"
+        ],
+        "version": "1.0-demo",
+        "tags": [
+            "demo",
+            "critique",
+            "reseau"
+        ],
+        "sla_minutes": 90
+    },
+    "steps": [
+        {
+            "key": "trigger",
+            "title": "D\u00e9clenchement de l'incident",
+            "prompt": "Recueillez les informations de base sur l'alerte r\u00e9seau transmise par le SOC.",
+            "position": 0,
+            "metadata": {
+                "owner": "soc",
+                "channel": "pagerduty"
+            },
+            "slots": [
+                {
+                    "name": "incident_id",
+                    "type": "string",
+                    "label": "Identifiant d'incident",
+                    "description": "Code unique fourni par le SOC",
+                    "required": true,
+                    "validate": "^INC-[0-9]{6}$",
+                    "position": 0
+                },
+                {
+                    "name": "detection_timestamp",
+                    "type": "date",
+                    "label": "Horodatage de d\u00e9tection",
+                    "required": true,
+                    "position": 1
+                },
+                {
+                    "name": "severity",
+                    "type": "enum",
+                    "label": "S\u00e9v\u00e9rit\u00e9",
+                    "required": true,
+                    "options": [
+                        "critique",
+                        "majeure",
+                        "mineure"
+                    ],
+                    "position": 2
+                },
+                {
+                    "name": "reporting_channel",
+                    "type": "enum",
+                    "label": "Canal de signalement",
+                    "required": true,
+                    "options": [
+                        "monitoring",
+                        "client",
+                        "interne"
+                    ],
+                    "position": 3
+                }
+            ],
+            "checklists": [
+                {
+                    "key": "acknowledged",
+                    "label": "Alerte confirm\u00e9e par le SOC",
+                    "description": "Le SOC a valid\u00e9 que l'incident est r\u00e9el et n\u00e9cessite un traitement imm\u00e9diat.",
+                    "required": true,
+                    "default_state": true,
+                    "position": 0,
+                    "metadata": {
+                        "control": "ALERT-VALIDATION"
+                    }
+                },
+                {
+                    "key": "stakeholders_notified",
+                    "label": "Parties prenantes initiales notifi\u00e9es",
+                    "description": "Le responsable d'agence et l'\u00e9quipe IT locale sont inform\u00e9s.",
+                    "required": false,
+                    "default_state": false,
+                    "position": 1
+                }
+            ]
+        },
+        {
+            "key": "diagnosis",
+            "title": "Diagnostic initial",
+            "prompt": "Analysez l'\u00e9tendue de l'incident et confirmez les syst\u00e8mes touch\u00e9s.",
+            "position": 1,
+            "metadata": {
+                "owner": "network_engineer"
+            },
+            "slots": [
+                {
+                    "name": "impacted_sites",
+                    "type": "string",
+                    "label": "Sites impact\u00e9s",
+                    "description": "Liste des agences ou services affect\u00e9s",
+                    "required": true,
+                    "position": 0
+                },
+                {
+                    "name": "primary_symptom",
+                    "type": "enum",
+                    "label": "Sympt\u00f4me principal",
+                    "required": true,
+                    "options": [
+                        "perte_connectivite",
+                        "latence",
+                        "packet_loss"
+                    ],
+                    "position": 1
+                },
+                {
+                    "name": "customer_impact",
+                    "type": "enum",
+                    "label": "Impact client",
+                    "required": true,
+                    "options": [
+                        "guichet_ferme",
+                        "services_degrades",
+                        "aucun"
+                    ],
+                    "position": 2
+                },
+                {
+                    "name": "sla_breach_expected",
+                    "type": "boolean",
+                    "label": "Risque de d\u00e9passement SLA",
+                    "required": true,
+                    "position": 3
+                }
+            ],
+            "checklists": [
+                {
+                    "key": "monitoring_checked",
+                    "label": "Monitoring r\u00e9seau v\u00e9rifi\u00e9",
+                    "description": "Les dashboards NOC confirment le sympt\u00f4me.",
+                    "required": true,
+                    "default_state": false,
+                    "position": 0
+                },
+                {
+                    "key": "backup_links_tested",
+                    "label": "Liens de secours test\u00e9s",
+                    "description": "Les liaisons 4G/MPLS de secours ont \u00e9t\u00e9 sollicit\u00e9es.",
+                    "required": false,
+                    "default_state": false,
+                    "position": 1
+                }
+            ]
+        },
+        {
+            "key": "remediation",
+            "title": "Actions correctives",
+            "prompt": "D\u00e9ployez la solution retenue et consignez les op\u00e9rations effectu\u00e9es.",
+            "position": 2,
+            "metadata": {
+                "owner": "field_ops",
+                "requires_change_ticket": true
+            },
+            "slots": [
+                {
+                    "name": "change_ticket",
+                    "type": "string",
+                    "label": "Ticket de changement",
+                    "description": "R\u00e9f\u00e9rence ITSM autorisant l'intervention",
+                    "required": true,
+                    "validate": "^CHG-[0-9]{5}$",
+                    "position": 0
+                },
+                {
+                    "name": "start_time",
+                    "type": "date",
+                    "label": "D\u00e9but d'intervention",
+                    "required": true,
+                    "position": 1
+                },
+                {
+                    "name": "fix_applied",
+                    "type": "enum",
+                    "label": "Solution appliqu\u00e9e",
+                    "required": true,
+                    "options": [
+                        "redemarrage_routeur",
+                        "bascule_lien_secours",
+                        "reconfiguration_qos"
+                    ],
+                    "position": 2
+                },
+                {
+                    "name": "rollback_plan_available",
+                    "type": "boolean",
+                    "label": "Plan de rollback pr\u00eat",
+                    "required": true,
+                    "position": 3
+                }
+            ],
+            "checklists": [
+                {
+                    "key": "change_approved",
+                    "label": "Changement approuv\u00e9",
+                    "description": "Le CAB ou le chef d'\u00e9quipe a valid\u00e9 l'action corrective.",
+                    "required": true,
+                    "default_state": false,
+                    "position": 0
+                },
+                {
+                    "key": "communication_sent",
+                    "label": "Communication envoy\u00e9e",
+                    "description": "Les parties prenantes re\u00e7oivent une mise \u00e0 jour sur l'intervention.",
+                    "required": false,
+                    "default_state": false,
+                    "position": 1
+                }
+            ]
+        },
+        {
+            "key": "validation",
+            "title": "Validation du r\u00e9tablissement",
+            "prompt": "Confirmez le retour \u00e0 la normale et collectez les preuves de r\u00e9tablissement.",
+            "position": 3,
+            "metadata": {
+                "owner": "qa_ops"
+            },
+            "slots": [
+                {
+                    "name": "service_status",
+                    "type": "enum",
+                    "label": "Statut du service",
+                    "required": true,
+                    "options": [
+                        "retabli",
+                        "partiellement_retabli",
+                        "non_retabli"
+                    ],
+                    "position": 0
+                },
+                {
+                    "name": "validation_timestamp",
+                    "type": "date",
+                    "label": "Horodatage de validation",
+                    "required": true,
+                    "position": 1
+                },
+                {
+                    "name": "residual_issues",
+                    "type": "string",
+                    "label": "Probl\u00e8mes r\u00e9siduels",
+                    "description": "Liste des anomalies encore observ\u00e9es",
+                    "required": false,
+                    "position": 2
+                },
+                {
+                    "name": "next_follow_up",
+                    "type": "date",
+                    "label": "Prochain point de suivi",
+                    "required": false,
+                    "position": 3
+                }
+            ],
+            "checklists": [
+                {
+                    "key": "end_to_end_tests",
+                    "label": "Tests de bout en bout r\u00e9alis\u00e9s",
+                    "description": "Les transactions de test ont \u00e9t\u00e9 ex\u00e9cut\u00e9es avec succ\u00e8s.",
+                    "required": true,
+                    "default_state": false,
+                    "position": 0
+                },
+                {
+                    "key": "monitoring_normalized",
+                    "label": "Monitoring revenu \u00e0 la normale",
+                    "description": "Les m\u00e9triques cl\u00e9s sont revenues dans les seuils attendus.",
+                    "required": true,
+                    "default_state": false,
+                    "position": 1
+                }
+            ]
+        },
+        {
+            "key": "closure",
+            "title": "Cl\u00f4ture et capitalisation",
+            "prompt": "Finalisez l'incident, consignez les enseignements et planifiez le retour d'exp\u00e9rience.",
+            "position": 4,
+            "metadata": {
+                "owner": "incident_manager"
+            },
+            "slots": [
+                {
+                    "name": "final_state",
+                    "type": "enum",
+                    "label": "Issue finale",
+                    "required": true,
+                    "options": [
+                        "clos",
+                        "clos_surveillance",
+                        "clos_action_suivi"
+                    ],
+                    "position": 0
+                },
+                {
+                    "name": "postmortem_required",
+                    "type": "boolean",
+                    "label": "Post-mortem requis",
+                    "required": true,
+                    "position": 1
+                },
+                {
+                    "name": "postmortem_date",
+                    "type": "date",
+                    "label": "Date du post-mortem",
+                    "required": false,
+                    "position": 2
+                },
+                {
+                    "name": "lessons_learned",
+                    "type": "string",
+                    "label": "Le\u00e7ons principales",
+                    "description": "R\u00e9sum\u00e9 des am\u00e9liorations identifi\u00e9es",
+                    "required": false,
+                    "position": 3
+                }
+            ],
+            "checklists": [
+                {
+                    "key": "documentation_updated",
+                    "label": "Documentation mise \u00e0 jour",
+                    "description": "Les runbooks et fiches de proc\u00e9dures ont \u00e9t\u00e9 corrig\u00e9s.",
+                    "required": true,
+                    "default_state": false,
+                    "position": 0
+                },
+                {
+                    "key": "sla_report_sent",
+                    "label": "Rapport SLA partag\u00e9",
+                    "description": "Le rapport formel est envoy\u00e9 aux \u00e9quipes conformit\u00e9 et audit.",
+                    "required": false,
+                    "default_state": false,
+                    "position": 1,
+                    "metadata": {
+                        "audience": [
+                            "audit",
+                            "conformite"
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}

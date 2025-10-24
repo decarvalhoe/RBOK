@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Load the demo onboarding procedure via the public API."""
+"""Load the demo procedure via the public API."""
 from __future__ import annotations
 
 import argparse
@@ -10,7 +10,7 @@ from typing import Any, Dict, List
 
 import requests
 
-DEFAULT_SOURCE = Path('docs/exemple_procedure_pilote.json')
+DEFAULT_SOURCE = Path('docs/procedures/demo.json')
 
 
 def _normalise_step(step: Dict[str, Any], position: int) -> Dict[str, Any]:
@@ -19,19 +19,23 @@ def _normalise_step(step: Dict[str, Any], position: int) -> Dict[str, Any]:
         'title': step['title'],
         'prompt': step['prompt'],
         'slots': step.get('slots', []),
+        'checklists': step.get('checklists', []),
+        'metadata': step.get('metadata', {}),
         'position': position,
     }
 
 
 def _build_payload(raw: Dict[str, Any], actor: str) -> Dict[str, Any]:
     steps = [_normalise_step(step, index) for index, step in enumerate(raw.get('steps', []))]
-    return {
+    payload: Dict[str, Any] = {
         'actor': actor,
         'id': raw.get('id'),
         'name': raw['name'],
         'description': raw.get('description', ''),
+        'metadata': raw.get('metadata', {}),
         'steps': steps,
     }
+    return payload
 
 
 def load_procedure(base_url: str, source: Path, actor: str) -> Dict[str, Any]:
@@ -48,7 +52,7 @@ def load_procedure(base_url: str, source: Path, actor: str) -> Dict[str, Any]:
 
 
 def main(argv: List[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description='Import the demo onboarding procedure via the API.')
+    parser = argparse.ArgumentParser(description='Import the demo incident-response procedure via the API.')
     parser.add_argument('--base-url', default='http://localhost:8000', help='Base URL of the backend API (default: %(default)s).')
     parser.add_argument('--source', type=Path, default=DEFAULT_SOURCE, help='Path to the JSON payload to import.')
     parser.add_argument('--actor', default='demo-admin', help='Audit actor recorded for the import (default: %(default)s).')
