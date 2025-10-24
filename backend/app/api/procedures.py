@@ -10,7 +10,11 @@ from ..auth import User, require_role
 from ..database import get_db
 from ..models import Procedure, ProcedureStep
 from ..services.procedures import ProcedureDefinitionError, ProcedureService
-from ..services.procedures.cache import cached_procedure_list, invalidate_procedure_list
+from ..services.procedures.cache import (
+    cached_procedure_detail,
+    cached_procedure_list,
+    invalidate_procedure_cache,
+)
 from .schemas.procedures import (
     ProcedureChecklistItem,
     ProcedureCreateRequest,
@@ -101,10 +105,16 @@ async def get_procedure(
 ) -> ProcedureResponse:
     """Return the procedure identified by ``procedure_id``."""
 
-    procedure = service.get_procedure(procedure_id)
-    if procedure is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Procedure not found")
-    return _to_response(procedure)
+    def _fetch_procedure() -> dict:
+        procedure = service.get_procedure(procedure_id)
+        if procedure is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Procedure not found"
+            )
+        return _to_response(procedure).model_dump(mode="json")
+
+    cached = cached_procedure_detail(procedure_id, _fetch_procedure)
+    return ProcedureResponse.model_validate(cached)
 
 
 @router.post("", response_model=ProcedureResponse, status_code=status.HTTP_201_CREATED)
@@ -126,7 +136,7 @@ async def create_procedure(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"message": str(exc), "issues": exc.issues},
         ) from exc
-    invalidate_procedure_list()
+    invalidate_procedure_cache(procedure.id)
     if not created:
         response.status_code = status.HTTP_200_OK
     return _to_response(procedure)

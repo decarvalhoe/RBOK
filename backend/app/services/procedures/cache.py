@@ -1,4 +1,4 @@
-"""Caching utilities for procedure listings and run details."""
+"""Caching utilities for procedure listings, details, and run details."""
 from __future__ import annotations
 
 import json
@@ -162,6 +162,16 @@ def cached_procedure_list(fetcher: Callable[[], T], ttl_seconds: int = DEFAULT_T
     )
 
 
+def cached_procedure_detail(
+    procedure_id: str, fetcher: Callable[[], T], ttl_seconds: int = DEFAULT_TTL_SECONDS
+) -> T:
+    """Return cached details for a specific procedure, keyed by its version."""
+
+    version_key = _PROCEDURE_VERSION_TEMPLATE % procedure_id
+    resource = f"procedure:{procedure_id}"
+    return _fetch_with_cache(resource, version_key, fetcher, ttl_seconds=ttl_seconds)
+
+
 def cached_run_detail(run_id: str, fetcher: Callable[[], T], ttl_seconds: int = DEFAULT_TTL_SECONDS) -> T:
     """Return cached details for a specific run, keyed by its version."""
 
@@ -191,6 +201,7 @@ def invalidate_run_cache(run_id: str) -> None:
 
 __all__ = [
     "cached_procedure_list",
+    "cached_procedure_detail",
     "cached_run_detail",
     "invalidate_procedure_cache",
     "invalidate_procedure_list",

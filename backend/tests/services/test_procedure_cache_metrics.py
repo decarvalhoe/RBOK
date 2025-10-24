@@ -67,6 +67,33 @@ def test_cached_procedure_list_records_hits_and_misses(fake_redis: FakeRedisClie
     )
 
 
+def test_cached_procedure_detail_records_hits_and_misses(fake_redis: FakeRedisClient) -> None:
+    fetch_calls = {"count": 0}
+
+    def fetcher() -> Dict[str, str]:
+        fetch_calls["count"] += 1
+        return {"id": "proc-1"}
+
+    resource_labels = {"resource": "procedure:proc-1"}
+    hits_before = _counter_value(cache_module.CACHE_HITS.labels, **resource_labels)
+    misses_before = _counter_value(cache_module.CACHE_MISSES.labels, **resource_labels)
+
+    first = cache_module.cached_procedure_detail("proc-1", fetcher)
+    second = cache_module.cached_procedure_detail("proc-1", fetcher)
+
+    assert fetch_calls["count"] == 1
+    assert first == second
+
+    assert (
+        _counter_value(cache_module.CACHE_MISSES.labels, **resource_labels)
+        == misses_before + 1
+    )
+    assert (
+        _counter_value(cache_module.CACHE_HITS.labels, **resource_labels)
+        == hits_before + 1
+    )
+
+
 def test_cached_run_detail_records_hits_and_misses(fake_redis: FakeRedisClient) -> None:
     fetch_calls = {"count": 0}
 
