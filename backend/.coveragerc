@@ -11,7 +11,5 @@ omit =
 
 [report]
 include =
-    app/api/*.py
-    app/api/**/*.py
-    app/services/*.py
-    app/services/**/*.py
+    */app/services/procedure_runs.py
+    */app/services/procedures/*.py

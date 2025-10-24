@@ -58,17 +58,16 @@ def test_slot_validator_trims_optional_strings() -> None:
     assert cleaned["notes"] == "Hello"
 
 
-def test_slot_validator_detects_unsupported_types() -> None:
+def test_slot_validator_coerces_boolean_values() -> None:
     validator = validators.SlotValidator(
         [
             {"name": "consent", "type": "boolean", "required": False},
         ]
     )
 
-    with pytest.raises(SlotValidationError) as exc:
-        validator.validate({"consent": True})
+    cleaned = validator.validate({"consent": "YES"})
 
-    assert "Unsupported slot type" in str(exc.value)
+    assert cleaned["consent"] is True
 
 
 def test_validate_payload_wraps_slot_errors() -> None:
@@ -82,11 +81,8 @@ def test_validate_payload_wraps_slot_errors() -> None:
 
     assert cleaned == {}
     assert errors == [
-        {
-            "field": "slots",
-            "code": "invalid",
-            "params": {"message": "Slot 'email' must be a valid email address; Slot 'phone' must follow mask 'XXX'"},
-        }
+        {"field": "email", "code": "validation.email", "params": {}},
+        {"field": "phone", "code": "validation.mask", "params": {"mask": "XXX"}},
     ]
 
 
@@ -117,7 +113,11 @@ def test_checklist_validator_detects_unknown_items() -> None:
     with pytest.raises(ChecklistValidationError) as exc:
         validator.validate({"unknown": True})
 
-    assert "Unknown checklist items" in str(exc.value)
+    assert "Unknown checklist item" in str(exc.value)
+    assert {(issue["field"], issue["code"]) for issue in exc.value.issues} == {
+        ("checklist.unknown", "validation.unexpected_item"),
+        ("checklist.consent", "validation.required"),
+    }
 
 
 def test_checklist_validator_accepts_dictionary_submission() -> None:

@@ -327,24 +327,28 @@ def test_procedure_lifecycle_generates_audit_trail(
     assert second_commit.status_code == 200
     assert second_commit.json()['state'] == 'completed'
 
-    procedure_events = client.get(
-        '/audit-events',
-        params={'entity_type': 'procedure', 'entity_id': 'demo-procedure'},
-    )
-    assert procedure_events.status_code == 200
-    actions = [event['action'] for event in procedure_events.json()]
-    assert 'procedure.created' in actions
+    procedure_events = test_session.execute(
+        select(models.AuditEvent).where(
+            models.AuditEvent.entity_type == 'procedure',
+            models.AuditEvent.entity_id == procedure_id,
+        )
+    ).scalars().all()
+    procedure_actions = {event.action for event in procedure_events}
+    assert 'procedure.created' in procedure_actions
 
-    run_events = client.get('/audit-events', params={'entity_type': 'procedure_run', 'entity_id': run_id})
-    assert run_events.status_code == 200
-    run_actions = [event['action'] for event in run_events.json()]
-    assert 'run.created' in run_actions
-    assert 'run.updated' in run_actions
+    run_events = test_session.execute(
+        select(models.AuditEvent).where(
+            models.AuditEvent.entity_type == 'procedure_run',
+            models.AuditEvent.entity_id == run_id,
+        )
+    ).scalars().all()
+    run_actions = {event.action for event in run_events}
+    assert {'run.created', 'run.updated'} <= run_actions
 
-    step_events = client.get(
-        '/audit-events',
-        params={'entity_type': 'procedure_run_step', 'entity_id': f'{run_id}:summary'},
-    )
-    assert step_events.status_code == 200
-    step_actions = [event['action'] for event in step_events.json()]
-    assert step_actions == ['run.step_committed']
+    step_events = test_session.execute(
+        select(models.AuditEvent).where(
+            models.AuditEvent.entity_type == 'procedure_run_step',
+            models.AuditEvent.entity_id == f'{run_id}:summary',
+        )
+    ).scalars().all()
+    assert [event.action for event in step_events] == ['run.step_committed']
