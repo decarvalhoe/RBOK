@@ -11,4 +11,7 @@ omit =
 
 [report]
 include =
-    backend/app/services/*.py
+    app/api/*.py
+    app/api/**/*.py
+    app/services/*.py
+    app/services/**/*.py

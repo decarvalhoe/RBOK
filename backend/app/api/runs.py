@@ -9,7 +9,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
-from ..auth import User, get_current_user
+from ..auth import (
+    OPAClient,
+    User,
+    get_current_user,
+    get_current_user_optional,
+    get_opa_client as auth_get_opa_client,
+)
 from ..database import get_db
 from ..services.procedure_runs import (
     ChecklistValidationError,
@@ -25,8 +31,25 @@ from ..services.procedures.cache import cached_run_detail, invalidate_run_cache
 router = APIRouter(prefix="/runs", tags=["procedure runs"])
 
 
+def get_opa_client() -> Optional[OPAClient]:
+    """Expose the OPA client factory for test monkeypatching."""
+
+    return auth_get_opa_client()
+
+
 def _service(db: Session = Depends(get_db)) -> ProcedureRunService:
     return ProcedureRunService(db)
+
+
+def _augment_slot_issues(issues: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    formatted: List[Dict[str, Any]] = []
+    for issue in issues:
+        data = dict(issue)
+        slot = data.get("slot") or data.get("field")
+        if slot is not None:
+            data.setdefault("slot", slot)
+        formatted.append(data)
+    return formatted
 
 
 class ProcedureRunCreateRequest(BaseModel):
@@ -81,6 +104,7 @@ class ChecklistStatusModel(BaseModel):
     """Public representation of a checklist item status."""
 
     id: str
+    key: str
     label: Optional[str] = None
     completed: bool
     completed_at: Optional[datetime] = None
@@ -114,6 +138,9 @@ class StepCommitResponse(BaseModel):
     checklist_statuses: List[RunChecklistItemState] = Field(
         description="Aggregate checklist status for the run"
     )
+    checklist_states: List[RunChecklistItemState] = Field(
+        description="Alias exposing checklist statuses for backwards compatibility"
+    )
 
 
 class ProcedureRunModel(BaseModel):
@@ -126,6 +153,7 @@ class ProcedureRunModel(BaseModel):
     created_at: datetime
     closed_at: Optional[datetime]
     step_states: List[RunStepStateModel]
+    checklist_states: List[ChecklistStatusModel]
     checklist_statuses: List[ChecklistStatusModel]
     checklist_progress: ChecklistProgressModel
 
@@ -209,17 +237,18 @@ def _serialize_run(snapshot: RunSnapshot) -> ProcedureRunModel:
         for state in sorted(snapshot.step_states.values(), key=lambda item: item.committed_at)
     ]
     checklist_snapshots = _build_checklist_snapshots(snapshot)
-    checklist_statuses = [
+    checklist_states = [
         ChecklistStatusModel(
             id=snapshot.item_id,
+            key=snapshot.key,
             label=snapshot.label,
             completed=snapshot.completed,
             completed_at=snapshot.completed_at,
         )
         for snapshot in checklist_snapshots
     ]
-    total_items = len(checklist_statuses)
-    completed_items = sum(1 for status in checklist_statuses if status.completed)
+    total_items = len(checklist_states)
+    completed_items = sum(1 for status in checklist_states if status.completed)
     percentage = (completed_items / total_items * 100.0) if total_items else 0.0
     checklist_progress = ChecklistProgressModel(
         total=total_items,
@@ -234,7 +263,8 @@ def _serialize_run(snapshot: RunSnapshot) -> ProcedureRunModel:
         created_at=run.created_at,
         closed_at=run.closed_at,
         step_states=step_states,
-        checklist_statuses=checklist_statuses,
+        checklist_states=checklist_states,
+        checklist_statuses=checklist_states,
         checklist_progress=checklist_progress,
     )
 
@@ -253,6 +283,7 @@ def _serialize_checklist_statuses(snapshot: RunSnapshot) -> List[RunChecklistIte
 
 def _serialize_step_commit(snapshot: RunSnapshot, step_key: str) -> StepCommitResponse:
     step_state = snapshot.step_states[step_key]
+    checklist_entries = _serialize_checklist_statuses(snapshot)
     return StepCommitResponse(
         run_state=snapshot.run.state,
         step_state=RunStepStateModel(
@@ -260,7 +291,8 @@ def _serialize_step_commit(snapshot: RunSnapshot, step_key: str) -> StepCommitRe
             payload=dict(step_state.payload or {}),
             committed_at=step_state.committed_at,
         ),
-        checklist_statuses=_serialize_checklist_statuses(snapshot),
+        checklist_statuses=checklist_entries,
+        checklist_states=checklist_entries,
     )
 
 
@@ -271,6 +303,36 @@ async def start_run(
     current_user: User = Depends(get_current_user),
 ) -> ProcedureRunModel:
     """Start a new run for the given procedure."""
+
+    client = get_opa_client()
+    if client is not None:
+        evaluation = client.evaluate(
+            {
+                "input": {
+                    "subject": {
+                        "id": current_user.subject,
+                        "username": current_user.username,
+                        "roles": list(current_user.roles),
+                    },
+                    "action": "runs:create",
+                    "resource": payload.procedure_id,
+                }
+            }
+        )
+        decision = evaluation.get("result")
+        allowed = False
+        if isinstance(decision, dict):
+            allowed = bool(decision.get("allow"))
+        elif isinstance(decision, bool):
+            allowed = decision
+        if not allowed:
+            reason = "Access denied by policy"
+            status_code = status.HTTP_403_FORBIDDEN
+            if isinstance(decision, dict) and decision.get("reason"):
+                reason = str(decision["reason"])
+                if reason == "not-found":
+                    status_code = status.HTTP_404_NOT_FOUND
+            raise HTTPException(status_code=status_code, detail=reason)
 
     user_id = payload.user_id or current_user.subject
     try:
@@ -293,7 +355,7 @@ async def start_run(
 async def get_run(
     run_id: str,
     service: ProcedureRunService = Depends(_service),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> ProcedureRunModel:
     """Return the state of a specific procedure run."""
 
@@ -316,9 +378,13 @@ async def commit_step(
     run_id: str,
     payload: ProcedureRunCommitStepRequest,
     service: ProcedureRunService = Depends(_service),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> ProcedureRunModel:
     """Commit a step payload and advance the run state when appropriate."""
+
+    actor = None
+    if current_user is not None:
+        actor = current_user.username or current_user.subject
 
     try:
         snapshot = service.commit_step(
@@ -326,7 +392,7 @@ async def commit_step(
             step_key=payload.step_key,
             slots=payload.slots,
             checklist=[item.model_dump() for item in payload.checklist],
-            actor=current_user.username or current_user.subject,
+            actor=actor,
         )
     except ProcedureRunNotFoundError as exc:
         raise HTTPException(
@@ -341,7 +407,7 @@ async def commit_step(
     except SlotValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail={"message": str(exc), "issues": exc.issues},
+            detail={"message": str(exc), "issues": _augment_slot_issues(exc.issues)},
         ) from exc
     except ChecklistValidationError as exc:
         raise HTTPException(
@@ -362,9 +428,13 @@ async def commit_step_v2(
     step_key: str,
     payload: ProcedureRunStepCommitPayload,
     service: ProcedureRunService = Depends(_service),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> StepCommitResponse:
     """Commit a step payload using the explicit step path structure."""
+
+    actor = None
+    if current_user is not None:
+        actor = current_user.username or current_user.subject
 
     try:
         snapshot = service.commit_step(
@@ -372,7 +442,7 @@ async def commit_step_v2(
             step_key=step_key,
             slots=payload.slots,
             checklist=[item.model_dump() for item in payload.checklist],
-            actor=current_user.username or current_user.subject,
+            actor=actor,
         )
     except ProcedureRunNotFoundError as exc:
         raise HTTPException(
@@ -387,7 +457,7 @@ async def commit_step_v2(
     except SlotValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"message": str(exc), "issues": exc.issues},
+            detail={"message": str(exc), "issues": _augment_slot_issues(exc.issues)},
         ) from exc
     except ChecklistValidationError as exc:
         raise HTTPException(
