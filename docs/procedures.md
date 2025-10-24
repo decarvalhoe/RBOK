@@ -1,6 +1,6 @@
 # Guide de démonstration des procédures
 
-Ce tutoriel explique comment charger la procédure pilote fournie dans `docs/exemple_procedure_pilote.json`, lancer une exécution complète via l’API FastAPI et vérifier l’audit trail (ALCOA+).
+Ce tutoriel explique comment charger la procédure de démonstration fournie dans [`docs/procedures/demo.json`](docs/procedures/demo.json), lancer une exécution complète via l’API FastAPI et vérifier l’audit trail (ALCOA+).
 
 ## 1. Pré-requis
 
@@ -8,132 +8,110 @@ Ce tutoriel explique comment charger la procédure pilote fournie dans `docs/exe
 - L’API est supposée accessible sur `http://localhost:8000`.
 - Python 3.10+ est disponible pour lancer le script d’import.
 
-## 2. Importer la procédure pilote
+## 2. Procédure de démonstration : « Rétablissement d'un réseau d'agence »
 
-Utilisez le script utilitaire pour transformer le JSON « pilote » et le pousser sur l’API :
+Le fichier [`docs/procedures/demo.json`](docs/procedures/demo.json) décrit un incident réseau critique pour une agence bancaire. Il illustre les fonctionnalités de collecte de slots structurés, de suivi de checklists et de métadonnées enrichies.
+
+### Métadonnées globales
+
+- `category` : `incident_response`
+- `business_unit` : `operations`
+- `audience` : `soc`, `it_ops`, `audit`
+- `version` : `1.0-demo`
+- `sla_minutes` : `90`
+
+### Étapes & artefacts
+
+| Étape (`key`) | Objectif | Slots principaux | Checklists |
+|---------------|----------|-----------------|------------|
+| `trigger` | Capturer l’alerte SOC | `incident_id`, `detection_timestamp`, `severity`, `reporting_channel` | `acknowledged`, `stakeholders_notified` |
+| `diagnosis` | Qualifier l’impact | `impacted_sites`, `primary_symptom`, `customer_impact`, `sla_breach_expected` | `monitoring_checked`, `backup_links_tested` |
+| `remediation` | Documenter l’action correctrice | `change_ticket`, `start_time`, `fix_applied`, `rollback_plan_available` | `change_approved`, `communication_sent` |
+| `validation` | Confirmer le rétablissement | `service_status`, `validation_timestamp`, `residual_issues`, `next_follow_up` | `end_to_end_tests`, `monitoring_normalized` |
+| `closure` | Clore et capitaliser | `final_state`, `postmortem_required`, `postmortem_date`, `lessons_learned` | `documentation_updated`, `sla_report_sent` |
+
+Chaque étape inclut également des métadonnées (ex. `owner`, `channel`, `requires_change_ticket`) afin de montrer la persistance de données libres aux côtés des champs normés.
+
+## 3. Importer la procédure de démonstration
+
+### Avec le script utilitaire
+
+Le script [`scripts/load_demo_procedure.py`](../scripts/load_demo_procedure.py) utilise désormais `docs/procedures/demo.json` par défaut et conserve les métadonnées/checklists du fichier source.
 
 ```bash
 python scripts/load_demo_procedure.py \
   --base-url http://localhost:8000 \
-  --source docs/exemple_procedure_pilote.json \
   --actor demo-admin
 ```
 
-Le script renvoie le document créé avec les `id` générés pour les étapes. L’import peut également être réalisé directement avec `curl` :
+### Import direct avec `curl`
+
+Pour importer le JSON directement, ajoutez simplement le champ `actor` autour du fichier source :
 
 ```bash
-curl -X POST http://localhost:8000/procedures \
+ACTOR="demo-admin"
+BASE_URL="${BASE_URL:-http://localhost:8000}"
+
+curl -X POST "${BASE_URL%/}/procedures" \
   -H 'Content-Type: application/json' \
-  -d @- <<'JSON'
-{
-  "id": "proc_001_onboarding_client",
-  "name": "Onboarding Client",
-  "description": "Procédure d'accueil et d'enregistrement d'un nouveau client",
-  "metadata": {
-    "category": "onboarding"
-  },
-  "steps": [
-    {
-      "key": "welcome",
-      "title": "Accueil du client",
-      "prompt": "Accueillez chaleureusement le nouveau client et expliquez-lui le processus d'onboarding.",
-      "slots": [
-        {"name": "client_name", "type": "string", "required": true, "validate": "^[A-Za-zÀ-ÿ\\s]{2,50}$"},
-        {"name": "preferred_language", "type": "enum", "required": true, "options": ["français", "anglais", "allemand", "italien"]}
-      ],
-      "position": 0
-    },
-    {
-      "key": "contact_info",
-      "title": "Informations de contact",
-      "prompt": "Collectez les informations de contact essentielles du client.",
-      "slots": [
-        {"name": "email", "type": "email", "required": true, "validate": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"},
-        {"name": "phone", "type": "phone", "required": true, "mask": "+41 XX XXX XX XX"},
-        {"name": "address", "type": "string", "required": false}
-      ],
-      "position": 1
-    },
-    {
-      "key": "service_selection",
-      "title": "Sélection des services",
-      "prompt": "Aidez le client à choisir les services qui correspondent à ses besoins.",
-      "slots": [
-        {"name": "services_interested", "type": "enum", "required": true, "options": ["consultation", "formation", "support_technique", "audit"]},
-        {"name": "budget_range", "type": "enum", "required": false, "options": ["< 1000 CHF", "1000-5000 CHF", "5000-10000 CHF", "> 10000 CHF"]}
-      ],
-      "position": 2
-    },
-    {
-      "key": "confirmation",
-      "title": "Confirmation et finalisation",
-      "prompt": "Récapitulez les informations collectées et confirmez avec le client.",
-      "slots": [
-        {"name": "confirmation_accepted", "type": "boolean", "required": true},
-        {"name": "next_steps_scheduled", "type": "date", "required": false}
-      ],
-      "position": 3
-    },
-    {
-      "key": "completed",
-      "title": "Onboarding terminé",
-      "prompt": "Remerciez le client et fournissez les informations de suivi.",
-      "slots": [],
-      "position": 4
-    }
-  ]
-}
-JSON
+  -d "$(jq --arg actor "$ACTOR" '. + {actor: $actor}' docs/procedures/demo.json)"
 ```
 
-Réponse attendue (`201 Created`) :
+### Réponse attendue (`201 Created`)
+
+La réponse renvoie le document créé avec positions normalisées et identifiants générés pour les étapes. Extrait du premier élément :
 
 ```json
 {
-  "id": "proc_001_onboarding_client",
-  "name": "Onboarding Client",
-  "description": "Procédure d'accueil et d'enregistrement d'un nouveau client",
+  "id": "proc_demo_retablissement_reseau",
+  "name": "Démo – Rétablissement d'un réseau d'agence",
   "metadata": {
-    "category": "onboarding"
+    "category": "incident_response",
+    "business_unit": "operations"
   },
   "steps": [
     {
-      "id": "step_01HZY5KD1D2C3M4N5P6Q7R8S9T",
-      "key": "welcome",
-      "title": "Accueil du client",
-      "prompt": "Accueillez chaleureusement le nouveau client et expliquez-lui le processus d'onboarding.",
+      "id": "step_01J0XYZ8N6FM3H4PK5R6S7T8U9",
+      "key": "trigger",
+      "title": "Déclenchement de l'incident",
+      "prompt": "Recueillez les informations de base sur l'alerte réseau transmise par le SOC.",
       "position": 0,
-      "metadata": {},
+      "metadata": {
+        "owner": "soc",
+        "channel": "pagerduty"
+      },
       "slots": [
-        {"name": "client_name", "type": "string", "required": true, "label": null, "description": null, "validate": "^[A-Za-zÀ-ÿ\\s]{2,50}$", "mask": null, "options": null, "position": 0, "metadata": {}}
+        {"name": "incident_id", "type": "string", "required": true, "label": "Identifiant d'incident", "position": 0}
       ],
-      "checklists": []
+      "checklists": [
+        {"key": "acknowledged", "label": "Alerte confirmée par le SOC", "required": true, "position": 0}
+      ]
     }
   ]
 }
 ```
 
-Les autres étapes de la procédure sont retournées de la même manière. La réponse renvoie l’identifiant interne de chaque étape (`id`) qui servira lors de l’audit.
+Les autres étapes conservent leurs métadonnées, slots et checklists respectifs.
 
-## 3. Lancer une exécution (« run »)
+## 4. Lancer une exécution (« run »)
 
 Créez un run en précisant l’opérateur concerné via `user_id` (facultatif si l’identifiant peut être dérivé du jeton d’authentification) :
 
 ```bash
 curl -X POST http://localhost:8000/runs \
   -H 'Content-Type: application/json' \
-  -d '{"procedure_id": "proc_001_onboarding_client", "user_id": "agent-qa"}'
+  -d '{"procedure_id": "proc_demo_retablissement_reseau", "user_id": "agent-qa"}'
 ```
 
 Réponse attendue (`201 Created`) :
 
 ```json
 {
-  "id": "run_01HZY5M0ZK7A1XTB7JH3G5C8K2",
-  "procedure_id": "proc_001_onboarding_client",
+  "id": "run_01J0YZ4DGCE1A2B3C4D5E6F7G8",
+  "procedure_id": "proc_demo_retablissement_reseau",
   "user_id": "agent-qa",
   "state": "pending",
-  "created_at": "2025-01-14T08:52:12.486193Z",
+  "created_at": "2025-02-18T08:52:12.486193Z",
   "closed_at": null,
   "step_states": [],
   "checklist_states": []
@@ -142,20 +120,24 @@ Réponse attendue (`201 Created`) :
 
 Conservez `id` pour les commits suivants.
 
-## 4. Enregistrer les commits d’étapes
+## 5. Enregistrer les commits d’étapes
 
-L’API expose désormais un point d’entrée unique `POST /runs/{id}/commit-step` qui reçoit la clé de l’étape, les valeurs saisies (`slots`) et, le cas échéant, l’état de la checklist. Dès que la variante `POST /runs/{id}/steps/{key}/commit` sera en production, la structure de la charge utile et des réponses restera identique.
+L’API expose un point d’entrée unique `POST /runs/{id}/commit-step` qui reçoit la clé de l’étape, les valeurs saisies (`slots`) et l’état de la checklist. Exemple pour la première étape (`trigger`) :
 
 ```bash
+RUN_ID="run_01J0YZ4DGCE1A2B3C4D5E6F7G8"
+
 curl -X POST "http://localhost:8000/runs/${RUN_ID}/commit-step" \
   -H 'Content-Type: application/json' \
   -d '{
-        "step_key": "welcome",
+        "step_key": "trigger",
         "slots": {
-          "client_name": "Jane Doe",
-          "preferred_language": "français"
+          "incident_id": "INC-450123",
+          "detection_timestamp": "2025-02-18",
+          "severity": "critique",
+          "reporting_channel": "monitoring"
         },
-        "checklist": []
+        "checklist": ["acknowledged", "stakeholders_notified"]
       }'
 ```
 
@@ -163,68 +145,68 @@ Réponse attendue (`200 OK`) :
 
 ```json
 {
-  "id": "run_01HZY5M0ZK7A1XTB7JH3G5C8K2",
-  "procedure_id": "proc_001_onboarding_client",
+  "id": "run_01J0YZ4DGCE1A2B3C4D5E6F7G8",
+  "procedure_id": "proc_demo_retablissement_reseau",
   "user_id": "agent-qa",
   "state": "in_progress",
-  "created_at": "2025-01-14T08:52:12.486193Z",
-  "closed_at": null,
   "step_states": [
     {
-      "step_key": "welcome",
+      "step_key": "trigger",
       "payload": {
         "slots": {
-          "client_name": "Jane Doe",
-          "preferred_language": "français"
+          "incident_id": "INC-450123",
+          "detection_timestamp": "2025-02-18",
+          "severity": "critique",
+          "reporting_channel": "monitoring"
         },
-        "checklist": []
+        "checklist": ["acknowledged", "stakeholders_notified"]
       },
-      "committed_at": "2025-01-14T08:55:01.124305Z"
+      "committed_at": "2025-02-18T08:55:01.124305Z"
     }
-  ],
-  "checklist_states": []
+  ]
 }
 ```
 
-Pour les étapes suivantes, adaptez simplement `step_key`, les `slots` et la `checklist`. Une fois la dernière étape validée, la réponse inclura `"state": "completed"` et un `closed_at` renseigné.
+Pour les étapes suivantes, adaptez `step_key`, les `slots` et la `checklist`. La dernière étape (`closure`) retournera `"state": "completed"` avec un `closed_at` renseigné.
 
 ### Script complet (curl)
 
-Le bloc ci-dessous enchaîne l’import de la procédure (si elle n’existe pas déjà), la création du run, la validation de deux étapes et la consultation de l’audit trail. Ajustez `BASE_URL` au besoin. (`jq` est requis pour extraire les réponses JSON.)
+Le bloc ci-dessous enchaîne l’import de la procédure (si elle n’existe pas déjà), la création du run, la validation de deux étapes et la consultation de l’audit trail. Ajustez `BASE_URL` au besoin (`jq` est requis pour extraire les réponses JSON).
 
 ```bash
 bash <<'DEMO'
 set -euo pipefail
 BASE_URL="${BASE_URL:-http://localhost:8000}"
+ACTOR="demo-admin"
 
-curl -sS -X POST "${BASE_URL}/procedures" \
+curl -sS -X POST "${BASE_URL%/}/procedures" \
   -H 'Content-Type: application/json' \
-  -d @docs/exemple_procedure_pilote.json >/dev/null
+  -d "$(jq --arg actor "$ACTOR" '. + {actor: $actor}' docs/procedures/demo.json)" >/dev/null || true
 
-RUN_ID=$(curl -sS -X POST "${BASE_URL}/runs" \
+RUN_ID=$(curl -sS -X POST "${BASE_URL%/}/runs" \
   -H 'Content-Type: application/json' \
-  -d '{"procedure_id": "proc_001_onboarding_client", "user_id": "agent-qa"}' | jq -r '.id')
+  -d '{"procedure_id": "proc_demo_retablissement_reseau", "user_id": "agent-qa"}' | jq -r '.id')
 
-curl -sS -X POST "${BASE_URL}/runs/${RUN_ID}/commit-step" \
+curl -sS -X POST "${BASE_URL%/}/runs/${RUN_ID}/commit-step" \
   -H 'Content-Type: application/json' \
-  -d '{"step_key": "welcome", "slots": {"client_name": "Jane Doe", "preferred_language": "français"}, "checklist": []}' | jq '.'
+  -d '{"step_key": "trigger", "slots": {"incident_id": "INC-450123", "detection_timestamp": "2025-02-18", "severity": "critique", "reporting_channel": "monitoring"}, "checklist": ["acknowledged", "stakeholders_notified"]}' | jq '.'
 
-curl -sS -X POST "${BASE_URL}/runs/${RUN_ID}/commit-step" \
+curl -sS -X POST "${BASE_URL%/}/runs/${RUN_ID}/commit-step" \
   -H 'Content-Type: application/json' \
-  -d '{"step_key": "contact_info", "slots": {"email": "jane.doe@example.com", "phone": "+41 79 123 45 67"}, "checklist": []}' >/dev/null
+  -d '{"step_key": "diagnosis", "slots": {"impacted_sites": "Agence Genève", "primary_symptom": "perte_connectivite", "customer_impact": "guichet_ferme", "sla_breach_expected": true}, "checklist": ["monitoring_checked"]}' >/dev/null
 
-curl -sS "${BASE_URL}/audit-events?entity_type=procedure_run&entity_id=${RUN_ID}" | jq '.'
+curl -sS "${BASE_URL%/}/audit-events?entity_type=procedure_run&entity_id=${RUN_ID}" | jq '.'
 DEMO
 ```
 
-## 5. Vérifier l’audit trail (ALCOA+)
+## 6. Vérifier l’audit trail (ALCOA+)
 
-Les événements sont accessibles via `/audit-events`. Chaque action enregistre `actor` (Attributable), `occurred_at` (Horodatage lisible), `payload_diff` (Original/Accurate), et est scellée en base (Durable/Available).
+Les événements sont accessibles via `/audit-events`. Chaque action enregistre `actor` (Attributable), `occurred_at` (Horodatage lisible), `payload_diff` (Original/Accurate) et est scellée en base (Durable/Available).
 
 ### Procédure
 
 ```bash
-curl "http://localhost:8000/audit-events?entity_type=procedure&entity_id=proc_001_onboarding_client"
+curl "http://localhost:8000/audit-events?entity_type=procedure&entity_id=proc_demo_retablissement_reseau"
 ```
 
 Résultat attendu : un événement `procedure.created` avec les métadonnées complètes de la procédure importée.
@@ -232,16 +214,16 @@ Résultat attendu : un événement `procedure.created` avec les métadonnées co
 ```json
 [
   {
-    "id": "evt_01HZY5P92G3G1PPWEF8Z4CMX2B",
+    "id": "evt_01J0YZJX3AM8N9PQRS0T1UVW2",
     "type": "procedure.created",
     "entity_type": "procedure",
-    "entity_id": "proc_001_onboarding_client",
+    "entity_id": "proc_demo_retablissement_reseau",
     "actor": "demo-admin",
-    "occurred_at": "2025-01-14T08:50:05.912384Z",
+    "occurred_at": "2025-02-18T08:50:05.912384Z",
     "payload_diff": {
       "after": {
-        "id": "proc_001_onboarding_client",
-        "name": "Onboarding Client",
+        "id": "proc_demo_retablissement_reseau",
+        "name": "Démo – Rétablissement d'un réseau d'agence",
         "step_count": 5
       }
     }
@@ -260,35 +242,17 @@ On y observe `run.created` puis `run.updated` (passage à `completed` avec `clos
 ```json
 [
   {
-    "id": "evt_01HZY5QDY90NBJ4R26F6FH2SNQ",
+    "id": "evt_01J0YZK0H3S4T5U6V7W8X9Y0Z",
     "type": "run.created",
     "entity_type": "procedure_run",
-    "entity_id": "run_01HZY5M0ZK7A1XTB7JH3G5C8K2",
+    "entity_id": "run_01J0YZ4DGCE1A2B3C4D5E6F7G8",
     "actor": "agent-qa",
-    "occurred_at": "2025-01-14T08:52:12.512009Z",
+    "occurred_at": "2025-02-18T08:52:12.512009Z",
     "payload_diff": {
       "after": {
         "state": "pending",
-        "procedure_id": "proc_001_onboarding_client",
+        "procedure_id": "proc_demo_retablissement_reseau",
         "user_id": "agent-qa"
-      }
-    }
-  },
-  {
-    "id": "evt_01HZY5QFJ8R31CFVC1T34ZC8DJ",
-    "type": "run.updated",
-    "entity_type": "procedure_run",
-    "entity_id": "run_01HZY5M0ZK7A1XTB7JH3G5C8K2",
-    "actor": "agent-qa",
-    "occurred_at": "2025-01-14T08:59:42.101776Z",
-    "payload_diff": {
-      "before": {
-        "state": "in_progress",
-        "closed_at": null
-      },
-      "after": {
-        "state": "completed",
-        "closed_at": "2025-01-14T08:59:42.097634Z"
       }
     }
   }
@@ -298,37 +262,13 @@ On y observe `run.created` puis `run.updated` (passage à `completed` avec `clos
 ### Étapes
 
 ```bash
-curl "http://localhost:8000/audit-events?entity_type=procedure_run_step&entity_id=${RUN_ID}:confirmation"
+curl "http://localhost:8000/audit-events?entity_type=procedure_run_step&entity_id=${RUN_ID}:remediation"
 ```
 
 Chaque commit produit un événement `run.step_committed` contenant l’état avant/après (pour les re-soumissions) et la charge utile saisie. Ce journal répond aux critères ALCOA+ :
 
 - **Attributable** – champ `actor`.
 - **Legible** – JSON structuré, timestamps ISO.
-```json
-[
-  {
-    "id": "evt_01HZY5QGN6Q9YH4VZ88A1YQ4TE",
-    "type": "run.step_committed",
-    "entity_type": "procedure_run_step",
-    "entity_id": "run_01HZY5M0ZK7A1XTB7JH3G5C8K2:confirmation",
-    "actor": "agent-qa",
-    "occurred_at": "2025-01-14T08:58:17.440512Z",
-    "payload_diff": {
-      "after": {
-        "payload": {
-          "slots": {
-            "confirmation_accepted": true,
-            "next_steps_scheduled": "2025-01-15"
-          },
-          "checklist": []
-        },
-        "committed_at": "2025-01-14T08:58:17.437211Z"
-      }
-    }
-  }
-]
-```
 - **Contemporaneous** – `occurred_at` généré lors de la requête.
 - **Original** – `payload_diff.after` contient la donnée brute.
 - **Accurate** – intégrité assurée par la base et les validations.
@@ -337,4 +277,4 @@ Chaque commit produit un événement `run.step_committed` contenant l’état av
 - **Enduring** – persistance en base relationnelle.
 - **Available** – exposition via l’API pour revue/audit.
 
-Suivez ces commandes pour démontrer la conformité de la procédure pilote de bout en bout.
+Suivez ces commandes pour démontrer la conformité du scénario de bout en bout décrit dans le backlog.
