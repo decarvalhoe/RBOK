@@ -8,11 +8,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app import models
 from app.database import Base
-from app.services.procedures import (
-    InvalidProcedureRunTransition,
-    ProcedureRunService,
-    ProcedureRunState,
-)
+from app.services.procedure_runs import InvalidTransitionError, ProcedureRunService
+from app.services.procedures import ProcedureRunState
 
 
 @pytest.fixture()
@@ -126,7 +123,7 @@ def test_commit_step_via_public_api_protects_against_duplicates(
         checklist=[{"key": "safety_briefing", "completed": True}],
     )
 
-    with pytest.raises(InvalidProcedureRunTransition):
+    with pytest.raises(InvalidTransitionError):
         service.commit_step(
             run_id=run.id,
             step_key="collect_contact",
