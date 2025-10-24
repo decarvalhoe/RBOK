@@ -114,11 +114,47 @@ Réponse attendue (`201 Created`) :
   "created_at": "2025-02-18T08:52:12.486193Z",
   "closed_at": null,
   "step_states": [],
-  "checklist_states": []
+  "checklist_states": [
+    {
+      "id": "chk_01J0XYZ8N6FM3H4PK5R6S7T8U9",
+      "key": "acknowledged",
+      "label": "Alerte confirmée par le SOC",
+      "completed": false,
+      "completed_at": null
+    },
+    {
+      "id": "chk_01J0XYZ8N6FM3H4PK5R6S7T8V0",
+      "key": "stakeholders_notified",
+      "label": "Parties prenantes notifiées",
+      "completed": false,
+      "completed_at": null
+    }
+  ],
+  "checklist_statuses": [
+    {
+      "id": "chk_01J0XYZ8N6FM3H4PK5R6S7T8U9",
+      "key": "acknowledged",
+      "label": "Alerte confirmée par le SOC",
+      "completed": false,
+      "completed_at": null
+    },
+    {
+      "id": "chk_01J0XYZ8N6FM3H4PK5R6S7T8V0",
+      "key": "stakeholders_notified",
+      "label": "Parties prenantes notifiées",
+      "completed": false,
+      "completed_at": null
+    }
+  ],
+  "checklist_progress": {
+    "total": 10,
+    "completed": 0,
+    "percentage": 0.0
+  }
 }
 ```
 
-Conservez `id` pour les commits suivants.
+Les clés `checklist_states` et `checklist_statuses` exposent le même contenu afin de préserver la rétrocompatibilité avec les clients existants. La clé supplémentaire `checklist_progress` fournit désormais un suivi agrégé (total, nombre d'items complétés, pourcentage). Conservez `id` pour les commits suivants.
 
 ## 5. Enregistrer les commits d’étapes
 
@@ -137,7 +173,10 @@ curl -X POST "http://localhost:8000/runs/${RUN_ID}/commit-step" \
           "severity": "critique",
           "reporting_channel": "monitoring"
         },
-        "checklist": ["acknowledged", "stakeholders_notified"]
+        "checklist": [
+          {"key": "acknowledged", "completed": true},
+          {"key": "stakeholders_notified", "completed": true, "completed_at": "2025-02-18T08:55:01Z"}
+        ]
       }'
 ```
 
@@ -159,15 +198,131 @@ Réponse attendue (`200 OK`) :
           "severity": "critique",
           "reporting_channel": "monitoring"
         },
-        "checklist": ["acknowledged", "stakeholders_notified"]
+        "checklist": [
+          {
+            "key": "acknowledged",
+            "label": "Alerte confirmée par le SOC",
+            "completed": true,
+            "completed_at": "2025-02-18T08:55:01.124305Z"
+          },
+          {
+            "key": "stakeholders_notified",
+            "label": "Parties prenantes notifiées",
+            "completed": true,
+            "completed_at": "2025-02-18T08:55:01.124305Z"
+          }
+        ]
       },
       "committed_at": "2025-02-18T08:55:01.124305Z"
+    }
+  ],
+  "checklist_states": [
+    {
+      "id": "chk_01J0XYZ8N6FM3H4PK5R6S7T8U9",
+      "key": "acknowledged",
+      "label": "Alerte confirmée par le SOC",
+      "completed": true,
+      "completed_at": "2025-02-18T08:55:01.124305Z"
+    },
+    {
+      "id": "chk_01J0XYZ8N6FM3H4PK5R6S7T8V0",
+      "key": "stakeholders_notified",
+      "label": "Parties prenantes notifiées",
+      "completed": true,
+      "completed_at": "2025-02-18T08:55:01.124305Z"
+    }
+  ],
+  "checklist_statuses": [
+    {
+      "id": "chk_01J0XYZ8N6FM3H4PK5R6S7T8U9",
+      "key": "acknowledged",
+      "label": "Alerte confirmée par le SOC",
+      "completed": true,
+      "completed_at": "2025-02-18T08:55:01.124305Z"
+    },
+    {
+      "id": "chk_01J0XYZ8N6FM3H4PK5R6S7T8V0",
+      "key": "stakeholders_notified",
+      "label": "Parties prenantes notifiées",
+      "completed": true,
+      "completed_at": "2025-02-18T08:55:01.124305Z"
+    }
+  ],
+  "checklist_progress": {
+    "total": 10,
+    "completed": 2,
+    "percentage": 20.0
+  }
+}
+```
+
+Pour les étapes suivantes, adaptez `step_key`, les `slots` et la `checklist`. La dernière étape (`closure`) retournera `"state": "completed"` avec un `closed_at` renseigné.
+
+> 💡 **Nouveau** : `POST /runs/{run_id}/steps/{step_key}/commit` accepte la même charge utile (sans `step_key` redondant) et renvoie un objet allégé pour les intégrations temps réel :
+
+```json
+{
+  "run_state": "in_progress",
+  "step_state": {
+    "step_key": "trigger",
+    "payload": {
+      "slots": {
+        "incident_id": "INC-450123"
+      },
+      "checklist": [
+        {
+          "key": "acknowledged",
+          "label": "Alerte confirmée par le SOC",
+          "completed": true,
+          "completed_at": "2025-02-18T08:55:01.124305Z"
+        }
+      ]
+    },
+    "committed_at": "2025-02-18T08:55:01.124305Z"
+  },
+  "checklist_statuses": [
+    {
+      "key": "acknowledged",
+      "label": "Alerte confirmée par le SOC",
+      "completed": true,
+      "completed_at": "2025-02-18T08:55:01.124305Z"
+    }
+  ],
+  "checklist_states": [
+    {
+      "key": "acknowledged",
+      "label": "Alerte confirmée par le SOC",
+      "completed": true,
+      "completed_at": "2025-02-18T08:55:01.124305Z"
     }
   ]
 }
 ```
 
-Pour les étapes suivantes, adaptez `step_key`, les `slots` et la `checklist`. La dernière étape (`closure`) retournera `"state": "completed"` avec un `closed_at` renseigné.
+Ce format permet de pousser les mises à jour incrémentales sans recharger tout le run.
+
+### Gestion des erreurs de validation et des états
+
+Les validations typées renvoient désormais des détails structurés par slot/checklist. Exemple de retour `422 Unprocessable Entity` lorsqu'un slot contient une valeur hors choix autorisés :
+
+```json
+{
+  "detail": {
+    "message": "Slot validation failed",
+    "issues": [
+      {
+        "field": "severity",
+        "code": "validation.invalid_choice",
+        "params": {
+          "choices": ["critique", "majeur", "mineur"]
+        }
+      }
+    ]
+  }
+}
+```
+
+Les erreurs de checklist suivent le même format avec la clé `field` pointant vers l'item concerné. En cas d'erreur métier bloquante, le run peut entrer dans l'état `failed`; surveillez `state`, `checklist_statuses` et `checklist_progress` pour mettre à jour vos intégrations.
 
 ### Script complet (curl)
 
@@ -189,11 +344,11 @@ RUN_ID=$(curl -sS -X POST "${BASE_URL%/}/runs" \
 
 curl -sS -X POST "${BASE_URL%/}/runs/${RUN_ID}/commit-step" \
   -H 'Content-Type: application/json' \
-  -d '{"step_key": "trigger", "slots": {"incident_id": "INC-450123", "detection_timestamp": "2025-02-18", "severity": "critique", "reporting_channel": "monitoring"}, "checklist": ["acknowledged", "stakeholders_notified"]}' | jq '.'
+  -d '{"step_key": "trigger", "slots": {"incident_id": "INC-450123", "detection_timestamp": "2025-02-18", "severity": "critique", "reporting_channel": "monitoring"}, "checklist": [{"key": "acknowledged", "completed": true}, {"key": "stakeholders_notified", "completed": true}]}' | jq '.'
 
 curl -sS -X POST "${BASE_URL%/}/runs/${RUN_ID}/commit-step" \
   -H 'Content-Type: application/json' \
-  -d '{"step_key": "diagnosis", "slots": {"impacted_sites": "Agence Genève", "primary_symptom": "perte_connectivite", "customer_impact": "guichet_ferme", "sla_breach_expected": true}, "checklist": ["monitoring_checked"]}' >/dev/null
+  -d '{"step_key": "diagnosis", "slots": {"impacted_sites": "Agence Genève", "primary_symptom": "perte_connectivite", "customer_impact": "guichet_ferme", "sla_breach_expected": true}, "checklist": [{"key": "monitoring_checked", "completed": true}]}' >/dev/null
 
 curl -sS "${BASE_URL%/}/audit-events?entity_type=procedure_run&entity_id=${RUN_ID}" | jq '.'
 DEMO
