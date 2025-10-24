@@ -66,6 +66,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from .api.auth import router as auth_router
+from .api.audit import router as audit_router
 from .api.procedures import router as procedures_router
 from .api.runs import router as runs_router
 from .api.webrtc import router as webrtc_router
@@ -324,6 +325,7 @@ app.add_middleware(
 app.add_middleware(CorrelationIdMiddleware)
 app.include_router(auth_router)
 app.include_router(procedures_router)
+app.include_router(audit_router)
 app.include_router(runs_router)
 app.include_router(webrtc_router)
 
