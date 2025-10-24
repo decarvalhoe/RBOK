@@ -1,6 +1,52 @@
 {
   "components": {
     "schemas": {
+      "AuditEventModel": {
+        "description": "Public representation of a persisted audit event.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "entity_type": {
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload_diff": {
+            "additionalProperties": true,
+            "title": "Payload Diff",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "actor",
+          "action",
+          "entity_type",
+          "entity_id",
+          "occurred_at",
+          "payload_diff"
+        ],
+        "title": "AuditEventModel",
+        "type": "object"
+      },
       "ChatRequest": {
         "properties": {
           "message": {
@@ -32,6 +78,77 @@
           "content"
         ],
         "title": "ChatResponse",
+        "type": "object"
+      },
+      "ChecklistProgressModel": {
+        "description": "Aggregated progression metrics for checklist completion.",
+        "properties": {
+          "completed": {
+            "title": "Completed",
+            "type": "integer"
+          },
+          "percentage": {
+            "title": "Percentage",
+            "type": "number"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "completed",
+          "percentage"
+        ],
+        "title": "ChecklistProgressModel",
+        "type": "object"
+      },
+      "ChecklistStatusModel": {
+        "description": "Public representation of a checklist item status.",
+        "properties": {
+          "completed": {
+            "title": "Completed",
+            "type": "boolean"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "completed"
+        ],
+        "title": "ChecklistStatusModel",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -310,11 +427,21 @@
       "ProcedureRunModel": {
         "description": "Representation returned by run endpoints.",
         "properties": {
+          "checklist_progress": {
+            "$ref": "#/components/schemas/ChecklistProgressModel"
+          },
           "checklist_states": {
             "items": {
-              "$ref": "#/components/schemas/RunChecklistItemState"
+              "$ref": "#/components/schemas/ChecklistStatusModel"
             },
             "title": "Checklist States",
+            "type": "array"
+          },
+          "checklist_statuses": {
+            "items": {
+              "$ref": "#/components/schemas/ChecklistStatusModel"
+            },
+            "title": "Checklist Statuses",
             "type": "array"
           },
           "closed_at": {
@@ -366,9 +493,32 @@
           "created_at",
           "closed_at",
           "step_states",
-          "checklist_states"
+          "checklist_states",
+          "checklist_statuses",
+          "checklist_progress"
         ],
         "title": "ProcedureRunModel",
+        "type": "object"
+      },
+      "ProcedureRunStepCommitPayload": {
+        "description": "Payload shared by endpoints committing a run step.",
+        "properties": {
+          "checklist": {
+            "description": "Checklist state associated with the step",
+            "items": {
+              "$ref": "#/components/schemas/RunChecklistItemPayload"
+            },
+            "title": "Checklist",
+            "type": "array"
+          },
+          "slots": {
+            "additionalProperties": true,
+            "description": "Slot values collected for the step",
+            "title": "Slots",
+            "type": "object"
+          }
+        },
+        "title": "ProcedureRunStepCommitPayload",
         "type": "object"
       },
       "ProcedureSlot": {
@@ -473,6 +623,13 @@
       "ProcedureStepCreate": {
         "description": "Payload used when creating or updating procedure steps.",
         "properties": {
+          "checklist_items": {
+            "items": {
+              "$ref": "#/components/schemas/ProcedureChecklistItem"
+            },
+            "title": "Checklist Items",
+            "type": "array"
+          },
           "checklists": {
             "items": {
               "$ref": "#/components/schemas/ProcedureChecklistItem"
@@ -544,6 +701,13 @@
       "ProcedureStepResponse": {
         "description": "Representation of a persisted step.",
         "properties": {
+          "checklist_items": {
+            "items": {
+              "$ref": "#/components/schemas/ProcedureChecklistItem"
+            },
+            "title": "Checklist Items",
+            "type": "array"
+          },
           "checklists": {
             "items": {
               "$ref": "#/components/schemas/ProcedureChecklistItem"
@@ -717,6 +881,44 @@
           "committed_at"
         ],
         "title": "RunStepStateModel",
+        "type": "object"
+      },
+      "StepCommitResponse": {
+        "description": "Representation returned when committing a run step.",
+        "properties": {
+          "checklist_states": {
+            "description": "Alias exposing checklist statuses for backwards compatibility",
+            "items": {
+              "$ref": "#/components/schemas/RunChecklistItemState"
+            },
+            "title": "Checklist States",
+            "type": "array"
+          },
+          "checklist_statuses": {
+            "description": "Aggregate checklist status for the run",
+            "items": {
+              "$ref": "#/components/schemas/RunChecklistItemState"
+            },
+            "title": "Checklist Statuses",
+            "type": "array"
+          },
+          "run_state": {
+            "description": "Current state of the run after the commit",
+            "title": "Run State",
+            "type": "string"
+          },
+          "step_state": {
+            "$ref": "#/components/schemas/RunStepStateModel",
+            "description": "State recorded for the committed step"
+          }
+        },
+        "required": [
+          "run_state",
+          "step_state",
+          "checklist_statuses",
+          "checklist_states"
+        ],
+        "title": "StepCommitResponse",
         "type": "object"
       },
       "Token": {
@@ -1120,6 +1322,71 @@
         "summary": "Lightweight heartbeat endpoint",
         "tags": [
           "Monitoring"
+        ]
+      }
+    },
+    "/audit-events": {
+      "get": {
+        "description": "Return audit events recorded for the requested entity.",
+        "operationId": "list_audit_events_audit_events_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "entity_type",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Entity Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entity_id",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Entity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AuditEventModel"
+                  },
+                  "title": "Response List Audit Events Audit Events Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "List Audit Events",
+        "tags": [
+          "audit"
         ]
       }
     },
@@ -1614,6 +1881,73 @@
           }
         ],
         "summary": "Commit Step",
+        "tags": [
+          "procedure runs"
+        ]
+      }
+    },
+    "/runs/{run_id}/steps/{step_key}/commit": {
+      "post": {
+        "description": "Commit a step payload using the explicit step path structure.",
+        "operationId": "commit_step_v2_runs__run_id__steps__step_key__commit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "step_key",
+            "required": true,
+            "schema": {
+              "title": "Step Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcedureRunStepCommitPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StepCommitResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Commit Step V2",
         "tags": [
           "procedure runs"
         ]
