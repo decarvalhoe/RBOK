@@ -80,6 +80,7 @@ def _to_step_response(step: ProcedureStep) -> ProcedureStepResponse:
         metadata=dict(step.metadata_payload or {}),
         slots=slots,
         checklists=checklists,
+        checklist_items=checklists,
     )
 
 

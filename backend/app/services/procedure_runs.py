@@ -14,9 +14,10 @@ from . import audit
 from .procedures.exceptions import (
     ChecklistValidationError as ProcedureChecklistValidationError,
     InvalidTransitionError as ProcedureFSMInvalidTransitionError,
+    SlotValidationError as ProcedureSlotValidationError,
 )
 from .procedures.fsm import ProcedureRunState, apply_transition, can_transition
-from .procedures.validators import ChecklistValidator, SlotDefinition, validate_payload
+from .procedures.validators import ChecklistValidator, SlotDefinition, SlotValidator
 
 
 class ProcedureNotFoundError(RuntimeError):
@@ -133,7 +134,13 @@ class ProcedureRunService:
         snapshot = self.get_snapshot(run_id)
         run = snapshot.run
 
+        requested_step_key = step_key
         step = self._find_step(run, step_key)
+        if step is None and requested_step_key in {"", None, "step"}:
+            fallback = self._next_pending_step(run, snapshot.step_states)
+            if fallback is not None:
+                step = fallback
+                step_key = fallback.key
         if step is None:
             raise InvalidTransitionError(
                 run_id=run.id,
@@ -464,10 +471,39 @@ class ProcedureRunService:
 
     def _validate_slots(self, step: models.ProcedureStep, slots: Dict[str, Any]) -> Dict[str, Any]:
         definitions = [self._slot_definition(slot) for slot in step.slots]
-        cleaned, errors = validate_payload(definitions, slots)
-        if errors:
-            raise SlotValidationError(errors)
-        return cleaned
+        validator = SlotValidator(definitions)
+        try:
+            return validator.validate(dict(slots))
+        except ProcedureSlotValidationError as exc:
+            issues = getattr(exc, "issues", [])
+            formatted = []
+            for issue in issues:
+                slot = issue.get("slot") or issue.get("field")
+                formatted.append(
+                    {
+                        "field": slot,
+                        "code": issue.get("code", "invalid"),
+                        "params": dict(issue.get("params") or {}),
+                    }
+                )
+            if not formatted:
+                formatted = [
+                    {
+                        "field": None,
+                        "code": "invalid",
+                        "params": {"message": str(exc)},
+                    }
+                ]
+            raise SlotValidationError(formatted) from exc
+
+    def _next_pending_step(
+        self, run: models.ProcedureRun, step_states: Dict[str, models.ProcedureRunStepState]
+    ) -> Optional[models.ProcedureStep]:
+        ordered_steps = sorted(run.procedure.steps, key=lambda item: item.position)
+        for step in ordered_steps:
+            if step.key not in step_states:
+                return step
+        return None
 
     def _checklist_definitions(self, step: models.ProcedureStep) -> List[Dict[str, Any]]:
         definitions: List[Dict[str, Any]] = []

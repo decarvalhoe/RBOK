@@ -11,10 +11,6 @@ from .exceptions import ChecklistValidationError, SlotValidationError
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _PHONE_RE = re.compile(r"^[+\d][\d\s().-]{3,}$")
 
-_SUPPORTED_TRUTHY = {"true", "1", "yes", "y", "on"}
-_SUPPORTED_FALSY = {"false", "0", "no", "n", "off"}
-
-
 def _build_mask_regex(mask: str) -> re.Pattern[str]:
     pattern = "^" + "".join(r"\d" if char == "X" else re.escape(char) for char in mask) + "$"
     return re.compile(pattern)
@@ -32,10 +28,12 @@ class SlotDefinition(TypedDict, total=False):
     validate: str
 
 
-class ValidationError(TypedDict):
+class ValidationError(TypedDict, total=False):
     """Describe a validation error returned by :func:`validate_payload`."""
 
     field: str
+    slot: str
+    key: str
     code: str
     params: Dict[str, Any]
 
@@ -44,7 +42,6 @@ SUPPORTED_SLOT_TYPES = {
     "string",
     "number",
     "integer",
-    "boolean",
     "enum",
     "email",
     "phone",
@@ -52,8 +49,21 @@ SUPPORTED_SLOT_TYPES = {
 }
 
 
-def _build_error(field: str, code: str, params: Optional[Dict[str, Any]] = None) -> ValidationError:
-    return {"field": field, "code": code, "params": params or {}}
+def _build_error(
+    field: str,
+    code: str,
+    params: Optional[Dict[str, Any]] = None,
+    *,
+    key: Optional[str] = None,
+) -> ValidationError:
+    error: ValidationError = {"field": field, "code": code, "params": params or {}}
+    if key is not None:
+        error["key"] = key
+    return error
+
+
+def _build_slot_issue(slot: str, code: str, params: Optional[Dict[str, Any]] = None) -> ValidationError:
+    return {"field": slot, "code": code, "params": params or {}}
 
 
 def _is_blank(value: Any) -> bool:
@@ -127,7 +137,7 @@ class SlotValidator:
             raw_value = values.get(name)
             if _is_blank(raw_value):
                 if definition["required"]:
-                    errors.append(_build_error(name, "validation.required"))
+                    errors.append(_build_slot_issue(name, "validation.required"))
                     messages.append(f"Slot '{name}' is required")
                 continue
 
@@ -137,7 +147,11 @@ class SlotValidator:
                 if exc.issues:
                     errors.extend(exc.issues)
                 else:
-                    errors.append(_build_error(name, "validation.invalid", {"message": str(exc)}))
+                    errors.append(
+                        _build_slot_issue(
+                            name, "validation.invalid", {"message": str(exc)}
+                        )
+                    )
                 messages.append(str(exc))
 
         unknown_slots = sorted(provided_keys - set(self._definitions.keys()))
@@ -145,7 +159,7 @@ class SlotValidator:
             message = f"Unknown slots provided: {', '.join(unknown_slots)}"
             messages.append(message)
             for slot in unknown_slots:
-                errors.append(_build_error(slot, "validation.unexpected_slot"))
+                errors.append(_build_slot_issue(slot, "validation.unexpected_slot"))
 
         if errors:
             raise SlotValidationError("; ".join(messages), issues=errors)
@@ -158,14 +172,14 @@ class SlotValidator:
         if slot_type not in SUPPORTED_SLOT_TYPES:
             raise SlotValidationError(
                 f"Unsupported slot type '{slot_type}' for '{name}'",
-                issues=[_build_error(name, "validation.unsupported", {"type": slot_type})],
+                issues=[_build_slot_issue(name, "validation.unsupported", {"type": slot_type})],
             )
 
         if slot_type == "string":
             if not isinstance(raw_value, str):
                 raise SlotValidationError(
                     f"Slot '{name}' must be a string",
-                    issues=[_build_error(name, "validation.type", {"expected": "string"})],
+                    issues=[_build_slot_issue(name, "validation.type", {"expected": "string"})],
                 )
             value = raw_value.strip()
         elif slot_type == "number":
@@ -174,7 +188,7 @@ class SlotValidator:
             except (TypeError, ValueError) as exc:
                 raise SlotValidationError(
                     f"Slot '{name}' must be a number",
-                    issues=[_build_error(name, "validation.type", {"expected": "number"})],
+                    issues=[_build_slot_issue(name, "validation.type", {"expected": "number"})],
                 ) from exc
             if value.is_integer():
                 value = int(value)
@@ -184,54 +198,37 @@ class SlotValidator:
             except (TypeError, ValueError) as exc:
                 raise SlotValidationError(
                     f"Slot '{name}' must be an integer",
-                    issues=[_build_error(name, "validation.type", {"expected": "integer"})],
+                    issues=[_build_slot_issue(name, "validation.type", {"expected": "integer"})],
                 ) from exc
-        elif slot_type == "boolean":
-            if isinstance(raw_value, bool):
-                value = raw_value
-            elif isinstance(raw_value, str):
-                lowered = raw_value.strip().lower()
-                if lowered in _SUPPORTED_TRUTHY:
-                    value = True
-                elif lowered in _SUPPORTED_FALSY:
-                    value = False
-                else:
-                    raise SlotValidationError(
-                        f"Slot '{name}' must be a boolean",
-                        issues=[_build_error(name, "validation.type", {"expected": "boolean"})],
-                    )
-            elif isinstance(raw_value, (int, float)):
-                value = bool(raw_value)
-            else:
-                raise SlotValidationError(
-                    f"Slot '{name}' must be a boolean",
-                    issues=[_build_error(name, "validation.type", {"expected": "boolean"})],
-                )
         elif slot_type == "enum":
             options = definition.get("options")
             if not isinstance(options, list) or not options:
                 raise SlotValidationError(
                     f"Slot '{name}' does not declare valid options",
-                    issues=[_build_error(name, "validation.configuration", {"missing": "options"})],
+                    issues=[
+                        _build_slot_issue(
+                            name, "validation.configuration", {"missing": "options"}
+                        )
+                    ],
                 )
             if raw_value not in options:
                 raise SlotValidationError(
                     f"Slot '{name}' must be one of: {', '.join(map(str, options))}",
-                    issues=[_build_error(name, "validation.enum", {"allowed": options})],
+                    issues=[_build_slot_issue(name, "validation.enum", {"allowed": options})],
                 )
             value = raw_value
         elif slot_type == "email":
             if not isinstance(raw_value, str) or not _EMAIL_RE.match(raw_value):
                 raise SlotValidationError(
                     f"Slot '{name}' must be a valid email address",
-                    issues=[_build_error(name, "validation.email")],
+                    issues=[_build_slot_issue(name, "validation.email")],
                 )
             value = raw_value
         elif slot_type == "phone":
             if not isinstance(raw_value, str) or not _PHONE_RE.match(raw_value):
                 raise SlotValidationError(
                     f"Slot '{name}' must be a valid phone number",
-                    issues=[_build_error(name, "validation.phone")],
+                    issues=[_build_slot_issue(name, "validation.phone")],
                 )
             value = raw_value
         elif slot_type == "date":
@@ -245,13 +242,13 @@ class SlotValidator:
                 except ValueError as exc:
                     raise SlotValidationError(
                         f"Slot '{name}' must be an ISO formatted date",
-                        issues=[_build_error(name, "validation.date")],
+                        issues=[_build_slot_issue(name, "validation.date")],
                     ) from exc
                 value = parsed.date().isoformat()
             else:
                 raise SlotValidationError(
                     f"Slot '{name}' must be an ISO formatted date",
-                    issues=[_build_error(name, "validation.date")],
+                    issues=[_build_slot_issue(name, "validation.date")],
                 )
         else:  # pragma: no cover - defensive, already handled earlier
             value = raw_value
@@ -262,8 +259,8 @@ class SlotValidator:
             as_text = str(value)
             if not mask_regex.fullmatch(as_text):
                 raise SlotValidationError(
-                    f"Slot '{name}' must follow mask {mask}",
-                    issues=[_build_error(name, "validation.mask", {"mask": mask})],
+                    f"Slot '{name}' must follow mask '{mask}'",
+                    issues=[_build_slot_issue(name, "validation.mask", {"mask": mask})],
                 )
 
         pattern = definition.get("validate_regex")
@@ -273,7 +270,9 @@ class SlotValidator:
             if not pattern.fullmatch(as_text):
                 raise SlotValidationError(
                     f"Slot '{name}' does not match expected pattern",
-                    issues=[_build_error(name, "validation.pattern", {"pattern": pattern_raw})],
+                    issues=[
+                        _build_slot_issue(name, "validation.pattern", {"pattern": pattern_raw})
+                    ],
                 )
 
         return value
@@ -304,6 +303,7 @@ class ChecklistValidator:
         submission_map: Dict[str, Any] = {}
         errors: List[ValidationError] = []
         messages: List[str] = []
+        unknown_items: List[str] = []
 
         if submission is None:
             pass
@@ -312,7 +312,11 @@ class ChecklistValidator:
                 str_key = str(key)
                 if str_key in submission_map:
                     messages.append(f"Duplicate checklist item '{str_key}' provided")
-                    errors.append(_build_error(f"checklist.{str_key}", "validation.duplicate"))
+                    errors.append(
+                        _build_error(
+                            f"checklist.{str_key}", "validation.duplicate", key=str_key
+                        )
+                    )
                     continue
                 submission_map[str_key] = value
         else:
@@ -330,7 +334,11 @@ class ChecklistValidator:
                     continue
                 if key in submission_map:
                     messages.append(f"Duplicate checklist item '{key}' provided")
-                    errors.append(_build_error(f"checklist.{key}", "validation.duplicate"))
+                    errors.append(
+                        _build_error(
+                            f"checklist.{key}", "validation.duplicate", key=key
+                        )
+                    )
                     continue
                 submission_map[key] = item.get("completed")
 
@@ -338,11 +346,22 @@ class ChecklistValidator:
 
         for key, value in submission_map.items():
             if key not in self._items:
-                errors.append(_build_error(f"checklist.{key}", "validation.unexpected_item"))
-                messages.append(f"Unknown checklist item '{key}' provided")
+                errors.append(
+                    _build_error(
+                        f"checklist.{key}", "validation.unexpected_item", key=key
+                    )
+                )
+                unknown_items.append(key)
                 continue
             if not isinstance(value, bool):
-                errors.append(_build_error(f"checklist.{key}", "validation.type", {"expected": "boolean"}))
+                errors.append(
+                    _build_error(
+                        f"checklist.{key}",
+                        "validation.type",
+                        {"expected": "boolean"},
+                        key=key,
+                    )
+                )
                 messages.append(f"Checklist item '{key}' must be a boolean")
                 continue
             cleaned[key] = bool(value)
@@ -351,8 +370,18 @@ class ChecklistValidator:
             completed = bool(cleaned.get(name, False))
             cleaned[name] = completed
             if definition.get("required", False) and not completed:
-                errors.append(_build_error(f"checklist.{name}", "validation.required"))
+                errors.append(
+                    _build_error(
+                        f"checklist.{name}", "validation.required", key=name
+                    )
+                )
                 messages.append(f"Checklist item '{name}' must be completed")
+
+        if unknown_items:
+            unknown_items.sort()
+            messages.append(
+                "Unknown checklist items provided: " + ", ".join(unknown_items)
+            )
 
         if errors:
             raise ChecklistValidationError("; ".join(messages), issues=errors)
@@ -390,10 +419,9 @@ def validate_payload(
         cleaned = validator.validate(dict(payload))
         return cleaned, []
     except SlotValidationError as exc:
-        errors = exc.issues or [
-            _build_error("slots", "validation.invalid", {"message": str(exc)})
-        ]
-        return {}, errors
+        message = str(exc)
+        aggregate = _build_error("slots", "invalid", {"message": message})
+        return {}, [aggregate]
 
 
 __all__ = [

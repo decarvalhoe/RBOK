@@ -59,6 +59,7 @@ class ProcedureStepBase(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
     slots: List[ProcedureSlot] = Field(default_factory=list)
     checklists: List[ProcedureChecklistItem] = Field(default_factory=list)
+    checklist_items: List[ProcedureChecklistItem] = Field(default_factory=list)
 
 
 class ProcedureStepCreate(ProcedureStepBase):
