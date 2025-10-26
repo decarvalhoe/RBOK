@@ -1,4 +1,4 @@
-"""Compatibility wrappers for procedure run services."""
+"""Compatibility imports forwarding to :mod:`app.services.procedure_runs`."""
 from __future__ import annotations
 
 from ..procedure_runs import (
