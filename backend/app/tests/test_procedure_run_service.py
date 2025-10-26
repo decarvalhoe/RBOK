@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app import models
 from app.database import Base
 from app.services.procedure_runs import InvalidTransitionError, ProcedureRunService
-from app.services.procedures import ProcedureRunState
+from app.services.procedures.fsm import ProcedureRunState
 
 
 @pytest.fixture()
