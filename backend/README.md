@@ -32,3 +32,11 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 Le point d'extrémité `/healthz` fournit un statut simple indiquant si les variables critiques sont présentes.
+
+## Tests de fumée
+
+### Validation des migrations Alembic
+
+Un test Pytest (`pytest -m migrations`) exécute `alembic upgrade head` sur une base en mémoire et compare le schéma obtenu avec les modèles SQLAlchemy du dossier `app/models`. Aucun service externe n'est requis : le test force `DATABASE_URL=sqlite+pysqlite:///:memory:` pendant son exécution.
+
+Pour reproduire le comportement avec une autre base (par exemple PostgreSQL), positionnez la variable d'environnement `DATABASE_URL` avant d'invoquer `pytest`. Assurez-vous également que les dépendances spécifiques (drivers comme `psycopg` pour PostgreSQL) sont installées, faute de quoi le test sera automatiquement ignoré.
