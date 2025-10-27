@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -227,9 +228,13 @@ def test_normalize_procedural_schema_migrates_payloads(tmp_path, monkeypatch):
         sa.Column("name", sa.String(255)),
         sa.Column("label", sa.String(255)),
         sa.Column("type", sa.String(50)),
+        sa.Column("description", sa.Text),
         sa.Column("required", sa.Boolean),
         sa.Column("position", sa.Integer),
-        sa.Column("configuration", sa.JSON),
+        sa.Column("validate", sa.String(255)),
+        sa.Column("mask", sa.String(255)),
+        sa.Column("options", sa.JSON),
+        sa.Column("metadata", sa.JSON),
     )
     procedure_step_checklist_items = sa.Table(
         "procedure_step_checklist_items",
@@ -240,7 +245,9 @@ def test_normalize_procedural_schema_migrates_payloads(tmp_path, monkeypatch):
         sa.Column("label", sa.String(255)),
         sa.Column("description", sa.Text),
         sa.Column("required", sa.Boolean),
+        sa.Column("default_state", sa.Boolean),
         sa.Column("position", sa.Integer),
+        sa.Column("metadata", sa.JSON),
     )
     procedure_run_slot_values = sa.Table(
         "procedure_run_slot_values",
@@ -268,27 +275,82 @@ def test_normalize_procedural_schema_migrates_payloads(tmp_path, monkeypatch):
                 procedure_slots.c.name,
                 procedure_slots.c.label,
                 procedure_slots.c.type,
+                procedure_slots.c.description,
                 procedure_slots.c.required,
                 procedure_slots.c.position,
-                procedure_slots.c.configuration,
+                procedure_slots.c.validate,
+                procedure_slots.c.mask,
+                procedure_slots.c.options,
+                procedure_slots.c.metadata,
             )
         ).mappings()
         slots_by_step = {}
         for row in slot_rows:
+            options = row["options"]
+            if isinstance(options, str):
+                options = json.loads(options)
+            metadata = row["metadata"]
+            if isinstance(metadata, str):
+                metadata = json.loads(metadata)
             slots_by_step.setdefault(row["step_id"], []).append(
                 {
                     "name": row["name"],
                     "label": row["label"],
                     "type": row["type"],
+                    "description": row["description"],
                     "required": bool(row["required"]),
                     "position": row["position"],
-                    "metadata": row["configuration"],
+                    "validate": row["validate"],
+                    "mask": row["mask"],
+                    "options": options,
+                    "metadata": metadata,
                 }
             )
         for items in slots_by_step.values():
             items.sort(key=lambda item: item["position"])
-        assert slots_by_step[step_one_id] == step_one_slots
-        assert slots_by_step[step_two_id] == step_two_slots
+        expected_slots = {
+            step_one_id: [
+                {
+                    "name": "email",
+                    "label": "Email",
+                    "type": "string",
+                    "description": None,
+                    "required": True,
+                    "position": 0,
+                    "validate": None,
+                    "mask": None,
+                    "options": [],
+                    "metadata": {"placeholder": "user@example.com"},
+                },
+                {
+                    "name": "age",
+                    "label": "Age",
+                    "type": "number",
+                    "description": None,
+                    "required": False,
+                    "position": 1,
+                    "validate": None,
+                    "mask": None,
+                    "options": [],
+                    "metadata": {},
+                },
+            ],
+            step_two_id: [
+                {
+                    "name": "document",
+                    "label": "Document",
+                    "type": "string",
+                    "description": None,
+                    "required": True,
+                    "position": 0,
+                    "validate": None,
+                    "mask": None,
+                    "options": [],
+                    "metadata": {"accept": ["pdf", "jpeg"]},
+                }
+            ],
+        }
+        assert slots_by_step == expected_slots
 
         checklist_rows = conn.execute(
             sa.select(
@@ -297,24 +359,52 @@ def test_normalize_procedural_schema_migrates_payloads(tmp_path, monkeypatch):
                 procedure_step_checklist_items.c.label,
                 procedure_step_checklist_items.c.description,
                 procedure_step_checklist_items.c.required,
+                procedure_step_checklist_items.c.default_state,
                 procedure_step_checklist_items.c.position,
+                procedure_step_checklist_items.c.metadata,
             )
         ).mappings()
         checklists_by_step = {}
         for row in checklist_rows:
+            metadata = row["metadata"]
+            if isinstance(metadata, str):
+                metadata = json.loads(metadata)
             checklists_by_step.setdefault(row["step_id"], []).append(
                 {
                     "key": row["key"],
                     "label": row["label"],
                     "description": row["description"],
                     "required": bool(row["required"]),
+                    "default_state": row["default_state"],
                     "position": row["position"],
+                    "metadata": metadata,
                 }
             )
         for items in checklists_by_step.values():
             items.sort(key=lambda item: item["position"])
-        assert checklists_by_step[step_one_id] == step_one_checklists
-        assert step_two_id not in checklists_by_step
+        expected_checklists = {
+            step_one_id: [
+                {
+                    "key": "consent",
+                    "label": "Consent collected",
+                    "description": "User acknowledged terms",
+                    "required": True,
+                    "default_state": None,
+                    "position": 0,
+                    "metadata": {},
+                },
+                {
+                    "key": "double_check",
+                    "label": "Double check",
+                    "description": None,
+                    "required": False,
+                    "default_state": None,
+                    "position": 1,
+                    "metadata": {},
+                },
+            ]
+        }
+        assert checklists_by_step == expected_checklists
 
         slot_values = conn.execute(
             sa.select(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 from sqlalchemy import (
     JSON,
@@ -37,7 +37,11 @@ class Procedure(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_generate_uuid)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        doc="Description détaillée éventuellement fournie pour la procédure.",
+    )
     metadata_payload: Mapped[Dict[str, Any]] = mapped_column(
         "metadata",
         MutableDict.as_mutable(JSON),
@@ -53,7 +57,6 @@ class Procedure(Base):
         order_by="ProcedureStep.position",
     )
 
-
 class ProcedureStep(Base):
     """Ordered step composing a procedure."""
 
@@ -68,7 +71,11 @@ class ProcedureStep(Base):
     )
     key: Mapped[str] = mapped_column(String(255), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    prompt: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        doc="Instructions détaillées affichées lors de l'exécution de l'étape.",
+    )
     position: Mapped[int] = mapped_column(default=0, nullable=False)
     metadata_payload: Mapped[Dict[str, Any]] = mapped_column(
         "metadata",
@@ -91,6 +98,16 @@ class ProcedureStep(Base):
         cascade="all, delete-orphan",
         order_by="ProcedureStepChecklistItem.position",
     )
+
+    @property
+    def checklists(self) -> List["ProcedureStepChecklistItem"]:
+        """Legacy alias mapping checklist items to the historical name."""
+
+        return self.checklist_items
+
+    @checklists.setter
+    def checklists(self, value: List["ProcedureStepChecklistItem"]) -> None:
+        self.checklist_items = value
 
 
 class ProcedureSlot(Base):
@@ -122,6 +139,11 @@ class ProcedureSlot(Base):
         nullable=False,
         doc="Type logique du slot (string, number, enum, email, phone, etc.).",
     )
+    description: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        doc="Description complémentaire affichée avec le champ.",
+    )
     required: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -133,11 +155,30 @@ class ProcedureSlot(Base):
         default=0,
         doc="Ordre d'affichage/collecte du slot dans l'étape.",
     )
-    configuration: Mapped[Dict[str, Any]] = mapped_column(
+    validation_rule: Mapped[Optional[str]] = mapped_column(
+        "validate",
+        String(255),
+        nullable=True,
+        doc="Indice de validation appliqué au champ (regex, règle métier, etc.).",
+    )
+    input_mask: Mapped[Optional[str]] = mapped_column(
+        "mask",
+        String(255),
+        nullable=True,
+        doc="Masque de saisie optionnel appliqué au champ.",
+    )
+    options: Mapped[List[str]] = mapped_column(
+        MutableList.as_mutable(JSON),
+        nullable=False,
+        default=list,
+        doc="Liste d'options proposées pour les slots de type énumération.",
+    )
+    metadata_payload: Mapped[Dict[str, Any]] = mapped_column(
+        "metadata",
         MutableDict.as_mutable(JSON),
         nullable=False,
         default=dict,
-        doc="Paramètres complémentaires (validation, masque, options, etc.).",
+        doc="Métadonnées additionnelles configurables au cas par cas.",
     )
 
     step: Mapped[ProcedureStep] = relationship("ProcedureStep", back_populates="slots")
@@ -146,6 +187,72 @@ class ProcedureSlot(Base):
         back_populates="slot",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def type(self) -> str:
+        """Expose the slot type using the legacy attribute name."""
+
+        return self.slot_type
+
+    @type.setter
+    def type(self, value: str) -> None:
+        self.slot_type = value
+
+    @property
+    def validate(self) -> Optional[str]:
+        """Expose the validation rule under the public attribute name."""
+
+        return self.validation_rule
+
+    @validate.setter
+    def validate(self, value: Optional[str]) -> None:
+        self.validation_rule = value
+
+    @property
+    def mask(self) -> Optional[str]:
+        """Expose the input mask under the attribute expected by schemas."""
+
+        return self.input_mask
+
+    @mask.setter
+    def mask(self, value: Optional[str]) -> None:
+        self.input_mask = value
+
+    @property
+    def configuration(self) -> Dict[str, Any]:
+        """Provide a backward compatible configuration mapping."""
+
+        configuration: Dict[str, Any] = dict(self.metadata_payload)
+        if self.description is not None:
+            configuration.setdefault("description", self.description)
+        if self.validation_rule is not None:
+            configuration.setdefault("validate", self.validation_rule)
+        if self.input_mask is not None:
+            configuration.setdefault("mask", self.input_mask)
+        if self.options:
+            configuration.setdefault("options", list(self.options))
+        return configuration
+
+    @configuration.setter
+    def configuration(self, value: Optional[Mapping[str, Any]]) -> None:
+        data = dict(value or {})
+        self.description = data.pop("description", None)
+        self.validation_rule = data.pop("validate", None)
+        self.input_mask = data.pop("mask", None)
+        options = data.pop("options", None)
+        if isinstance(options, list):
+            self.options = list(options)
+        elif options is None:
+            self.options = []
+        else:  # pragma: no cover - defensive against unexpected payloads
+            self.options = list(options) if isinstance(options, (tuple, set)) else []
+
+        metadata = data.pop("metadata", None)
+        metadata_payload: Dict[str, Any] = {}
+        if isinstance(metadata, Mapping):
+            metadata_payload.update(metadata)
+        metadata_payload.update(data)
+        self.metadata_payload = metadata_payload
 
 
 class ProcedureStepChecklistItem(Base):
@@ -182,10 +289,22 @@ class ProcedureStepChecklistItem(Base):
         default=True,
         doc="Impose que l'item soit complété avant de clôturer l'étape.",
     )
+    default_state: Mapped[Optional[bool]] = mapped_column(
+        Boolean,
+        nullable=True,
+        doc="État suggéré par défaut pour l'item lors du démarrage de l'étape.",
+    )
     position: Mapped[int] = mapped_column(
         nullable=False,
         default=0,
         doc="Ordre d'affichage dans la checklist.",
+    )
+    metadata_payload: Mapped[Dict[str, Any]] = mapped_column(
+        "metadata",
+        MutableDict.as_mutable(JSON),
+        nullable=False,
+        default=dict,
+        doc="Métadonnées supplémentaires pour l'item de checklist.",
     )
 
     step: Mapped[ProcedureStep] = relationship(
@@ -232,6 +351,25 @@ class ProcedureRun(Base):
         back_populates="run",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def checklist_statuses(self) -> List["ProcedureRunChecklistItemState"]:
+        """Expose checklist states under the preferred API alias."""
+
+        return self.checklist_states
+
+    @property
+    def checklist_progress(self) -> Dict[str, Any]:
+        """Compute aggregated checklist completion metrics for serialization."""
+
+        total = len(self.checklist_states)
+        completed = sum(1 for state in self.checklist_states if state.is_completed)
+        percentage = float(completed * 100 / total) if total else 0.0
+        return {
+            "total": total,
+            "completed": completed,
+            "percentage": percentage,
+        }
 
 
 class ProcedureRunSlotValue(Base):
@@ -315,6 +453,28 @@ class ProcedureRunChecklistItemState(Base):
         "ProcedureStepChecklistItem", back_populates="run_states"
     )
 
+    @property
+    def key(self) -> Optional[str]:
+        """Expose the checklist item key through the related entity."""
+
+        return self.checklist_item.key if self.checklist_item else None
+
+    @property
+    def label(self) -> Optional[str]:
+        """Expose the checklist item label through the related entity."""
+
+        return self.checklist_item.label if self.checklist_item else None
+
+    @property
+    def completed(self) -> bool:
+        """Public boolean accessor aligning with the API schema."""
+
+        return self.is_completed
+
+    @completed.setter
+    def completed(self, value: bool) -> None:
+        self.is_completed = bool(value)
+
 
 class ProcedureRunStepState(Base):
     """Snapshot of a step payload committed during a run."""
@@ -339,6 +499,20 @@ class ProcedureRunStepState(Base):
     )
 
     run: Mapped[ProcedureRun] = relationship("ProcedureRun", back_populates="step_states")
+
+
+def _get_metadata_payload(instance: Any) -> Dict[str, Any]:
+    return instance.metadata_payload
+
+
+def _set_metadata_payload(instance: Any, value: Optional[Mapping[str, Any]]) -> None:
+    instance.metadata_payload = dict(value or {})
+
+
+Procedure.metadata = property(_get_metadata_payload, _set_metadata_payload)
+ProcedureStep.metadata = property(_get_metadata_payload, _set_metadata_payload)
+ProcedureSlot.metadata = property(_get_metadata_payload, _set_metadata_payload)
+ProcedureStepChecklistItem.metadata = property(_get_metadata_payload, _set_metadata_payload)
 
 
 class AuditEvent(Base):
