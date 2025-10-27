@@ -8,6 +8,7 @@ load_dotenv()
 
 import logging
 import time
+from contextvars import ContextVar
 from typing import Dict
 
 import httpx
