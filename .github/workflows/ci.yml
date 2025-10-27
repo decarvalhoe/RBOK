@@ -38,7 +38,7 @@ jobs:
         working-directory: backend
         run: |
           mkdir -p reports
-          pytest --junitxml=reports/pytest.xml
+          pytest --cov=app/services --cov-report=xml --cov-report=term-missing --junitxml=reports/pytest.xml
 
       - name: Upload backend reports
         uses: actions/upload-artifact@v4
