@@ -563,7 +563,9 @@ def downgrade() -> None:
             configuration.setdefault("mask", mask)
         options = row.get("options")
         if isinstance(options, Sequence) and not isinstance(options, (str, bytes)):
-            configuration.setdefault("options", [str(option) for option in options])
+            normalized_options = [str(option) for option in options if option is not None]
+            if normalized_options:
+                configuration.setdefault("options", normalized_options)
 
         slots_by_step[row["step_id"]].append(
             {
@@ -598,16 +600,16 @@ def downgrade() -> None:
         default_state = row.get("default_state")
         if isinstance(default_state, bool):
             metadata.setdefault("default_state", default_state)
-        checklists_by_step[row["step_id"]].append(
-            {
-                "key": row["key"],
-                "label": row["label"],
-                "description": row["description"],
-                "required": bool(row["required"]),
-                "position": row["position"],
-                "metadata": dict(metadata),
-            }
-        )
+        checklist_entry = {
+            "key": row["key"],
+            "label": row["label"],
+            "description": row["description"],
+            "required": bool(row["required"]),
+            "position": row["position"],
+        }
+        if metadata:
+            checklist_entry["metadata"] = dict(metadata)
+        checklists_by_step[row["step_id"]].append(checklist_entry)
 
     for values in checklists_by_step.values():
         values.sort(key=lambda item: item.get("position", 0))
