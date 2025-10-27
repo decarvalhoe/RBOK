@@ -13,8 +13,8 @@ os.environ.setdefault("RBOK_SKIP_MAIN_IMPORT", "1")
 if os.getenv("BACKEND_SKIP_APP_CONFTEST") == "1":
     pytest_plugins: list[str] = []
 else:
-    from fastapi.testclient import TestClient
     from fakeredis import FakeStrictRedis
+    from fastapi.testclient import TestClient
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session, sessionmaker
 
@@ -34,10 +34,11 @@ else:
     def patch_opa(monkeypatch: pytest.MonkeyPatch):
         """Stub the OPA client with a controllable in-memory implementation."""
 
+        from fastapi import HTTPException, status
+
         import app.auth as auth
         from app.api import runs as runs_api
         from app.services.procedure_runs import ProcedureRunService
-        from fastapi import HTTPException, status
 
         class DummyOPAClient:
             def __init__(self) -> None:
@@ -53,7 +54,7 @@ else:
         def _get_dummy_client() -> DummyOPAClient:
             return dummy
 
-        setattr(_get_dummy_client, "cache_clear", lambda: None)  # type: ignore[attr-defined]
+        _get_dummy_client.cache_clear = lambda: None  # type: ignore[attr-defined]
 
         monkeypatch.setattr(auth, "get_opa_client", _get_dummy_client)
         monkeypatch.setattr(runs_api, "get_opa_client", _get_dummy_client, raising=False)

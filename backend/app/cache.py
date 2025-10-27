@@ -6,10 +6,9 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import redis
-from redis import Redis
-
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
+from redis import Redis
 
 __all__ = ["get_redis_client", "set_redis_client", "reset_redis_client"]
 

@@ -14,6 +14,8 @@ from ..auth import (
     User,
     get_current_user,
     get_current_user_optional,
+)
+from ..auth import (
     get_opa_client as auth_get_opa_client,
 )
 from ..database import get_db

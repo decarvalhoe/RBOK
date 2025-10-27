@@ -18,7 +18,11 @@ from app.services.procedure_runs import (
 )
 from app.services.procedures.exceptions import (  # type: ignore[no-redef]
     ChecklistValidationError as ProcedureChecklistValidationError,
+)
+from app.services.procedures.exceptions import (
     InvalidTransitionError as ProcedureFSMInvalidTransitionError,
+)
+from app.services.procedures.exceptions import (
     SlotValidationError as ProcedureSlotValidationError,
 )
 from app.services.procedures.fsm import ProcedureRunState

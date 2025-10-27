@@ -9,7 +9,6 @@ from sqlalchemy import select
 from app import models
 from app.auth import User, get_current_user, get_current_user_optional
 from app.main import app
-from fastapi.testclient import TestClient
 
 
 @pytest.fixture()

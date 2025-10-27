@@ -12,13 +12,14 @@ import pytest
 pytest.importorskip("alembic")
 pytest.importorskip("sqlalchemy")
 
-from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from sqlalchemy import create_engine
 from sqlalchemy.exc import CompileError, DatabaseError
 from sqlalchemy.pool import StaticPool
+
+from alembic import command
 
 
 @pytest.mark.migrations

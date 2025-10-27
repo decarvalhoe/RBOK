@@ -5,19 +5,19 @@ import time
 from typing import Dict, List, Optional
 
 from fastapi import FastAPI, Request, Response
-from prometheus_client import (
-    CollectorRegistry,
-    Counter,
-    Gauge,
-    Histogram,
-    CONTENT_TYPE_LATEST,
-    generate_latest,
-)
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SimpleSpanProcessor, SpanExporter
 from opentelemetry.trace.status import Status, StatusCode
+from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    CollectorRegistry,
+    Counter,
+    Gauge,
+    Histogram,
+    generate_latest,
+)
 
 
 class Observability:
@@ -67,7 +67,7 @@ class Observability:
             provider = TracerProvider(
                 resource=Resource.create({"service.name": self.service_name})
             )
-            setattr(provider, "_rbok_service", self.service_name)
+            provider._rbok_service = self.service_name
             replaced = False
             try:
                 trace.set_tracer_provider(provider)
@@ -80,7 +80,7 @@ class Observability:
             provider = current_provider
             if replaced:
                 self._processors.clear()
-            setattr(provider, "_rbok_service", getattr(provider, "_rbok_service", self.service_name))
+            provider._rbok_service = getattr(provider, "_rbok_service", self.service_name)
             self._provider = provider
         else:
             provider = current

@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-from prometheus_client.parser import text_string_to_metric_families
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from prometheus_client.parser import text_string_to_metric_families
 
 
 def _metrics_by_sample(metrics_text: str) -> Dict[str, List]:

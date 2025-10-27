@@ -1,7 +1,6 @@
 """Business services orchestrating procedure run lifecycle."""
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Mapping, Optional
@@ -13,7 +12,11 @@ from .. import models
 from . import audit
 from .procedures.exceptions import (
     ChecklistValidationError as ProcedureChecklistValidationError,
+)
+from .procedures.exceptions import (
     InvalidTransitionError as ProcedureFSMInvalidTransitionError,
+)
+from .procedures.exceptions import (
     SlotValidationError as ProcedureSlotValidationError,
 )
 from .procedures.fsm import ProcedureRunState, apply_transition, can_transition
@@ -532,7 +535,7 @@ class ProcedureRunService:
                 issues = [
                     {"field": "checklist", "code": "validation.invalid", "params": {"message": str(exc)}}
                 ]
-            raise ChecklistValidationError(issues)
+            raise ChecklistValidationError(issues) from exc
 
     def _build_checklist_states(
         self,

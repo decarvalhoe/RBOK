@@ -13,6 +13,8 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from keycloak import KeycloakOpenID
 
+from .env import get_secret_key
+
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
     from passlib.context import CryptContext
@@ -66,7 +68,6 @@ def get_settings() -> AuthSettings:
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
-from .env import get_secret_key
 
 SECRET_KEY = get_secret_key()
 ALGORITHM = "HS256"
