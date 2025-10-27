@@ -25,7 +25,6 @@ __all__ = [
     "apply_transition",
     "can_transition",
     "is_terminal_state",
-    "ProcedureFSM",
     "ProcedureService",
     "ProcedureDefinitionError",
     "ChecklistValidationError",
