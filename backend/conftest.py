@@ -64,6 +64,7 @@ def redis_client():
 @pytest.fixture()
 def client(test_session: Session, redis_client):
     from fastapi.testclient import TestClient
+
     from app.database import get_db  # noqa: E402
     from app.main import app  # noqa: E402
 

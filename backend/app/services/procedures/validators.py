@@ -4,7 +4,18 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
-from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Tuple, TypedDict
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Sequence,
+    Tuple,
+    TypedDict,
+)
 
 from .exceptions import ChecklistValidationError, SlotValidationError
 

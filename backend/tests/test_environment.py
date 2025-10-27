@@ -22,13 +22,13 @@ def test_validate_environment_requires_secret(monkeypatch: pytest.MonkeyPatch) -
 
 def test_health_check_endpoint_flags_issues(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("REALISONS_SECRET_KEY", "another-test-secret")
-    import app.main as main  # type: ignore[import-not-found]
-
     # Prometheus collectors are module-level singletons, so importing the
     # application twice during the same test session (via ``reload``) would
     # otherwise try to re-register the same metrics and raise.  Explicitly
     # unregister the previous collectors to keep the test isolated.
     from prometheus_client import REGISTRY
+
+    import app.main as main  # type: ignore[import-not-found]
 
     for collector in (
         getattr(main, "REQUEST_DURATION", None),

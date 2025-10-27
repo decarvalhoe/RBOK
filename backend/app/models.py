@@ -5,11 +5,11 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     ForeignKey,
     Index,
-    JSON,
     String,
     Text,
     UniqueConstraint,

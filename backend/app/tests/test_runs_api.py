@@ -9,9 +9,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app import models
 from app.api.runs import router as runs_router
 from app.database import Base, get_db
-from app import models
 
 
 @pytest.fixture

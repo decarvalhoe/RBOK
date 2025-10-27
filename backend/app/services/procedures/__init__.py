@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ..procedure_definitions import ProcedureDefinitionError, ProcedureService
 from .exceptions import (
     ChecklistValidationError,
     InvalidTransitionError,
@@ -10,14 +11,13 @@ from .exceptions import (
     StepOrderError,
 )
 from .fsm import (
-    ProcedureRunState,
     TERMINAL_STATES,
+    ProcedureRunState,
     apply_transition,
     can_transition,
     is_terminal_state,
 )
 from .validators import ChecklistValidator, SlotValidator
-from ..procedure_definitions import ProcedureDefinitionError, ProcedureService
 
 __all__ = [
     "ProcedureRunState",

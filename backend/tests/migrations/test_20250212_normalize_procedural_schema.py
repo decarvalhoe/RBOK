@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import sys
 from datetime import datetime
 from pathlib import Path
-import sys
 
 import sqlalchemy as sa
-from alembic import command
 from alembic.config import Config
+
+from alembic import command
 
 
 def test_normalize_procedural_schema_migrates_payloads(tmp_path, monkeypatch):
