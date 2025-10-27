@@ -12,13 +12,13 @@ jobs:
       matrix:
         include:
           - service: backend
-            dockerfile: Dockerfile
+            dockerfile: backend/Dockerfile
             target: ''
-            context: backend
+            context: .
           - service: ai_gateway
-            dockerfile: Dockerfile
+            dockerfile: ai_gateway/Dockerfile
             target: ''
-            context: ai_gateway
+            context: .
           - service: webapp-dev
             dockerfile: webapp/Dockerfile
             target: dev
