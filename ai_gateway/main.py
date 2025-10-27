@@ -7,9 +7,21 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import logging
+import os
 import time
+import uuid
 from contextvars import ContextVar
-from typing import Dict
+from typing import Any, Dict, List, Optional
+
+import structlog
+from structlog.contextvars import bind_contextvars, unbind_contextvars
+from structlog.stdlib import ProcessorFormatter
+
+from opentelemetry._logs import set_logger_provider
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.sdk.resources import Resource
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, status
