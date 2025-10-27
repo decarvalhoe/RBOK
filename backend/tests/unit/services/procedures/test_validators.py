@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 import pytest
 
 from app.services.procedures import validators
@@ -58,16 +60,24 @@ def test_slot_validator_trims_optional_strings() -> None:
     assert cleaned["notes"] == "Hello"
 
 
-def test_slot_validator_coerces_boolean_values() -> None:
+def test_slot_validator_rejects_unsupported_slot_type() -> None:
     validator = validators.SlotValidator(
         [
             {"name": "consent", "type": "boolean", "required": False},
         ]
     )
 
-    cleaned = validator.validate({"consent": "YES"})
+    with pytest.raises(SlotValidationError) as exc:
+        validator.validate({"consent": True})
 
-    assert cleaned["consent"] is True
+    assert "Unsupported slot type" in str(exc.value)
+    assert exc.value.issues == [
+        {
+            "field": "consent",
+            "code": "validation.unsupported",
+            "params": {"type": "boolean"},
+        }
+    ]
 
 
 def test_validate_payload_wraps_slot_errors() -> None:
@@ -81,9 +91,167 @@ def test_validate_payload_wraps_slot_errors() -> None:
 
     assert cleaned == {}
     assert errors == [
-        {"field": "email", "code": "validation.email", "params": {}},
-        {"field": "phone", "code": "validation.mask", "params": {"mask": "XXX"}},
+        {
+            "field": "slots",
+            "code": "invalid",
+            "params": {
+                "message": "Slot 'email' must be a valid email address; Slot 'phone' must follow mask 'XXX'",
+            },
+        }
     ]
+
+
+def test_slot_validator_supports_numeric_and_pattern_constraints() -> None:
+    validator = validators.SlotValidator(
+        [
+            {"name": "count", "type": "number", "required": True},
+            {"name": "code", "type": "integer", "required": True},
+            {"name": "role", "type": "enum", "options": ["admin", "user"]},
+            {
+                "name": "badge",
+                "type": "string",
+                "mask": "ID-XXX",
+                "validate": r"^ID-\d{3}$",
+            },
+        ]
+    )
+
+    cleaned = validator.validate(
+        {"count": "3.0", "code": "42", "role": "user", "badge": "ID-123"}
+    )
+
+    assert cleaned == {"count": 3, "code": 42, "role": "user", "badge": "ID-123"}
+
+
+def test_slot_validator_reports_numeric_and_pattern_errors() -> None:
+    validator = validators.SlotValidator(
+        [
+            {"name": "count", "type": "number"},
+            {"name": "code", "type": "integer"},
+            {"name": "role", "type": "enum", "options": ["admin", "user"]},
+            {
+                "name": "badge",
+                "type": "string",
+                "mask": "ID-XXX",
+                "validate": r"^ID-1\d{2}$",
+            },
+        ]
+    )
+
+    with pytest.raises(SlotValidationError) as exc:
+        validator.validate({"count": "foo", "code": "abc", "role": "guest", "badge": "ID-223"})
+
+    issues = {(issue["field"], issue["code"]) for issue in exc.value.issues}
+    assert issues == {
+        ("count", "validation.type"),
+        ("code", "validation.type"),
+        ("role", "validation.enum"),
+        ("badge", "validation.pattern"),
+    }
+
+
+def test_slot_validator_handles_date_inputs_and_masks() -> None:
+    validator = validators.SlotValidator(
+        [
+            {"name": "start", "type": "date"},
+            {"name": "end", "type": "date"},
+            {"name": "code", "type": "string", "mask": "XX XX"},
+        ]
+    )
+
+    cleaned = validator.validate(
+        {
+            "start": datetime(2024, 5, 4),
+            "end": "2024-05-05T01:02:03",
+            "code": "12 34",
+        }
+    )
+
+    assert cleaned == {
+        "start": "2024-05-04",
+        "end": "2024-05-05",
+        "code": "12 34",
+    }
+
+
+def test_slot_validator_treats_blank_optional_strings_as_missing() -> None:
+    validator = validators.SlotValidator(
+        [
+            {"name": "notes", "type": "string", "required": False},
+            {"name": "email", "type": "email", "required": True},
+        ]
+    )
+
+    with pytest.raises(SlotValidationError):
+        validator.validate({"notes": "   ", "email": "invalid"})
+
+
+def test_slot_validator_rejects_missing_enum_configuration() -> None:
+    validator = validators.SlotValidator(
+        [
+            {"name": "role", "type": "enum"},
+        ]
+    )
+
+    with pytest.raises(SlotValidationError) as exc:
+        validator.validate({"role": "admin"})
+
+    assert exc.value.issues[0]["code"] == "validation.configuration"
+
+
+def test_slot_validator_rejects_invalid_phone_numbers() -> None:
+    validator = validators.SlotValidator(
+        [
+            {"name": "phone", "type": "phone"},
+        ]
+    )
+
+    with pytest.raises(SlotValidationError) as exc:
+        validator.validate({"phone": "not-a-number"})
+
+    assert exc.value.issues == [
+        {"field": "phone", "code": "validation.phone", "params": {}},
+    ]
+
+
+def test_slot_validator_rejects_invalid_dates() -> None:
+    validator = validators.SlotValidator(
+        [
+            {"name": "start", "type": "date"},
+        ]
+    )
+
+    with pytest.raises(SlotValidationError) as exc:
+        validator.validate({"start": "not-a-date"})
+
+    assert exc.value.issues[0]["code"] == "validation.date"
+
+
+def test_validate_payload_merges_configuration_metadata() -> None:
+    cleaned, errors = validators.validate_payload(
+        [
+            {
+                "name": "code",
+                "type": "string",
+                "configuration": {"mask": "XX", "pattern": r"^[A-Z]{2}$"},
+            }
+        ],
+        {"code": "A1"},
+    )
+
+    assert cleaned == {}
+    assert errors[0]["code"] == "invalid"
+
+
+def test_compile_mask_ignores_missing_placeholders() -> None:
+    assert validators._compile_mask("ABC") is None
+
+
+def test_build_mask_regex_supports_literals_and_digits() -> None:
+    pattern = validators._build_mask_regex("ID-XX")
+
+    assert pattern.fullmatch("ID-42")
+    assert not pattern.fullmatch("ID-4A")
 
 
 def test_checklist_validator_enforces_required_items() -> None:
