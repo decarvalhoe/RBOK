@@ -12,8 +12,9 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any, Mapping, Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 
 def _generate_uuid() -> str:
@@ -70,7 +71,7 @@ _post_normalized_procedure_steps = sa.Table(
     sa.Column("procedure_id", sa.String(), nullable=False),
     sa.Column("key", sa.String(length=255), nullable=False),
     sa.Column("title", sa.String(length=255), nullable=False),
-    sa.Column("prompt", sa.Text(), nullable=False),
+    sa.Column("prompt", sa.Text(), nullable=True),
     sa.Column("metadata", sa.JSON(), nullable=False),
     sa.Column("position", sa.Integer(), nullable=False),
 )
@@ -83,9 +84,13 @@ _procedure_slots_table = sa.Table(
     sa.Column("name", sa.String(length=255), nullable=False),
     sa.Column("label", sa.String(length=255), nullable=True),
     sa.Column("type", sa.String(length=50), nullable=False),
+    sa.Column("description", sa.Text(), nullable=True),
     sa.Column("required", sa.Boolean(), nullable=False),
     sa.Column("position", sa.Integer(), nullable=False),
-    sa.Column("configuration", sa.JSON(), nullable=False),
+    sa.Column("validate", sa.String(length=255), nullable=True),
+    sa.Column("mask", sa.String(length=255), nullable=True),
+    sa.Column("options", sa.JSON(), nullable=False),
+    sa.Column("metadata", sa.JSON(), nullable=False),
 )
 
 _procedure_step_checklist_items_table = sa.Table(
@@ -97,7 +102,9 @@ _procedure_step_checklist_items_table = sa.Table(
     sa.Column("label", sa.String(length=255), nullable=False),
     sa.Column("description", sa.Text(), nullable=True),
     sa.Column("required", sa.Boolean(), nullable=False),
+    sa.Column("default_state", sa.Boolean(), nullable=True),
     sa.Column("position", sa.Integer(), nullable=False),
+    sa.Column("metadata", sa.JSON(), nullable=False),
 )
 
 _procedure_runs_table = sa.Table(
@@ -185,6 +192,40 @@ def upgrade() -> None:
             if not isinstance(position, int):
                 position = index
             configuration = _coerce_mapping(slot_payload.get("metadata"))
+            description = slot_payload.get("description")
+            if not isinstance(description, str):
+                description_candidate = configuration.get("description")
+                description = (
+                    description_candidate
+                    if isinstance(description_candidate, str)
+                    else None
+                )
+            validate = slot_payload.get("validate")
+            if not isinstance(validate, str):
+                validate_candidate = configuration.get("validate")
+                validate = (
+                    validate_candidate if isinstance(validate_candidate, str) else None
+                )
+            mask = slot_payload.get("mask")
+            if not isinstance(mask, str):
+                mask_candidate = configuration.get("mask")
+                mask = mask_candidate if isinstance(mask_candidate, str) else None
+            raw_options = slot_payload.get("options")
+            if not isinstance(raw_options, Sequence) or isinstance(raw_options, (str, bytes)):
+                raw_options = configuration.get("options")
+            options: list[str] = []
+            if isinstance(raw_options, Sequence) and not isinstance(
+                raw_options, (str, bytes)
+            ):
+                for option in raw_options:
+                    if isinstance(option, str):
+                        options.append(option)
+
+            metadata = dict(configuration)
+            metadata.pop("description", None)
+            metadata.pop("validate", None)
+            metadata.pop("mask", None)
+            metadata.pop("options", None)
 
             slot_inserts.append(
                 {
@@ -195,7 +236,11 @@ def upgrade() -> None:
                     "type": slot_payload.get("type", "string"),
                     "required": required,
                     "position": position,
-                    "configuration": dict(configuration),
+                    "description": description,
+                    "validate": validate,
+                    "mask": mask,
+                    "options": options,
+                    "metadata": metadata,
                 }
             )
             slot_lookup[(step_id, name)] = slot_id
@@ -212,6 +257,24 @@ def upgrade() -> None:
             position = checklist_payload.get("position")
             if not isinstance(position, int):
                 position = index
+            checklist_metadata = _coerce_mapping(checklist_payload.get("metadata"))
+            default_state = checklist_payload.get("default_state")
+            if not isinstance(default_state, bool) and default_state is not None:
+                default_state = (
+                    checklist_metadata.get("default_state")
+                    if isinstance(checklist_metadata.get("default_state"), bool)
+                    else bool(default_state)
+                )
+            elif default_state is None:
+                default_state_candidate = checklist_metadata.get("default_state")
+                default_state = (
+                    default_state_candidate
+                    if isinstance(default_state_candidate, bool)
+                    else None
+                )
+
+            metadata = dict(checklist_metadata)
+            metadata.pop("default_state", None)
 
             checklist_inserts.append(
                 {
@@ -221,7 +284,9 @@ def upgrade() -> None:
                     "label": checklist_payload.get("label", key),
                     "description": checklist_payload.get("description"),
                     "required": required,
+                    "default_state": default_state,
                     "position": position,
+                    "metadata": metadata,
                 }
             )
             checklist_lookup[(step_id, key)] = checklist_id
@@ -245,9 +310,13 @@ def upgrade() -> None:
         ).mappings()
     )
 
+    with op.batch_alter_table("procedures", schema=None) as batch_op:
+        batch_op.alter_column("description", existing_type=sa.Text(), nullable=True)
+
     with op.batch_alter_table(
         "procedure_steps", schema=None, copy_from=_pre_normalized_procedure_steps
     ) as batch_op:
+        batch_op.alter_column("prompt", existing_type=sa.Text(), nullable=True)
         batch_op.drop_column("slots")
         batch_op.drop_column("checklists")
         batch_op.create_foreign_key(
@@ -269,9 +338,13 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("label", sa.String(length=255), nullable=True),
         sa.Column("type", sa.String(length=50), nullable=False),
+        sa.Column("description", sa.Text(), nullable=True),
         sa.Column("required", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.Column("position", sa.Integer(), nullable=False, server_default=sa.text("0")),
-        sa.Column("configuration", sa.JSON(), nullable=False),
+        sa.Column("validate", sa.String(length=255), nullable=True),
+        sa.Column("mask", sa.String(length=255), nullable=True),
+        sa.Column("options", sa.JSON(), nullable=False, server_default=sa.text("'[]'")),
+        sa.Column("metadata", sa.JSON(), nullable=False, server_default=sa.text("'{}'")),
         sa.ForeignKeyConstraint(["step_id"], ["procedure_steps.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("step_id", "name", name="uq_procedure_slot_name"),
@@ -290,7 +363,9 @@ def upgrade() -> None:
         sa.Column("label", sa.String(length=255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("required", sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column("default_state", sa.Boolean(), nullable=True),
         sa.Column("position", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column("metadata", sa.JSON(), nullable=False, server_default=sa.text("'{}'")),
         sa.ForeignKeyConstraint(["step_id"], ["procedure_steps.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("step_id", "key", name="uq_procedure_step_checklist_key"),
@@ -434,9 +509,13 @@ def downgrade() -> None:
 
     bind = op.get_bind()
 
+    with op.batch_alter_table("procedures", schema=None) as batch_op:
+        batch_op.alter_column("description", existing_type=sa.Text(), nullable=False)
+
     with op.batch_alter_table(
         "procedure_steps", schema=None, copy_from=_post_normalized_procedure_steps
     ) as batch_op:
+        batch_op.alter_column("prompt", existing_type=sa.Text(), nullable=False)
         batch_op.add_column(
             sa.Column(
                 "checklists",
@@ -460,15 +539,34 @@ def downgrade() -> None:
             _procedure_slots_table.c.name,
             _procedure_slots_table.c.label,
             _procedure_slots_table.c.type,
+            _procedure_slots_table.c.description,
             _procedure_slots_table.c.required,
             _procedure_slots_table.c.position,
-            _procedure_slots_table.c.configuration,
+            _procedure_slots_table.c.validate,
+            _procedure_slots_table.c.mask,
+            _procedure_slots_table.c.options,
+            _procedure_slots_table.c.metadata,
         )
     ).mappings()
 
     slots_by_step: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in slot_rows:
-        configuration = _coerce_mapping(row.get("configuration"))
+        configuration = _coerce_mapping(row.get("metadata"))
+        description = row.get("description")
+        if isinstance(description, str):
+            configuration.setdefault("description", description)
+        validate = row.get("validate")
+        if isinstance(validate, str):
+            configuration.setdefault("validate", validate)
+        mask = row.get("mask")
+        if isinstance(mask, str):
+            configuration.setdefault("mask", mask)
+        options = row.get("options")
+        if isinstance(options, Sequence) and not isinstance(options, (str, bytes)):
+            normalized_options = [str(option) for option in options if option is not None]
+            if normalized_options:
+                configuration.setdefault("options", normalized_options)
+
         slots_by_step[row["step_id"]].append(
             {
                 "name": row["name"],
@@ -490,21 +588,28 @@ def downgrade() -> None:
             _procedure_step_checklist_items_table.c.label,
             _procedure_step_checklist_items_table.c.description,
             _procedure_step_checklist_items_table.c.required,
+            _procedure_step_checklist_items_table.c.default_state,
             _procedure_step_checklist_items_table.c.position,
+            _procedure_step_checklist_items_table.c.metadata,
         )
     ).mappings()
 
     checklists_by_step: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in checklist_rows:
-        checklists_by_step[row["step_id"]].append(
-            {
-                "key": row["key"],
-                "label": row["label"],
-                "description": row["description"],
-                "required": bool(row["required"]),
-                "position": row["position"],
-            }
-        )
+        metadata = _coerce_mapping(row.get("metadata"))
+        default_state = row.get("default_state")
+        if isinstance(default_state, bool):
+            metadata.setdefault("default_state", default_state)
+        checklist_entry = {
+            "key": row["key"],
+            "label": row["label"],
+            "description": row["description"],
+            "required": bool(row["required"]),
+            "position": row["position"],
+        }
+        if metadata:
+            checklist_entry["metadata"] = dict(metadata)
+        checklists_by_step[row["step_id"]].append(checklist_entry)
 
     for values in checklists_by_step.values():
         values.sort(key=lambda item: item.get("position", 0))

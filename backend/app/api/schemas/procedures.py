@@ -26,13 +26,24 @@ class ProcedureSlot(BaseModel):
     required: bool = True
     label: Optional[str] = None
     description: Optional[str] = None
-    validate: Optional[str] = None
+    validation_rule: Optional[str] = Field(
+        default=None,
+        validation_alias="validate",
+        serialization_alias="validate",
+    )
     mask: Optional[str] = None
     options: Optional[List[str]] = None
     position: Optional[int] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    def model_dump(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+        """Ensure serialization keeps historical aliases by default."""
+
+        if kwargs.get("mode") == "json" and "by_alias" not in kwargs:
+            kwargs["by_alias"] = True
+        return super().model_dump(*args, **kwargs)
 
 
 class ProcedureChecklistItem(BaseModel):
